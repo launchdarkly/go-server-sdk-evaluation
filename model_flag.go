@@ -90,6 +90,27 @@ type FeatureFlag struct {
 	Deleted bool `json:"deleted" bson:"deleted"`
 }
 
+// GetKey returns the string key for the flag.
+//
+// This method exists in order to conform to interfaces used internally by the SDK.
+func (f *FeatureFlag) GetKey() string {
+	return f.Key
+}
+
+// GetVersion returns the version of the flag.
+//
+// This method exists in order to conform to interfaces used internally by the SDK.
+func (f *FeatureFlag) GetVersion() int {
+	return f.Version
+}
+
+// IsDeleted returns whether this is a deleted flag placeholder.
+//
+// This method exists in order to conform to interfaces used internally by the SDK.
+func (f *FeatureFlag) IsDeleted() bool {
+	return f.Deleted
+}
+
 // FlagRule describes a single rule within a feature flag.
 //
 // A rule consists of a set of ANDed matching conditions (Clause) for a user, along with either a fixed
