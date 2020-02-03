@@ -1,7 +1,7 @@
 package evaluation
 
 import (
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // SHA1 is cryptographically weak but we are not using it to hash any credentials
 	"encoding/hex"
 	"io"
 	"strconv"

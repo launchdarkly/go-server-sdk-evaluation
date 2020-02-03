@@ -5,7 +5,11 @@ run:
 linters:
   enable-all: true
   disable:
+    - gochecknoglobals
     - goconst
+    - gomnd
+    - maligned
+    - wsl
   fast: false
 
 linter-settings:
