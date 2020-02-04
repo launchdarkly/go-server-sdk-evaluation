@@ -14,7 +14,7 @@ This version of the project has been tested with Go 1.12 through 1.13.
 
 ## Learn more
 
-Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for the Go SDK](http://docs.launchdarkly.com/docs/go-sdk-reference), or the [generated API documentation](https://godoc.org/gopkg.in/launchdarkly/go-sdk-common.v2) for this project.
+Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for the Go SDK](http://docs.launchdarkly.com/docs/go-sdk-reference), or the [generated API documentation](https://godoc.org/gopkg.in/launchdarkly/go-server-sdk-evaluation.v1) for this project.
 
 ## Contributing
 
