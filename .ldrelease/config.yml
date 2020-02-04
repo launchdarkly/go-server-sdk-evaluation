@@ -1,0 +1,10 @@
+repo:
+  public: go-server-sdk-evaluation
+  private: go-server-sdk-evaluation-private
+
+releasableBranches:
+  - name: v1
+
+publications:
+  - url: https://godoc.org/github.com/launchdarkly/go-server-sdk-evaluation
+    description: documentation
