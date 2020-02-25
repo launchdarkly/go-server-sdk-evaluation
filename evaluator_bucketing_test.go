@@ -6,13 +6,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
 )
 
 func TestVariationIndexForUser(t *testing.T) {
-	wv1 := WeightedVariation{Variation: 0, Weight: 60000.0}
-	wv2 := WeightedVariation{Variation: 1, Weight: 40000.0}
-	rollout := Rollout{Variations: []WeightedVariation{wv1, wv2}}
-	vr := VariationOrRollout{Rollout: &rollout}
+	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 60000), ldbuilders.Bucket(1, 40000))
 
 	u1 := lduser.NewUser("userKeyA")
 	variationIndex := variationIndexForUser(vr, &u1, "hashKey", "saltyA")

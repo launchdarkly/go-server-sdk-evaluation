@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 )
 
 const dateStr1 = "2017-12-06T00:00:00.000-07:00"
@@ -16,7 +17,7 @@ const dateMs2 = 10000001
 const invalidDate = "hey what's this?"
 
 type opTestInfo struct {
-	opName      Operator
+	opName      ldmodel.Operator
 	userValue   interface{}
 	clauseValue interface{}
 	expected    bool

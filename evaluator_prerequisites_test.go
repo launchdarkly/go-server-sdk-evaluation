@@ -3,20 +3,21 @@ package evaluation
 import (
 	"testing"
 
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
+
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
 
 func TestFlagReturnsOffVariationIfPrerequisiteIsNotFound(t *testing.T) {
-	f0 := FeatureFlag{
-		Key:           "feature0",
-		On:            true,
-		OffVariation:  intPtr(1),
-		Prerequisites: []Prerequisite{Prerequisite{"feature1", 1}},
-		Fallthrough:   VariationOrRollout{Variation: intPtr(0)},
-		Variations:    []ldvalue.Value{fallthroughValue, offValue, onValue},
-	}
+	f0 := ldbuilders.NewFlagBuilder("feature0").
+		On(true).
+		OffVariation(1).
+		AddPrerequisite("feature1", 1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 	evaluator := NewEvaluator(basicDataProvider().withNonexistentFlag("feature1"))
 
 	eventSink := prereqEventSink{}
@@ -26,24 +27,20 @@ func TestFlagReturnsOffVariationIfPrerequisiteIsNotFound(t *testing.T) {
 }
 
 func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsOff(t *testing.T) {
-	f0 := FeatureFlag{
-		Key:           "feature0",
-		On:            true,
-		OffVariation:  intPtr(1),
-		Prerequisites: []Prerequisite{Prerequisite{"feature1", 1}},
-		Fallthrough:   VariationOrRollout{Variation: intPtr(0)},
-		Variations:    []ldvalue.Value{fallthroughValue, offValue, onValue},
-		Version:       1,
-	}
-	f1 := FeatureFlag{
-		Key:          "feature1",
-		On:           false,
-		OffVariation: intPtr(1),
+	f0 := ldbuilders.NewFlagBuilder("feature0").
+		On(true).
+		OffVariation(1).
+		AddPrerequisite("feature1", 1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+	f1 := ldbuilders.NewFlagBuilder("feature1").
+		On(false).
+		OffVariation(1).
 		// note that even though it returns the desired variation, it is still off and therefore not a match
-		Fallthrough: VariationOrRollout{Variation: intPtr(0)},
-		Variations:  []ldvalue.Value{ldvalue.String("nogo"), ldvalue.String("go")},
-		Version:     2,
-	}
+		FallthroughVariation(0).
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
 	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1))
 
 	eventSink := prereqEventSink{}
@@ -58,23 +55,18 @@ func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsOff(t *testing.T) {
 }
 
 func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsNotMet(t *testing.T) {
-	f0 := FeatureFlag{
-		Key:           "feature0",
-		On:            true,
-		OffVariation:  intPtr(1),
-		Prerequisites: []Prerequisite{Prerequisite{"feature1", 1}},
-		Fallthrough:   VariationOrRollout{Variation: intPtr(0)},
-		Variations:    []ldvalue.Value{fallthroughValue, offValue, onValue},
-		Version:       1,
-	}
-	f1 := FeatureFlag{
-		Key:          "feature1",
-		On:           true,
-		OffVariation: intPtr(1),
-		Fallthrough:  VariationOrRollout{Variation: intPtr(0)},
-		Variations:   []ldvalue.Value{ldvalue.String("nogo"), ldvalue.String("go")},
-		Version:      2,
-	}
+	f0 := ldbuilders.NewFlagBuilder("feature0").
+		On(true).
+		OffVariation(1).
+		AddPrerequisite("feature1", 1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+	f1 := ldbuilders.NewFlagBuilder("feature1").
+		On(true).
+		FallthroughVariation(0).
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
 	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1))
 
 	eventSink := prereqEventSink{}
@@ -89,23 +81,18 @@ func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsNotMet(t *testing.T) {
 }
 
 func TestFlagReturnsFallthroughVariationAndEventIfPrerequisiteIsMetAndThereAreNoRules(t *testing.T) {
-	f0 := FeatureFlag{
-		Key:           "feature0",
-		On:            true,
-		OffVariation:  intPtr(1),
-		Prerequisites: []Prerequisite{Prerequisite{"feature1", 1}},
-		Fallthrough:   VariationOrRollout{Variation: intPtr(0)},
-		Variations:    []ldvalue.Value{fallthroughValue, offValue, onValue},
-		Version:       1,
-	}
-	f1 := FeatureFlag{
-		Key:          "feature1",
-		On:           true,
-		OffVariation: intPtr(1),
-		Fallthrough:  VariationOrRollout{Variation: intPtr(1)}, // this 1 matches the 1 in the prerequisites array
-		Variations:   []ldvalue.Value{ldvalue.String("nogo"), ldvalue.String("go")},
-		Version:      2,
-	}
+	f0 := ldbuilders.NewFlagBuilder("feature0").
+		On(true).
+		OffVariation(1).
+		AddPrerequisite("feature1", 1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+	f1 := ldbuilders.NewFlagBuilder("feature1").
+		On(true).
+		FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
 	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1))
 
 	eventSink := prereqEventSink{}
@@ -120,25 +107,20 @@ func TestFlagReturnsFallthroughVariationAndEventIfPrerequisiteIsMetAndThereAreNo
 }
 
 func TestPrerequisiteCanMatchWithNonScalarValue(t *testing.T) {
-	f0 := FeatureFlag{
-		Key:           "feature0",
-		On:            true,
-		OffVariation:  intPtr(1),
-		Prerequisites: []Prerequisite{Prerequisite{"feature1", 1}},
-		Fallthrough:   VariationOrRollout{Variation: intPtr(0)},
-		Variations:    []ldvalue.Value{fallthroughValue, offValue, onValue},
-		Version:       1,
-	}
+	f0 := ldbuilders.NewFlagBuilder("feature0").
+		On(true).
+		OffVariation(1).
+		AddPrerequisite("feature1", 1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 	prereqVar0 := ldvalue.ArrayOf(ldvalue.String("000"))
 	prereqVar1 := ldvalue.ArrayOf(ldvalue.String("001"))
-	f1 := FeatureFlag{
-		Key:          "feature1",
-		On:           true,
-		OffVariation: intPtr(1),
-		Fallthrough:  VariationOrRollout{Variation: intPtr(1)}, // this 1 matches the 1 in the prerequisites array
-		Variations:   []ldvalue.Value{prereqVar0, prereqVar1},
-		Version:      2,
-	}
+	f1 := ldbuilders.NewFlagBuilder("feature1").
+		On(true).
+		FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
+		Variations(prereqVar0, prereqVar1).
+		Build()
 	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1))
 
 	eventSink := prereqEventSink{}
@@ -153,31 +135,24 @@ func TestPrerequisiteCanMatchWithNonScalarValue(t *testing.T) {
 }
 
 func TestMultipleLevelsOfPrerequisiteProduceMultipleEvents(t *testing.T) {
-	f0 := FeatureFlag{
-		Key:           "feature0",
-		On:            true,
-		OffVariation:  intPtr(1),
-		Prerequisites: []Prerequisite{Prerequisite{"feature1", 1}},
-		Fallthrough:   VariationOrRollout{Variation: intPtr(0)},
-		Variations:    []ldvalue.Value{fallthroughValue, offValue, onValue},
-		Version:       1,
-	}
-	f1 := FeatureFlag{
-		Key:           "feature1",
-		On:            true,
-		OffVariation:  intPtr(1),
-		Prerequisites: []Prerequisite{Prerequisite{"feature2", 1}},
-		Fallthrough:   VariationOrRollout{Variation: intPtr(1)}, // this 1 matches the 1 in the prerequisites array
-		Variations:    []ldvalue.Value{ldvalue.String("nogo"), ldvalue.String("go")},
-		Version:       2,
-	}
-	f2 := FeatureFlag{
-		Key:         "feature2",
-		On:          true,
-		Fallthrough: VariationOrRollout{Variation: intPtr(1)},
-		Variations:  []ldvalue.Value{ldvalue.String("nogo"), ldvalue.String("go")},
-		Version:     3,
-	}
+	f0 := ldbuilders.NewFlagBuilder("feature0").
+		On(true).
+		OffVariation(1).
+		AddPrerequisite("feature1", 1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+	f1 := ldbuilders.NewFlagBuilder("feature1").
+		On(true).
+		AddPrerequisite("feature2", 1).
+		FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
+	f2 := ldbuilders.NewFlagBuilder("feature2").
+		On(true).
+		FallthroughVariation(1). // this 1 matches the 1 in f1's prerequisites
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
 	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1, f2))
 
 	eventSink := prereqEventSink{}

@@ -14,7 +14,7 @@ clean:
 	go clean
 
 test:
-	go test -race -v
+	go test -race -v ./...
 
 $(LINTER_VERSION_FILE):
 	rm -f $(LINTER)
