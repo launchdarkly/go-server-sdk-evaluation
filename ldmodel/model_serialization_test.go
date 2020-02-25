@@ -1,4 +1,4 @@
-package evaluation
+package ldmodel
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
@@ -58,7 +59,7 @@ var flagWithAllProperties = FeatureFlag{
 	Salt:                   "flag-salt",
 	TrackEvents:            true,
 	TrackEventsFallthrough: true,
-	DebugEventsUntilDate:   uint64Ptr(1000),
+	DebugEventsUntilDate:   unixTimePtr(1000),
 	Version:                99,
 	Deleted:                true,
 }
@@ -282,4 +283,16 @@ func TestUnmarshalSegmentWithMinimalProperties(t *testing.T) {
 	assert.Equal(t, segmentWithMinimalProperties.Key, segment.GetKey())
 	assert.Equal(t, segmentWithMinimalProperties.Version, segment.GetVersion())
 	assert.Equal(t, segmentWithMinimalProperties.Deleted, segment.IsDeleted())
+}
+
+func intPtr(n int) *int {
+	return &n
+}
+
+func unixTimePtr(t ldtime.UnixMillisecondTime) *ldtime.UnixMillisecondTime {
+	return &t
+}
+
+func attrPtr(a lduser.UserAttribute) *lduser.UserAttribute {
+	return &a
 }

@@ -3,6 +3,8 @@ package evaluation
 import (
 	"testing"
 
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
+
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
@@ -16,13 +18,12 @@ var offValue = ldvalue.String("off")
 var onValue = ldvalue.String("on")
 
 func TestFlagReturnsOffVariationIfFlagIsOff(t *testing.T) {
-	f := FeatureFlag{
-		Key:          "feature",
-		On:           false,
-		OffVariation: intPtr(1),
-		Fallthrough:  VariationOrRollout{Variation: intPtr(0)},
-		Variations:   []ldvalue.Value{fallthroughValue, offValue, onValue},
-	}
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(false).
+		OffVariation(1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
@@ -33,12 +34,11 @@ func TestFlagReturnsOffVariationIfFlagIsOff(t *testing.T) {
 }
 
 func TestFlagReturnsNilIfFlagIsOffAndOffVariationIsUnspecified(t *testing.T) {
-	f := FeatureFlag{
-		Key:         "feature",
-		On:          false,
-		Fallthrough: VariationOrRollout{Variation: intPtr(0)},
-		Variations:  []ldvalue.Value{fallthroughValue, offValue, onValue},
-	}
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(false).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
@@ -47,13 +47,11 @@ func TestFlagReturnsNilIfFlagIsOffAndOffVariationIsUnspecified(t *testing.T) {
 }
 
 func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
-	f := FeatureFlag{
-		Key:         "feature",
-		On:          true,
-		Rules:       []FlagRule{},
-		Fallthrough: VariationOrRollout{Variation: intPtr(0)},
-		Variations:  []ldvalue.Value{fallthroughValue, offValue, onValue},
-	}
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(true).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
@@ -62,13 +60,11 @@ func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
 }
 
 func TestFlagReturnsErrorIfFallthroughHasTooHighVariation(t *testing.T) {
-	f := FeatureFlag{
-		Key:         "feature",
-		On:          true,
-		Rules:       []FlagRule{},
-		Fallthrough: VariationOrRollout{Variation: intPtr(999)},
-		Variations:  []ldvalue.Value{fallthroughValue, offValue, onValue},
-	}
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(true).
+		FallthroughVariation(999).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
@@ -77,13 +73,11 @@ func TestFlagReturnsErrorIfFallthroughHasTooHighVariation(t *testing.T) {
 }
 
 func TestFlagReturnsErrorIfFallthroughHasNegativeVariation(t *testing.T) {
-	f := FeatureFlag{
-		Key:         "feature",
-		On:          true,
-		Rules:       []FlagRule{},
-		Fallthrough: VariationOrRollout{Variation: intPtr(-1)},
-		Variations:  []ldvalue.Value{fallthroughValue, offValue, onValue},
-	}
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(true).
+		FallthroughVariation(-1).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
@@ -92,13 +86,10 @@ func TestFlagReturnsErrorIfFallthroughHasNegativeVariation(t *testing.T) {
 }
 
 func TestFlagReturnsErrorIfFallthroughHasNeitherVariationNorRollout(t *testing.T) {
-	f := FeatureFlag{
-		Key:         "feature",
-		On:          true,
-		Rules:       []FlagRule{},
-		Fallthrough: VariationOrRollout{},
-		Variations:  []ldvalue.Value{fallthroughValue, offValue, onValue},
-	}
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(true).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
@@ -107,13 +98,11 @@ func TestFlagReturnsErrorIfFallthroughHasNeitherVariationNorRollout(t *testing.T
 }
 
 func TestFlagReturnsErrorIfFallthroughHasEmptyRolloutVariationList(t *testing.T) {
-	f := FeatureFlag{
-		Key:         "feature",
-		On:          true,
-		Rules:       []FlagRule{},
-		Fallthrough: VariationOrRollout{Rollout: &Rollout{Variations: []WeightedVariation{}}},
-		Variations:  []ldvalue.Value{fallthroughValue, offValue, onValue},
-	}
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(true).
+		Fallthrough(ldbuilders.Rollout()).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
@@ -122,14 +111,13 @@ func TestFlagReturnsErrorIfFallthroughHasEmptyRolloutVariationList(t *testing.T)
 }
 
 func TestFlagMatchesUserFromTargets(t *testing.T) {
-	f := FeatureFlag{
-		Key:          "feature",
-		On:           true,
-		OffVariation: intPtr(1),
-		Targets:      []Target{Target{[]string{"whoever", "userkey"}, 2}},
-		Fallthrough:  VariationOrRollout{Variation: intPtr(0)},
-		Variations:   []ldvalue.Value{fallthroughValue, offValue, onValue},
-	}
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(true).
+		OffVariation(1).
+		AddTarget(2, "whoever", "userkey").
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
 	user := lduser.NewUser("userkey")
 
 	eventSink := prereqEventSink{}
@@ -140,7 +128,7 @@ func TestFlagMatchesUserFromTargets(t *testing.T) {
 
 func TestFlagMatchesUserFromRules(t *testing.T) {
 	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, VariationOrRollout{Variation: intPtr(2)})
+	f := makeFlagToMatchUser(user, ldbuilders.Variation(2))
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, user, eventSink.record)

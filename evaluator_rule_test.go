@@ -6,13 +6,15 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRuleWithTooHighVariationIndexReturnsMalformedFlagError(t *testing.T) {
 	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, VariationOrRollout{Variation: intPtr(999)})
+	f := makeFlagToMatchUser(user, ldbuilders.Variation(999))
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, user, eventSink.record)
@@ -22,7 +24,7 @@ func TestRuleWithTooHighVariationIndexReturnsMalformedFlagError(t *testing.T) {
 
 func TestRuleWithNegativeVariationIndexReturnsMalformedFlagError(t *testing.T) {
 	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, VariationOrRollout{Variation: intPtr(-1)})
+	f := makeFlagToMatchUser(user, ldbuilders.Variation(-1))
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, user, eventSink.record)
@@ -32,7 +34,7 @@ func TestRuleWithNegativeVariationIndexReturnsMalformedFlagError(t *testing.T) {
 
 func TestRuleWithNoVariationOrRolloutReturnsMalformedFlagError(t *testing.T) {
 	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, VariationOrRollout{})
+	f := makeFlagToMatchUser(user, ldmodel.VariationOrRollout{})
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, user, eventSink.record)
@@ -42,7 +44,7 @@ func TestRuleWithNoVariationOrRolloutReturnsMalformedFlagError(t *testing.T) {
 
 func TestRuleWithRolloutWithEmptyVariationsListReturnsMalformedFlagError(t *testing.T) {
 	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, VariationOrRollout{Rollout: &Rollout{Variations: []WeightedVariation{}}})
+	f := makeFlagToMatchUser(user, ldmodel.VariationOrRollout{Rollout: &ldmodel.Rollout{}})
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(f, user, eventSink.record)

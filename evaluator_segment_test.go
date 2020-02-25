@@ -3,16 +3,16 @@ package evaluation
 import (
 	"testing"
 
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
+
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
 
 func TestSegmentMatchClauseRetrievesSegmentFromStore(t *testing.T) {
-	segment := Segment{
-		Key:      "segkey",
-		Included: []string{"foo"},
-	}
+	segment := ldbuilders.NewSegmentBuilder("segkey").Included("foo").Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
 	user := lduser.NewUser("foo")
@@ -31,10 +31,7 @@ func TestSegmentMatchClauseFallsThroughIfSegmentNotFound(t *testing.T) {
 }
 
 func TestCanMatchJustOneSegmentFromList(t *testing.T) {
-	segment := Segment{
-		Key:      "segkey",
-		Included: []string{"foo"},
-	}
+	segment := ldbuilders.NewSegmentBuilder("segkey").Included("foo").Build()
 	f := booleanFlagWithSegmentMatch("unknown-segment-key", "segkey")
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment).withNonexistentSegment("unknown-segment-key"))
 	user := lduser.NewUser("foo")
@@ -44,10 +41,7 @@ func TestCanMatchJustOneSegmentFromList(t *testing.T) {
 }
 
 func TestUserIsExplicitlyIncludedInSegment(t *testing.T) {
-	segment := Segment{
-		Key:      "segkey",
-		Included: []string{"foo", "bar"},
-	}
+	segment := ldbuilders.NewSegmentBuilder("segkey").Included("foo", "bar").Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
 	user := lduser.NewUser("bar")
@@ -57,20 +51,10 @@ func TestUserIsExplicitlyIncludedInSegment(t *testing.T) {
 }
 
 func TestUserIsMatchedBySegmentRule(t *testing.T) {
-	segment := Segment{
-		Key: "segkey",
-		Rules: []SegmentRule{
-			SegmentRule{
-				Clauses: []Clause{
-					Clause{
-						Attribute: lduser.NameAttribute,
-						Op:        OperatorIn,
-						Values:    []ldvalue.Value{ldvalue.String("Jane")},
-					},
-				},
-			},
-		},
-	}
+	segment := ldbuilders.NewSegmentBuilder("segkey").
+		AddRule(ldbuilders.NewSegmentRuleBuilder().
+			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane")))).
+		Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
 	user := lduser.NewUserBuilder("key").Name("Jane").Build()
@@ -80,21 +64,11 @@ func TestUserIsMatchedBySegmentRule(t *testing.T) {
 }
 
 func TestUserIsExplicitlyExcludedFromSegment(t *testing.T) {
-	segment := Segment{
-		Key:      "segkey",
-		Excluded: []string{"foo", "bar"},
-		Rules: []SegmentRule{
-			SegmentRule{
-				Clauses: []Clause{
-					Clause{
-						Attribute: lduser.NameAttribute,
-						Op:        OperatorIn,
-						Values:    []ldvalue.Value{ldvalue.String("Jane")},
-					},
-				},
-			},
-		},
-	}
+	segment := ldbuilders.NewSegmentBuilder("segkey").
+		Excluded("foo", "bar").
+		AddRule(ldbuilders.NewSegmentRuleBuilder().
+			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane")))).
+		Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
 	user := lduser.NewUserBuilder("foo").Name("Jane").Build()
@@ -104,11 +78,10 @@ func TestUserIsExplicitlyExcludedFromSegment(t *testing.T) {
 }
 
 func TestSegmentIncludesOverrideExcludes(t *testing.T) {
-	segment := Segment{
-		Key:      "segkey",
-		Included: []string{"foo", "bar"},
-		Excluded: []string{"bar"},
-	}
+	segment := ldbuilders.NewSegmentBuilder("segkey").
+		Excluded("bar").
+		Included("foo", "bar").
+		Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
 	user := lduser.NewUser("bar")
@@ -118,21 +91,11 @@ func TestSegmentIncludesOverrideExcludes(t *testing.T) {
 }
 
 func TestSegmentDoesNotMatchUserIfNoIncludesOrRulesMatch(t *testing.T) {
-	segment := Segment{
-		Key:      "segkey",
-		Included: []string{"other-key"},
-		Rules: []SegmentRule{
-			SegmentRule{
-				Clauses: []Clause{
-					Clause{
-						Attribute: lduser.NameAttribute,
-						Op:        OperatorIn,
-						Values:    []ldvalue.Value{ldvalue.String("Jane")},
-					},
-				},
-			},
-		},
-	}
+	segment := ldbuilders.NewSegmentBuilder("segkey").
+		Included("other-key").
+		AddRule(ldbuilders.NewSegmentRuleBuilder().
+			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane")))).
+		Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
@@ -142,21 +105,11 @@ func TestSegmentDoesNotMatchUserIfNoIncludesOrRulesMatch(t *testing.T) {
 }
 
 func TestSegmentRuleCanMatchUserWithPercentageRollout(t *testing.T) {
-	segment := Segment{
-		Key: "segkey",
-		Rules: []SegmentRule{
-			SegmentRule{
-				Clauses: []Clause{
-					Clause{
-						Attribute: lduser.NameAttribute,
-						Op:        OperatorIn,
-						Values:    []ldvalue.Value{ldvalue.String("Jane")},
-					},
-				},
-				Weight: intPtr(99999),
-			},
-		},
-	}
+	segment := ldbuilders.NewSegmentBuilder("segkey").
+		AddRule(ldbuilders.NewSegmentRuleBuilder().
+			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane"))).
+			Weight(99999)).
+		Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
 	user := lduser.NewUserBuilder("key").Name("Jane").Build()
@@ -166,21 +119,11 @@ func TestSegmentRuleCanMatchUserWithPercentageRollout(t *testing.T) {
 }
 
 func TestSegmentRuleCanNotMatchUserWithPercentageRollout(t *testing.T) {
-	segment := Segment{
-		Key: "segkey",
-		Rules: []SegmentRule{
-			SegmentRule{
-				Clauses: []Clause{
-					Clause{
-						Attribute: lduser.NameAttribute,
-						Op:        OperatorIn,
-						Values:    []ldvalue.Value{ldvalue.String("Jane")},
-					},
-				},
-				Weight: intPtr(1),
-			},
-		},
-	}
+	segment := ldbuilders.NewSegmentBuilder("segkey").
+		AddRule(ldbuilders.NewSegmentRuleBuilder().
+			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane"))).
+			Weight(1)).
+		Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
 	user := lduser.NewUserBuilder("key").Name("Jane").Build()

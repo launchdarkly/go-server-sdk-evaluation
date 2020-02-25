@@ -3,6 +3,9 @@ package evaluation
 import (
 	"testing"
 
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
+
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
@@ -10,11 +13,7 @@ import (
 )
 
 func TestClauseCanMatchBuiltInAttribute(t *testing.T) {
-	clause := Clause{
-		Attribute: "name",
-		Op:        "in",
-		Values:    []ldvalue.Value{ldvalue.String("Bob")},
-	}
+	clause := ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Bob"))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
@@ -23,11 +22,7 @@ func TestClauseCanMatchBuiltInAttribute(t *testing.T) {
 }
 
 func TestClauseCanMatchCustomAttribute(t *testing.T) {
-	clause := Clause{
-		Attribute: "legs",
-		Op:        "in",
-		Values:    []ldvalue.Value{ldvalue.Int(4)},
-	}
+	clause := ldbuilders.Clause(lduser.UserAttribute("legs"), ldmodel.OperatorIn, ldvalue.Int(4))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Custom("legs", ldvalue.Int(4)).Build()
 
@@ -36,11 +31,7 @@ func TestClauseCanMatchCustomAttribute(t *testing.T) {
 }
 
 func TestClauseReturnsFalseForMissingAttribute(t *testing.T) {
-	clause := Clause{
-		Attribute: "legs",
-		Op:        "in",
-		Values:    []ldvalue.Value{ldvalue.Int(4)},
-	}
+	clause := ldbuilders.Clause(lduser.UserAttribute("legs"), ldmodel.OperatorIn, ldvalue.Int(4))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
@@ -49,11 +40,7 @@ func TestClauseReturnsFalseForMissingAttribute(t *testing.T) {
 }
 
 func TestClauseMatchesIfAnyClauseValueMatches(t *testing.T) {
-	clause := Clause{
-		Attribute: "key",
-		Op:        "in",
-		Values:    []ldvalue.Value{ldvalue.String("key1"), ldvalue.String("key2")},
-	}
+	clause := ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorIn, ldvalue.String("key1"), ldvalue.String("key2"))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUser("key2")
 
@@ -63,11 +50,7 @@ func TestClauseMatchesIfAnyClauseValueMatches(t *testing.T) {
 }
 
 func TestClauseMatchesIfAnyElementInUserArrayValueMatchesAnyClauseValue(t *testing.T) {
-	clause := Clause{
-		Attribute: "pets",
-		Op:        "in",
-		Values:    []ldvalue.Value{ldvalue.String("cat"), ldvalue.String("dog")},
-	}
+	clause := ldbuilders.Clause(lduser.UserAttribute("pets"), ldmodel.OperatorIn, ldvalue.String("cat"), ldvalue.String("dog"))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Custom("pets", ldvalue.ArrayOf(ldvalue.String("fish"), ldvalue.String("dog"))).Build()
 
@@ -77,11 +60,7 @@ func TestClauseMatchesIfAnyElementInUserArrayValueMatchesAnyClauseValue(t *testi
 }
 
 func TestClauseDoesNotMatchIfNoElementInUserArrayValueMatchesAnyClauseValue(t *testing.T) {
-	clause := Clause{
-		Attribute: "pets",
-		Op:        "in",
-		Values:    []ldvalue.Value{ldvalue.String("cat"), ldvalue.String("dog")},
-	}
+	clause := ldbuilders.Clause(lduser.UserAttribute("legs"), ldmodel.OperatorIn, ldvalue.String("cat"), ldvalue.String("dog"))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Custom("pets", ldvalue.ArrayOf(ldvalue.String("fish"), ldvalue.String("bird"))).Build()
 
@@ -91,12 +70,7 @@ func TestClauseDoesNotMatchIfNoElementInUserArrayValueMatchesAnyClauseValue(t *t
 }
 
 func TestClauseCanBeNegated(t *testing.T) {
-	clause := Clause{
-		Attribute: "name",
-		Op:        "in",
-		Values:    []ldvalue.Value{ldvalue.String("Bob")},
-		Negate:    true,
-	}
+	clause := ldbuilders.Negate(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Bob")))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
@@ -105,12 +79,7 @@ func TestClauseCanBeNegated(t *testing.T) {
 }
 
 func TestClauseForMissingAttributeIsFalseEvenIfNegated(t *testing.T) {
-	clause := Clause{
-		Attribute: "legs",
-		Op:        "in",
-		Values:    []ldvalue.Value{ldvalue.Int(4)},
-		Negate:    true,
-	}
+	clause := ldbuilders.Negate(ldbuilders.Clause(lduser.UserAttribute("legs"), ldmodel.OperatorIn, ldvalue.Int(4)))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
@@ -119,11 +88,7 @@ func TestClauseForMissingAttributeIsFalseEvenIfNegated(t *testing.T) {
 }
 
 func TestClauseWithUnknownOperatorDoesNotMatch(t *testing.T) {
-	clause := Clause{
-		Attribute: "name",
-		Op:        "doesSomethingUnsupported",
-		Values:    []ldvalue.Value{ldvalue.String("Bob")},
-	}
+	clause := ldbuilders.Clause(lduser.NameAttribute, "doesSomethingUnsupported", ldvalue.String("Bob"))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
@@ -132,25 +97,14 @@ func TestClauseWithUnknownOperatorDoesNotMatch(t *testing.T) {
 }
 
 func TestClauseWithUnknownOperatorDoesNotStopSubsequentRuleFromMatching(t *testing.T) {
-	badClause := Clause{
-		Attribute: "name",
-		Op:        "doesSomethingUnsupported",
-		Values:    []ldvalue.Value{ldvalue.String("Bob")},
-	}
-	badRule := FlagRule{ID: "bad", Clauses: []Clause{badClause}, VariationOrRollout: VariationOrRollout{Variation: intPtr(1)}}
-	goodClause := Clause{
-		Attribute: "name",
-		Op:        "in",
-		Values:    []ldvalue.Value{ldvalue.String("Bob")},
-	}
-	goodRule := FlagRule{ID: "good", Clauses: []Clause{goodClause}, VariationOrRollout: VariationOrRollout{Variation: intPtr(1)}}
-	f := FeatureFlag{
-		Key:         "feature",
-		On:          true,
-		Rules:       []FlagRule{badRule, goodRule},
-		Fallthrough: VariationOrRollout{Variation: intPtr(0)},
-		Variations:  []ldvalue.Value{ldvalue.Bool(false), ldvalue.Bool(true)},
-	}
+	badClause := ldbuilders.Clause(lduser.NameAttribute, "doesSomethingUnsupported", ldvalue.String("Bob"))
+	goodClause := ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Bob"))
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(true).
+		AddRule(ldbuilders.NewRuleBuilder().ID("bad").Variation(1).Clauses(badClause)).
+		AddRule(ldbuilders.NewRuleBuilder().ID("good").Variation(1).Clauses(goodClause)).
+		Variations(ldvalue.Bool(false), ldvalue.Bool(true)).
+		Build()
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
 	result := basicEvaluator().Evaluate(f, user, nil)
