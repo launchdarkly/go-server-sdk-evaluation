@@ -17,8 +17,8 @@ func (p FlagEventProperties) IsFullEventTrackingEnabled() bool {
 	return p.TrackEvents
 }
 
-// GetDebugEventsUntilDate, if event debugging has been temporarily enabled for the flag, returns the time at which the
-// debugging mode should expire. Otherwise it returns zero.
+// GetDebugEventsUntilDate returns zero normally, but if event debugging has been temporarily enabled for the flag,
+// it returns the time at which debugging mode should expire.
 func (p FlagEventProperties) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
 	if p.DebugEventsUntilDate == nil {
 		return 0
