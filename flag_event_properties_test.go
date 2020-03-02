@@ -11,6 +11,13 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 )
 
+func TestFlagEventPropertiesBasicProperties(t *testing.T) {
+	flag := ldbuilders.NewFlagBuilder("key").Version(2).Build()
+	props := FlagEventProperties(flag)
+	assert.Equal(t, "key", props.GetKey())
+	assert.Equal(t, 2, props.GetVersion())
+}
+
 func TestIsFullEventTrackingEnabled(t *testing.T) {
 	flag1 := ldbuilders.NewFlagBuilder("key").Build()
 	assert.False(t, FlagEventProperties(flag1).IsFullEventTrackingEnabled())
