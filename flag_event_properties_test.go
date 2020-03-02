@@ -3,25 +3,44 @@ package evaluation
 import (
 	"testing"
 
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
+
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 )
 
+func TestIsFullEventTrackingEnabled(t *testing.T) {
+	flag1 := ldbuilders.NewFlagBuilder("key").Build()
+	assert.False(t, FlagEventProperties(flag1).IsFullEventTrackingEnabled())
+
+	flag2 := ldbuilders.NewFlagBuilder("key").TrackEvents(true).Build()
+	assert.True(t, FlagEventProperties(flag2).IsFullEventTrackingEnabled())
+}
+
+func TestGetDebugEventsUntilDate(t *testing.T) {
+	flag1 := ldbuilders.NewFlagBuilder("key").Build()
+	assert.Equal(t, ldtime.UnixMillisecondTime(0), FlagEventProperties(flag1).GetDebugEventsUntilDate())
+
+	date := ldtime.UnixMillisecondTime(100000)
+	flag2 := ldbuilders.NewFlagBuilder("key").DebugEventsUntilDate(date).Build()
+	assert.Equal(t, date, FlagEventProperties(flag2).GetDebugEventsUntilDate())
+}
+
 func TestIsExperimentDefaultsToFalse(t *testing.T) {
 	flag := ldbuilders.NewFlagBuilder("key").Build()
-	assert.False(t, IsExperimentationEnabled(flag, ldreason.NewEvalReasonOff()))
+	assert.False(t, FlagEventProperties(flag).IsExperimentationEnabled(ldreason.NewEvalReasonOff()))
 }
 
 func TestIsExperimentReturnsFalseForFallthroughIfTrackEventsFallthroughIsFalse(t *testing.T) {
 	flag := ldbuilders.NewFlagBuilder("key").Build()
-	assert.False(t, IsExperimentationEnabled(flag, ldreason.NewEvalReasonFallthrough()))
+	assert.False(t, FlagEventProperties(flag).IsExperimentationEnabled(ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestIsExperimentReturnsTrueForFallthroughIfTrackEventsFallthroughIsTrue(t *testing.T) {
 	flag := ldbuilders.NewFlagBuilder("key").TrackEventsFallthrough(true).Build()
-	assert.True(t, IsExperimentationEnabled(flag, ldreason.NewEvalReasonFallthrough()))
+	assert.True(t, FlagEventProperties(flag).IsExperimentationEnabled(ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestIsExperimentReturnsFalseForRuleMatchIfTrackEventsIsFalseForThatRule(t *testing.T) {
@@ -30,7 +49,7 @@ func TestIsExperimentReturnsFalseForRuleMatchIfTrackEventsIsFalseForThatRule(t *
 		AddRule(ldbuilders.NewRuleBuilder().ID("rule1").TrackEvents(false)).
 		Build()
 	reason := ldreason.NewEvalReasonRuleMatch(1, "rule1")
-	assert.False(t, IsExperimentationEnabled(flag, reason))
+	assert.False(t, FlagEventProperties(flag).IsExperimentationEnabled(reason))
 }
 
 func TestIsExperimentReturnsTrueForRuleMatchIfTrackEventsIsTrueForThatRule(t *testing.T) {
@@ -39,7 +58,7 @@ func TestIsExperimentReturnsTrueForRuleMatchIfTrackEventsIsTrueForThatRule(t *te
 		AddRule(ldbuilders.NewRuleBuilder().ID("rule1").TrackEvents(false)).
 		Build()
 	reason := ldreason.NewEvalReasonRuleMatch(0, "rule0")
-	assert.True(t, IsExperimentationEnabled(flag, reason))
+	assert.True(t, FlagEventProperties(flag).IsExperimentationEnabled(reason))
 }
 
 func TestIsExperimentReturnsFalseForRuleMatchIfRuleIndexIsNegative(t *testing.T) {
@@ -48,7 +67,7 @@ func TestIsExperimentReturnsFalseForRuleMatchIfRuleIndexIsNegative(t *testing.T)
 		AddRule(ldbuilders.NewRuleBuilder().ID("rule1").TrackEvents(false)).
 		Build()
 	reason := ldreason.NewEvalReasonRuleMatch(-1, "rule1")
-	assert.False(t, IsExperimentationEnabled(flag, reason))
+	assert.False(t, FlagEventProperties(flag).IsExperimentationEnabled(reason))
 }
 
 func TestIsExperimentReturnsFalseForRuleMatchIfRuleIndexIsTooHigh(t *testing.T) {
@@ -57,5 +76,5 @@ func TestIsExperimentReturnsFalseForRuleMatchIfRuleIndexIsTooHigh(t *testing.T) 
 		AddRule(ldbuilders.NewRuleBuilder().ID("rule1").TrackEvents(false)).
 		Build()
 	reason := ldreason.NewEvalReasonRuleMatch(2, "rule1")
-	assert.False(t, IsExperimentationEnabled(flag, reason))
+	assert.False(t, FlagEventProperties(flag).IsExperimentationEnabled(reason))
 }
