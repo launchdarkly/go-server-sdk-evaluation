@@ -12,6 +12,16 @@ import (
 // independent from implementation details of the server-side data model
 type FlagEventProperties ldmodel.FeatureFlag
 
+// GetKey returns the flag key.
+func (p FlagEventProperties) GetKey() string {
+	return p.Key
+}
+
+// GetVersion returns the flag version.
+func (p FlagEventProperties) GetVersion() int {
+	return p.Version
+}
+
 // IsFullEventTrackingEnabled returns true if the flag has been configured to always generate detailed event data.
 func (p FlagEventProperties) IsFullEventTrackingEnabled() bool {
 	return p.TrackEvents
