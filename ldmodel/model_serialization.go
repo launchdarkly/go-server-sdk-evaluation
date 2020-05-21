@@ -41,6 +41,9 @@ func (s jsonDataModelSerialization) MarshalSegment(item Segment) ([]byte, error)
 func (s jsonDataModelSerialization) UnmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
 	var item FeatureFlag
 	err := json.Unmarshal(data, &item)
+	if err == nil {
+		item.Preprocess()
+	}
 	return item, err
 }
 

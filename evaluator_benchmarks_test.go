@@ -126,8 +126,9 @@ func BenchmarkEvaluationRuleMatch(b *testing.B) {
 }
 
 func BenchmarkEvaluationUserFoundInTargets(b *testing.B) {
-	// This attempts to match a user from the middle of the target list. Currently, the execution time is roughly
-	// linear based on the length of the list, since we are iterating it.
+	// This attempts to match a user from the middle of the target list. As long as the flag has been
+	// preprocessed, which it always should be in normal usage, this is a simple map lookup and should
+	// not increase linearly with the length of the list.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := env.targetUsers[len(env.targetUsers)/2]
 		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
@@ -138,8 +139,9 @@ func BenchmarkEvaluationUserFoundInTargets(b *testing.B) {
 }
 
 func BenchmarkEvaluationUsersNotFoundInTargets(b *testing.B) {
-	// This attempts to match a user who is not in the list. Currently, the execution time is roughly
-	// linear based on the length of the list, since we are iterating it.
+	// This attempts to match a user who is not in the list.  As long as the flag has been preprocessed,
+	// which it always should be in normal usage, this is a simple map lookup and should not increase
+	// linearly with the length of the list.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Value.BoolValue() {

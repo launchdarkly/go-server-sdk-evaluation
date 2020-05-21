@@ -24,6 +24,7 @@ var flagWithAllProperties = FeatureFlag{
 		Target{
 			Values:    []string{"user-key"},
 			Variation: 2,
+			valuesMap: map[string]bool{"user-key": true}, // this is set by Preprocess()
 		},
 	},
 	Rules: []FlagRule{
