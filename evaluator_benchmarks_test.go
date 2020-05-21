@@ -125,26 +125,25 @@ func BenchmarkEvaluationRuleMatch(b *testing.B) {
 	})
 }
 
-func BenchmarkEvaluationUsersFoundInTargets(b *testing.B) {
-	// The total time for this benchmark is the time to match *all* users in the target list against the target list.
+func BenchmarkEvaluationUserFoundInTargets(b *testing.B) {
+	// This attempts to match a user from the middle of the target list. Currently, the execution time is roughly
+	// linear based on the length of the list, since we are iterating it.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		for _, user := range env.targetUsers {
-			evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
-			if !evalBenchmarkResult.Value.BoolValue() {
-				b.FailNow()
-			}
+		user := env.targetUsers[len(env.targetUsers)/2]
+		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
+		if !evalBenchmarkResult.Value.BoolValue() {
+			b.FailNow()
 		}
 	})
 }
 
 func BenchmarkEvaluationUsersNotFoundInTargets(b *testing.B) {
-	// The total time for this benchmark is the time to match *all* users in the target list against the target list.
+	// This attempts to match a user who is not in the list. Currently, the execution time is roughly
+	// linear based on the length of the list, since we are iterating it.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		for _ = range env.targetUsers {
-			evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
-			if evalBenchmarkResult.Value.BoolValue() {
-				b.FailNow()
-			}
+		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		if evalBenchmarkResult.Value.BoolValue() {
+			b.FailNow()
 		}
 	})
 }
