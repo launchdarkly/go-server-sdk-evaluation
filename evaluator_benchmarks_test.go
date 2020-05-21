@@ -203,6 +203,24 @@ func makeEvalBenchmarkCases(shouldMatch bool) []evalBenchmarkCase {
 			operator:          op,
 			shouldMatchClause: shouldMatch,
 		})
+		if shouldMatch {
+			// Add a case where we have to iterate through a lot of clauses, all of which match; this is
+			// meant to detect any inefficiencies in how we're iterating
+			ret = append(ret, evalBenchmarkCase{
+				numRules:          1,
+				numClauses:        100,
+				operator:          op,
+				shouldMatchClause: true,
+			})
+		} else {
+			// Add a case where we have to iterate through a lot of rules (each with one clause, since a
+			// single non-matching clause short-circuits the rule) before falling through
+			ret = append(ret, evalBenchmarkCase{
+				numRules:   100,
+				numClauses: 1,
+				operator:   op,
+			})
+		}
 
 		// prereqs
 		ret = append(ret, evalBenchmarkCase{
@@ -243,25 +261,13 @@ func makeEvalBenchmarkClauses(numClauses int, op ldmodel.Operator) []ldmodel.Cla
 			clause.Values = []ldvalue.Value{ldvalue.Int(i)}
 		case ldmodel.OperatorContains:
 			clause.Attribute = "name"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("name-%d", i)),
-				ldvalue.String(fmt.Sprintf("name-%d", i+1)),
-				ldvalue.String(fmt.Sprintf("name-%d", i+2)),
-			}
+			clause.Values = []ldvalue.Value{ldvalue.String("name-0")}
 		case ldmodel.OperatorMatches:
 			clause.Attribute = "stringAttr"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+1)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+2)),
-			}
+			clause.Values = []ldvalue.Value{ldvalue.String("stringAttr-0")}
 		case ldmodel.OperatorAfter:
 			clause.Attribute = "dateAttr"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2000+i)),
-				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2001+i)),
-				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2002+i)),
-			}
+			clause.Values = []ldvalue.Value{ldvalue.String("2000-01-01T00:00:00.000-00:00")}
 		case ldmodel.OperatorSemVerEqual:
 			clause.Attribute = "semVerAttr"
 			clause.Values = []ldvalue.Value{ldvalue.String("1.0.0")}
@@ -270,11 +276,7 @@ func makeEvalBenchmarkClauses(numClauses int, op ldmodel.Operator) []ldmodel.Cla
 		default:
 			clause.Op = ldmodel.OperatorIn
 			clause.Attribute = "stringAttr"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+1)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+2)),
-			}
+			clause.Values = []ldvalue.Value{ldvalue.String("stringAttr-0")}
 		}
 		clauses = append(clauses, clause)
 	}
