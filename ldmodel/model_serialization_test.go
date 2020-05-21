@@ -22,9 +22,9 @@ var flagWithAllProperties = FeatureFlag{
 	},
 	Targets: []Target{
 		Target{
-			Values:    []string{"user-key"},
-			Variation: 2,
-			valuesMap: map[string]bool{"user-key": true}, // this is set by Preprocess()
+			Values:       []string{"user-key"},
+			Variation:    2,
+			preprocessed: targetPreprocessedData{valuesMap: map[string]bool{"user-key": true}}, // this is set by PreprocessFlag()
 		},
 	},
 	Rules: []FlagRule{

@@ -44,8 +44,9 @@ func NewFlagBuilder(key string) *FlagBuilder {
 
 // Build returns the configured FeatureFlag.
 func (b *FlagBuilder) Build() ldmodel.FeatureFlag {
-	b.flag.Preprocess()
-	return b.flag
+	f := b.flag
+	ldmodel.PreprocessFlag(&f)
+	return f
 }
 
 // AddPrerequisite adds a flag prerequisite.

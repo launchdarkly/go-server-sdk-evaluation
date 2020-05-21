@@ -43,7 +43,7 @@ func (e *evaluator) Evaluate(
 
 	// Check to see if targets match
 	for _, target := range flag.Targets {
-		if target.ContainsKey(key) {
+		if ldmodel.TargetContainsKey(target, key) {
 			return getVariation(&flag, target.Variation, ldreason.NewEvalReasonTargetMatch())
 		}
 	}
