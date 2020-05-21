@@ -13,6 +13,8 @@ import (
 
 var evalBenchmarkResult ldreason.EvaluationDetail
 
+const evalBenchmarkSegmentKey = "segment-key"
+
 func discardPrerequisiteEvents(params PrerequisiteFlagEvent) {}
 
 type evalBenchmarkEnv struct {
@@ -26,13 +28,14 @@ type evalBenchmarkEnv struct {
 }
 
 type evalBenchmarkCase struct {
-	numTargets   int
-	numRules     int
-	numClauses   int
-	prereqsWidth int
-	prereqsDepth int
-	operator     ldmodel.Operator
-	shouldMatch  bool
+	numTargets      int
+	numRules        int
+	numClauses      int
+	numSegmentUsers int
+	prereqsWidth    int
+	prereqsDepth    int
+	operator        ldmodel.Operator
+	shouldMatch     bool
 }
 
 func newEvalBenchmarkEnv() *evalBenchmarkEnv {
@@ -80,6 +83,8 @@ func makeEvalBenchmarkUser(bc evalBenchmarkCase) lduser.User {
 			builder.Custom("stringAttr", ldvalue.String("stringAttr-0"))
 		case ldmodel.OperatorAfter:
 			builder.Custom("dateAttr", ldvalue.String("2999-12-31T00:00:00.000-00:00"))
+		case ldmodel.OperatorSemVerEqual:
+			builder.Custom("semVerAttr", ldvalue.String("1.0.0"))
 		case ldmodel.OperatorIn:
 			builder.Custom("stringAttr", ldvalue.String("stringAttr-0"))
 		}
@@ -91,6 +96,7 @@ func makeEvalBenchmarkUser(bc evalBenchmarkCase) lduser.User {
 		Custom("stringAttr", ldvalue.String("stringAttr-nomatch")).
 		Custom("numAttr", ldvalue.Int(0)).
 		Custom("dateAttr", ldvalue.String("1980-01-01T00:00:00.000-00:00")).
+		Custom("semVerAttr", ldvalue.String("0.0.5")).
 		Build()
 }
 
@@ -150,6 +156,30 @@ func BenchmarkEvaluationUsersNotFoundInTargets(b *testing.B) {
 	})
 }
 
+func BenchmarkEvaluationUserIncludedInSegment(b *testing.B) {
+	// This attempts to match a user from the middle of the segment's include list. Currently, the execution
+	// time is  roughly linear based on the length of the list, since we are iterating it.
+	benchmarkEval(b, makeSegmentMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
+		s := env.segments[evalBenchmarkSegmentKey]
+		user := lduser.NewUser(s.Included[len(s.Included)/2])
+		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
+		if !evalBenchmarkResult.Value.BoolValue() {
+			b.FailNow()
+		}
+	})
+}
+
+func BenchmarkEvaluationUserNotIncludedInSegment(b *testing.B) {
+	// This attempts to match a user who is not included in the segment. Currently, the execution time is
+	// roughly linear based on the length of the include and exclude lists, since we are iterating them.
+	benchmarkEval(b, makeSegmentMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
+		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		if evalBenchmarkResult.Value.BoolValue() {
+			b.FailNow()
+		}
+	})
+}
+
 func makeEvalBenchmarkCases(shouldMatch bool) []evalBenchmarkCase {
 	ret := []evalBenchmarkCase{}
 	for _, op := range []ldmodel.Operator{
@@ -158,6 +188,7 @@ func makeEvalBenchmarkCases(shouldMatch bool) []evalBenchmarkCase {
 		ldmodel.OperatorContains,
 		ldmodel.OperatorMatches,
 		ldmodel.OperatorAfter,
+		ldmodel.OperatorSemVerEqual,
 	} {
 		ret = append(ret, evalBenchmarkCase{
 			numRules:    1,
@@ -224,6 +255,11 @@ func makeEvalBenchmarkClauses(numClauses int, op ldmodel.Operator) []ldmodel.Cla
 				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2001+i)),
 				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2002+i)),
 			}
+		case ldmodel.OperatorSemVerEqual:
+			clause.Attribute = "semVerAttr"
+			clause.Values = []ldvalue.Value{ldvalue.String("1.0.0")}
+		case ldmodel.OperatorSegmentMatch:
+			clause.Values = []ldvalue.Value{ldvalue.String(evalBenchmarkSegmentKey)}
 		default:
 			clause.Op = ldmodel.OperatorIn
 			clause.Attribute = "stringAttr"
@@ -240,16 +276,23 @@ func makeEvalBenchmarkClauses(numClauses int, op ldmodel.Operator) []ldmodel.Cla
 
 func makeTargetMatchBenchmarkCases() []evalBenchmarkCase {
 	return []evalBenchmarkCase{
-		{
-			numTargets: 10,
-		},
-		{
-			numTargets: 100,
-		},
-		{
-			numTargets: 1000,
-		},
+		{numTargets: 10},
+		{numTargets: 100},
+		{numTargets: 1000},
 	}
+}
+
+func makeSegmentMatchBenchmarkCases() []evalBenchmarkCase {
+	ret := []evalBenchmarkCase{}
+	for _, n := range []int{10, 100, 1000} {
+		ret = append(ret, evalBenchmarkCase{
+			numSegmentUsers: n,
+			numRules:        1,
+			numClauses:      1,
+			operator:        ldmodel.OperatorSegmentMatch,
+		})
+	}
+	return ret
 }
 
 func buildEvalBenchmarkFlag(bc evalBenchmarkCase, key string) *ldbuilders.FlagBuilder {
@@ -287,6 +330,21 @@ func makeEvalBenchmarkFlagData(bc evalBenchmarkCase) (*ldmodel.FeatureFlag, map[
 	}
 
 	segments := make(map[string]*ldmodel.Segment)
+	if bc.numSegmentUsers > 0 {
+		sb := ldbuilders.NewSegmentBuilder(evalBenchmarkSegmentKey).Version(1)
+		included := make([]string, bc.numSegmentUsers)
+		for i := range included {
+			included[i] = makeEvalBenchmarkTargetUserKey(i)
+		}
+		sb.Included(included...)
+		excluded := make([]string, bc.numSegmentUsers)
+		for i := range excluded {
+			excluded[i] = makeEvalBenchmarkTargetUserKey(i + bc.numSegmentUsers)
+		}
+		sb.Excluded(excluded...)
+		s := sb.Build()
+		segments[s.Key] = &s
+	}
 
 	f := mainFlag.Build()
 	return &f, otherFlags, segments
