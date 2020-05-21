@@ -133,26 +133,6 @@ func (e *evaluator) ruleMatchesUser(rule *ldmodel.FlagRule, user *lduser.User) b
 	return true
 }
 
-func clauseMatchesUserNoSegments(clause *ldmodel.Clause, user *lduser.User) bool {
-	uValue := user.GetAttribute(clause.Attribute)
-	if uValue.IsNull() {
-		return false
-	}
-	matchFn := operatorFn(clause.Op)
-
-	// If the user value is an array, see if the intersection is non-empty. If so, this clause matches
-	if uValue.Type() == ldvalue.ArrayType {
-		for i := 0; i < uValue.Count(); i++ {
-			if matchAny(matchFn, uValue.GetByIndex(i), clause.Values) {
-				return maybeNegate(clause, true)
-			}
-		}
-		return maybeNegate(clause, false)
-	}
-
-	return maybeNegate(clause, matchAny(matchFn, uValue, clause.Values))
-}
-
 func (e *evaluator) clauseMatchesUser(clause *ldmodel.Clause, user *lduser.User) bool {
 	// In the case of a segment match operator, we check if the user is in any of the segments,
 	// and possibly negate
@@ -161,31 +141,15 @@ func (e *evaluator) clauseMatchesUser(clause *ldmodel.Clause, user *lduser.User)
 			if value.Type() == ldvalue.StringType {
 				if segment, segmentOk := e.dataProvider.GetSegment(value.StringValue()); segmentOk {
 					if matches, _ := segmentContainsUser(segment, user); matches {
-						return maybeNegate(clause, true)
+						return !clause.Negate // match - true unless negated
 					}
 				}
 			}
 		}
-		return maybeNegate(clause, false)
+		return clause.Negate // non-match - false unless negated
 	}
 
-	return clauseMatchesUserNoSegments(clause, user)
-}
-
-func maybeNegate(clause *ldmodel.Clause, b bool) bool {
-	if clause.Negate {
-		return !b
-	}
-	return b
-}
-
-func matchAny(fn opFn, value ldvalue.Value, values []ldvalue.Value) bool {
-	for _, v := range values {
-		if fn(value, v) {
-			return true
-		}
-	}
-	return false
+	return ldmodel.ClauseMatchesUser(*clause, *user)
 }
 
 func variationIndexForUser(r ldmodel.VariationOrRollout, user *lduser.User, key, salt string) *int {

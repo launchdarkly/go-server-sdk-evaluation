@@ -1,13 +1,14 @@
-package evaluation
+package ldmodel
 
 import (
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const dateStr1 = "2017-12-06T00:00:00.000-07:00"
@@ -17,7 +18,7 @@ const dateMs2 = 10000001
 const invalidDate = "hey what's this?"
 
 type opTestInfo struct {
-	opName      ldmodel.Operator
+	opName      Operator
 	userValue   interface{}
 	clauseValue interface{}
 	expected    bool
@@ -107,12 +108,24 @@ var operatorTests = []opTestInfo{
 }
 
 func TestAllOperators(t *testing.T) {
+	userAttr := "attr"
 	for _, ti := range operatorTests {
-		t.Run(fmt.Sprintf("%v %s %v should be %v", ti.userValue, ti.opName, ti.clauseValue, ti.expected), func(t *testing.T) {
-			uValue := ldvalue.CopyArbitraryValue(ti.userValue)
-			cValue := ldvalue.CopyArbitraryValue(ti.clauseValue)
-			assert.Equal(t, ti.expected, operatorFn(ti.opName)(uValue, cValue))
-		})
+		for _, withPreprocessing := range []bool{false, true} {
+			t.Run(
+				fmt.Sprintf("%v %s %v should be %v (preprocess: %t)", ti.userValue, ti.opName, ti.clauseValue, ti.expected, withPreprocessing),
+				func(t *testing.T) {
+					uValue := ldvalue.CopyArbitraryValue(ti.userValue)
+					cValue := ldvalue.CopyArbitraryValue(ti.clauseValue)
+					c := Clause{Attribute: lduser.UserAttribute(userAttr), Op: ti.opName, Values: []ldvalue.Value{cValue}}
+					if withPreprocessing {
+						c.preprocessed = preprocessClause(c)
+					}
+					user := lduser.NewUserBuilder("key").Custom(userAttr, uValue).Build()
+					isMatch := ClauseMatchesUser(c, user)
+					assert.Equal(t, ti.expected, isMatch)
+				},
+			)
+		}
 	}
 }
 
