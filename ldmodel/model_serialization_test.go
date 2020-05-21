@@ -150,6 +150,10 @@ var segmentWithAllProperties = Segment{
 	Key:      "segment-key",
 	Included: []string{"user1"},
 	Excluded: []string{"user2"},
+	preprocessed: segmentPreprocessedData{
+		includeMap: map[string]bool{"user1": true},
+		excludeMap: map[string]bool{"user2": true},
+	},
 	Rules: []SegmentRule{
 		SegmentRule{
 			Clauses: []Clause{
