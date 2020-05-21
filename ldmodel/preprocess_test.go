@@ -150,6 +150,25 @@ func TestPreprocessFlagParsesClauseSemver(t *testing.T) {
 	}
 }
 
+func TestPreprocessSegmentBuildsIncludeAndExcludeMaps(t *testing.T) {
+	s := Segment{
+		Included: []string{"a", "b"},
+		Excluded: []string{"c"},
+	}
+
+	assert.Nil(t, s.preprocessed.includeMap)
+	assert.Nil(t, s.preprocessed.excludeMap)
+
+	PreprocessSegment(&s)
+
+	assert.Len(t, s.preprocessed.includeMap, 2)
+	assert.True(t, s.preprocessed.includeMap["a"])
+	assert.True(t, s.preprocessed.includeMap["b"])
+
+	assert.Len(t, s.preprocessed.excludeMap, 1)
+	assert.True(t, s.preprocessed.excludeMap["c"])
+}
+
 func TestPreprocessSegmentPreprocessesClausesInRules(t *testing.T) {
 	// We'll just check one kind of clause, and assume that the preprocessing works the same as in flag rules
 	s := Segment{
