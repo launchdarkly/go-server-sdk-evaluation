@@ -118,7 +118,7 @@ func TestAllOperators(t *testing.T) {
 					cValue := ldvalue.CopyArbitraryValue(ti.clauseValue)
 					c := Clause{Attribute: lduser.UserAttribute(userAttr), Op: ti.opName, Values: []ldvalue.Value{cValue}}
 					if withPreprocessing {
-						c = preprocessClause(c)
+						c.preprocessed = preprocessClause(c)
 					}
 					user := lduser.NewUserBuilder("key").Custom(userAttr, uValue).Build()
 					isMatch := ClauseMatchesUser(c, user)

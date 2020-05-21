@@ -14,18 +14,12 @@ type SegmentExplanation struct {
 func segmentContainsUser(s ldmodel.Segment, user *lduser.User) (bool, SegmentExplanation) {
 	userKey := user.GetKey()
 
-	// Check if the user is included in the segment by key
-	for _, key := range s.Included {
-		if userKey == key {
+	// Check if the user is specifically included in or excluded from the segment by key
+	if included, found := ldmodel.SegmentIncludesOrExcludesKey(s, userKey); found {
+		if included {
 			return true, SegmentExplanation{Kind: "included"}
 		}
-	}
-
-	// Check if the user is excluded from the segment by key
-	for _, key := range s.Excluded {
-		if userKey == key {
-			return false, SegmentExplanation{Kind: "excluded"}
-		}
+		return false, SegmentExplanation{Kind: "excluded"}
 	}
 
 	// Check if any of the segment rules match

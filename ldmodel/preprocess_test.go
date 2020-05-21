@@ -24,16 +24,16 @@ func TestPreprocessFlagBuildsTargetMap(t *testing.T) {
 		},
 	}
 
-	assert.Nil(t, f.Targets[0].valuesMap)
-	assert.Nil(t, f.Targets[1].valuesMap)
+	assert.Nil(t, f.Targets[0].preprocessed.valuesMap)
+	assert.Nil(t, f.Targets[1].preprocessed.valuesMap)
 
 	PreprocessFlag(&f)
 
-	assert.Nil(t, f.Targets[0].valuesMap)
+	assert.Nil(t, f.Targets[0].preprocessed.valuesMap)
 
-	assert.Len(t, f.Targets[1].valuesMap, 2)
-	assert.True(t, f.Targets[1].valuesMap["a"])
-	assert.True(t, f.Targets[1].valuesMap["b"])
+	assert.Len(t, f.Targets[1].preprocessed.valuesMap, 2)
+	assert.True(t, f.Targets[1].preprocessed.valuesMap["a"])
+	assert.True(t, f.Targets[1].preprocessed.valuesMap["b"])
 }
 
 func TestPreprocessFlagParsesClauseRegex(t *testing.T) {
@@ -50,11 +50,11 @@ func TestPreprocessFlagParsesClauseRegex(t *testing.T) {
 		},
 	}
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessedValues)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.values)
 
 	PreprocessFlag(&f)
 
-	p := f.Rules[0].Clauses[0].preprocessedValues
+	p := f.Rules[0].Clauses[0].preprocessed.values
 	require.Len(t, p, 3)
 
 	assert.True(t, p[0].computed)
@@ -89,11 +89,11 @@ func TestPreprocessFlagParsesClauseTime(t *testing.T) {
 				},
 			}
 
-			assert.Nil(t, f.Rules[0].Clauses[0].preprocessedValues)
+			assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.values)
 
 			PreprocessFlag(&f)
 
-			p := f.Rules[0].Clauses[0].preprocessedValues
+			p := f.Rules[0].Clauses[0].preprocessed.values
 			require.Len(t, p, 4)
 
 			assert.True(t, p[0].computed)
@@ -131,11 +131,11 @@ func TestPreprocessFlagParsesClauseSemver(t *testing.T) {
 				},
 			}
 
-			assert.Nil(t, f.Rules[0].Clauses[0].preprocessedValues)
+			assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.values)
 
 			PreprocessFlag(&f)
 
-			p := f.Rules[0].Clauses[0].preprocessedValues
+			p := f.Rules[0].Clauses[0].preprocessed.values
 			require.Len(t, p, 3)
 
 			assert.True(t, p[0].computed)
@@ -148,4 +148,36 @@ func TestPreprocessFlagParsesClauseSemver(t *testing.T) {
 			assert.False(t, p[2].valid)
 		})
 	}
+}
+
+func TestPreprocessSegmentPreprocessesClausesInRules(t *testing.T) {
+	// We'll just check one kind of clause, and assume that the preprocessing works the same as in flag rules
+	s := Segment{
+		Rules: []SegmentRule{
+			{
+				Clauses: []Clause{
+					{
+						Op:     OperatorMatches,
+						Values: []ldvalue.Value{ldvalue.String("x*"), ldvalue.String("\\"), ldvalue.Int(3)},
+					},
+				},
+			},
+		},
+	}
+
+	assert.Nil(t, s.Rules[0].Clauses[0].preprocessed.values)
+
+	PreprocessSegment(&s)
+
+	p := s.Rules[0].Clauses[0].preprocessed.values
+	require.Len(t, p, 3)
+
+	assert.True(t, p[0].computed)
+	assert.True(t, p[0].valid)
+	assert.Equal(t, regexp.MustCompile("x*"), p[0].parsedRegexp)
+
+	assert.True(t, p[1].computed)
+	assert.False(t, p[1].valid)
+	assert.True(t, p[2].computed)
+	assert.False(t, p[2].valid)
 }

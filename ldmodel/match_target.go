@@ -7,8 +7,8 @@ package ldmodel
 // data in the model object. Exporting this function is preferable to exporting those internal
 // implementation details.
 func TargetContainsKey(t Target, key string) bool {
-	if t.valuesMap != nil {
-		return t.valuesMap[key]
+	if t.preprocessed.valuesMap != nil {
+		return t.preprocessed.valuesMap[key]
 	}
 	for _, value := range t.Values {
 		if value == key {

@@ -22,7 +22,9 @@ func NewSegmentBuilder(key string) *SegmentBuilder {
 
 // Build returns the configured Segment.
 func (b *SegmentBuilder) Build() ldmodel.Segment {
-	return b.segment
+	s := b.segment
+	ldmodel.PreprocessSegment(&s)
+	return s
 }
 
 // AddRule adds a rule to the segment.

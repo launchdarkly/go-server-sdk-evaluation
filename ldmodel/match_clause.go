@@ -30,14 +30,14 @@ func ClauseMatchesUser(c Clause, user lduser.User) bool {
 	// If the user value is an array, see if the intersection is non-empty. If so, this clause matches
 	if uValue.Type() == ldvalue.ArrayType {
 		for i := 0; i < uValue.Count(); i++ {
-			if matchAny(matchFn, uValue.GetByIndex(i), c.Values, c.preprocessedValues) {
+			if matchAny(matchFn, uValue.GetByIndex(i), c.Values, c.preprocessed.values) {
 				return maybeNegate(c.Negate, true)
 			}
 		}
 		return maybeNegate(c.Negate, false)
 	}
 
-	return maybeNegate(c.Negate, matchAny(matchFn, uValue, c.Values, c.preprocessedValues))
+	return maybeNegate(c.Negate, matchAny(matchFn, uValue, c.Values, c.preprocessed.values))
 }
 
 func maybeNegate(negate, result bool) bool {
