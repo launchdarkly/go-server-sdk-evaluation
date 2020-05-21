@@ -11,8 +11,8 @@ type SegmentExplanation struct {
 	MatchedRule *ldmodel.SegmentRule
 }
 
-func segmentContainsUser(s ldmodel.Segment, user *lduser.User) (bool, SegmentExplanation) {
-	userKey := user.GetKey()
+func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) (bool, SegmentExplanation) {
+	userKey := es.user.GetKey()
 
 	// Check if the user is included in the segment by key
 	for _, key := range s.Included {
@@ -30,7 +30,7 @@ func segmentContainsUser(s ldmodel.Segment, user *lduser.User) (bool, SegmentExp
 
 	// Check if any of the segment rules match
 	for _, rule := range s.Rules {
-		if segmentRuleMatchesUser(rule, user, s.Key, s.Salt) {
+		if es.segmentRuleMatchesUser(&rule, s.Key, s.Salt) {
 			reason := rule
 			return true, SegmentExplanation{Kind: "rule", MatchedRule: &reason}
 		}
@@ -39,10 +39,11 @@ func segmentContainsUser(s ldmodel.Segment, user *lduser.User) (bool, SegmentExp
 	return false, SegmentExplanation{}
 }
 
-func segmentRuleMatchesUser(r ldmodel.SegmentRule, user *lduser.User, key, salt string) bool {
+func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, salt string) bool {
+	// Note that r is passed by reference only for efficiency; we do not modify it
 	for _, clause := range r.Clauses {
 		c := clause
-		if !clauseMatchesUserNoSegments(&c, user) {
+		if !es.clauseMatchesUserNoSegments(&c) {
 			return false
 		}
 	}
@@ -59,7 +60,7 @@ func segmentRuleMatchesUser(r ldmodel.SegmentRule, user *lduser.User, key, salt 
 	}
 
 	// Check whether the user buckets into the segment
-	bucket := bucketUser(user, key, bucketBy, salt)
+	bucket := es.bucketUser(key, bucketBy, salt)
 	weight := float32(*r.Weight) / 100000.0
 
 	return bucket < weight

@@ -26,7 +26,7 @@ func TestFlagReturnsOffVariationIfFlagIsOff(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
 	assert.Equal(t, offValue, result.Value)
 	assert.Equal(t, 1, result.VariationIndex)
 	assert.Equal(t, ldreason.NewEvalReasonOff(), result.Reason)
@@ -41,7 +41,7 @@ func TestFlagReturnsNilIfFlagIsOffAndOffVariationIsUnspecified(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetail(ldvalue.Null(), -1, ldreason.NewEvalReasonOff()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -54,7 +54,7 @@ func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthrough()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -67,7 +67,7 @@ func TestFlagReturnsErrorIfFallthroughHasTooHighVariation(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -80,7 +80,7 @@ func TestFlagReturnsErrorIfFallthroughHasNegativeVariation(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -92,7 +92,7 @@ func TestFlagReturnsErrorIfFallthroughHasNeitherVariationNorRollout(t *testing.T
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -105,7 +105,7 @@ func TestFlagReturnsErrorIfFallthroughHasEmptyRolloutVariationList(t *testing.T)
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -121,7 +121,7 @@ func TestFlagMatchesUserFromTargets(t *testing.T) {
 	user := lduser.NewUser("userkey")
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, user, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonTargetMatch()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -131,7 +131,7 @@ func TestFlagMatchesUserFromRules(t *testing.T) {
 	f := makeFlagToMatchUser(user, ldbuilders.Variation(2))
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, user, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonRuleMatch(0, "rule-id")), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }

@@ -18,6 +18,14 @@
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"
+  name = "github.com/google/uuid"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "0cd6bf5da1e1c83f8b45653022c74f71af0538a4"
+  version = "v1.1.1"
+
+[[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
@@ -38,9 +46,10 @@
 
 [[projects]]
   branch = "v2"
-  digest = "1:4f0c45188011a90c93898cfdc7ec6da589db915360ebb4fa92f3c80058448c91"
+  digest = "1:843acf85cd9b3f31a19d08ab5d9b81dbfc62cec9fefc0ea58ecb6a419c373696"
   name = "gopkg.in/launchdarkly/go-sdk-common.v2"
   packages = [
+    "ldlog",
     "ldreason",
     "ldtime",
     "lduser",
@@ -49,6 +58,15 @@
   pruneopts = "NUT"
   revision = "82ce33603569b535e92951a86a2cdd8793a83546"
   source = "github.com/launchdarkly/go-sdk-common-private"
+
+[[projects]]
+  branch = "v1"
+  digest = "1:1b4bd9b27121851677376ac0f0ee64a127610743304eb9772e7311d06d470e1c"
+  name = "gopkg.in/launchdarkly/go-sdk-events.v1"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "f6c971eb836273e5a4f8072fe33d5bfbecf42da1"
+  source = "github.com/launchdarkly/go-sdk-events-private"
 
 [[projects]]
   digest = "1:d9b9ac6943a512737f76bf3d61b08d97121c66686bc02ffc231313563230b468"
@@ -69,6 +87,7 @@
     "gopkg.in/launchdarkly/go-sdk-common.v2/ldtime",
     "gopkg.in/launchdarkly/go-sdk-common.v2/lduser",
     "gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue",
+    "gopkg.in/launchdarkly/go-sdk-events.v1",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -31,6 +31,7 @@ type evalBenchmarkCase struct {
 	numTargets        int
 	numRules          int
 	numClauses        int
+	extraClauseValues int
 	withSegments      bool
 	prereqsWidth      int
 	prereqsDepth      int
@@ -50,17 +51,14 @@ func (env *evalBenchmarkEnv) setUp(bc evalBenchmarkCase) {
 	env.targetFlag, env.otherFlags, env.targetSegment = makeEvalBenchmarkFlagData(bc)
 
 	dataProvider := &simpleDataProvider{
-		getFlag: func(key string) (ldmodel.FeatureFlag, bool) {
-			if f, ok := env.otherFlags[key]; ok {
-				return *f, true
-			}
-			return ldmodel.FeatureFlag{}, false
+		getFlag: func(key string) *ldmodel.FeatureFlag {
+			return env.otherFlags[key]
 		},
-		getSegment: func(key string) (ldmodel.Segment, bool) {
+		getSegment: func(key string) *ldmodel.Segment {
 			if key == evalBenchmarkSegmentKey {
-				return *env.targetSegment, true
+				return env.targetSegment
 			}
-			return ldmodel.Segment{}, false
+			return nil
 		},
 	}
 	env.evaluator = NewEvaluator(dataProvider)
@@ -115,7 +113,7 @@ func benchmarkEval(b *testing.B, cases []evalBenchmarkCase, action func(*evalBen
 
 func BenchmarkEvaluationFallthrough(b *testing.B) {
 	benchmarkEval(b, makeEvalBenchmarkCases(false), func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult = env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Value.BoolValue() { // verify that we did not get a match
 			b.FailNow()
 		}
@@ -124,7 +122,7 @@ func BenchmarkEvaluationFallthrough(b *testing.B) {
 
 func BenchmarkEvaluationRuleMatch(b *testing.B) {
 	benchmarkEval(b, makeEvalBenchmarkCases(true), func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult = env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Value.BoolValue() { // verify that we got a match
 			b.FailNow()
 		}
@@ -136,7 +134,7 @@ func BenchmarkEvaluationUserFoundInTargets(b *testing.B) {
 	// linear based on the length of the list, since we are iterating it.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := env.targetUsers[len(env.targetUsers)/2]
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
@@ -147,7 +145,7 @@ func BenchmarkEvaluationUsersNotFoundInTargets(b *testing.B) {
 	// This attempts to match a user who is not in the list. Currently, the execution time is roughly
 	// linear based on the length of the list, since we are iterating it.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
@@ -159,7 +157,7 @@ func BenchmarkEvaluationUserIncludedInSegment(b *testing.B) {
 	// time is roughly linear based on the length of the list, since we are iterating it.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := lduser.NewUser(env.targetSegment.Included[len(env.targetSegment.Included)/2])
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
@@ -171,7 +169,7 @@ func BenchmarkEvaluationUserExcludedFromSegment(b *testing.B) {
 	// time is roughly linear based on the length of the include and exclude lists, since we are iterating them.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := lduser.NewUser(env.targetSegment.Excluded[len(env.targetSegment.Excluded)/2])
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
@@ -180,7 +178,7 @@ func BenchmarkEvaluationUserExcludedFromSegment(b *testing.B) {
 
 func BenchmarkEvaluationUserMatchedBySegmentRule(b *testing.B) {
 	benchmarkEval(b, makeSegmentRuleMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
@@ -200,6 +198,32 @@ func makeEvalBenchmarkCases(shouldMatch bool) []evalBenchmarkCase {
 		ret = append(ret, evalBenchmarkCase{
 			numRules:          1,
 			numClauses:        1,
+			operator:          op,
+			shouldMatchClause: shouldMatch,
+		})
+		if shouldMatch {
+			// Add a case where we have to iterate through a lot of clauses, all of which match; this is
+			// meant to detect any inefficiencies in how we're iterating
+			ret = append(ret, evalBenchmarkCase{
+				numRules:          1,
+				numClauses:        100,
+				operator:          op,
+				shouldMatchClause: true,
+			})
+		} else {
+			// Add a case where we have to iterate through a lot of rules (each with one clause, since a
+			// single non-matching clause short-circuits the rule) before falling through
+			ret = append(ret, evalBenchmarkCase{
+				numRules:   100,
+				numClauses: 1,
+				operator:   op,
+			})
+		}
+		// Add a case where there is just one clause, but it has non-matching values before the last value
+		ret = append(ret, evalBenchmarkCase{
+			numRules:          1,
+			numClauses:        1,
+			extraClauseValues: 99,
 			operator:          op,
 			shouldMatchClause: shouldMatch,
 		})
@@ -233,48 +257,41 @@ func makeEvalBenchmarkTargetUserKey(i int) string {
 	return fmt.Sprintf("user-%d", i)
 }
 
-func makeEvalBenchmarkClauses(numClauses int, op ldmodel.Operator) []ldmodel.Clause {
+func makeEvalBenchmarkClauses(numClauses int, extraClauseValues int, op ldmodel.Operator) []ldmodel.Clause {
 	clauses := make([]ldmodel.Clause, 0, numClauses)
 	for i := 0; i < numClauses; i++ {
 		clause := ldmodel.Clause{Op: op}
+		var value ldvalue.Value
 		switch op {
 		case ldmodel.OperatorGreaterThan:
 			clause.Attribute = "numAttr"
-			clause.Values = []ldvalue.Value{ldvalue.Int(i)}
+			value = ldvalue.Int(i)
 		case ldmodel.OperatorContains:
 			clause.Attribute = "name"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("name-%d", i)),
-				ldvalue.String(fmt.Sprintf("name-%d", i+1)),
-				ldvalue.String(fmt.Sprintf("name-%d", i+2)),
-			}
+			value = ldvalue.String("name-0")
 		case ldmodel.OperatorMatches:
 			clause.Attribute = "stringAttr"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+1)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+2)),
-			}
+			value = ldvalue.String("stringAttr-0")
 		case ldmodel.OperatorAfter:
 			clause.Attribute = "dateAttr"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2000+i)),
-				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2001+i)),
-				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2002+i)),
-			}
+			value = ldvalue.String("2000-01-01T00:00:00.000-00:00")
 		case ldmodel.OperatorSemVerEqual:
 			clause.Attribute = "semVerAttr"
-			clause.Values = []ldvalue.Value{ldvalue.String("1.0.0")}
+			value = ldvalue.String("1.0.0")
 		case ldmodel.OperatorSegmentMatch:
-			clause.Values = []ldvalue.Value{ldvalue.String(evalBenchmarkSegmentKey)}
+			value = ldvalue.String(evalBenchmarkSegmentKey)
 		default:
 			clause.Op = ldmodel.OperatorIn
 			clause.Attribute = "stringAttr"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+1)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+2)),
+			value = ldvalue.String("stringAttr-0")
+		}
+		if extraClauseValues == 0 {
+			clause.Values = []ldvalue.Value{value}
+		} else {
+			for i := 0; i < extraClauseValues; i++ {
+				clause.Values = append(clause.Values, ldvalue.String("not-a-match"))
 			}
+			clause.Values = append(clause.Values, value)
 		}
 		clauses = append(clauses, clause)
 	}
@@ -343,7 +360,7 @@ func buildEvalBenchmarkFlag(bc evalBenchmarkCase, key string) *ldbuilders.FlagBu
 		}
 		builder.AddRule(ldbuilders.NewRuleBuilder().
 			ID(fmt.Sprintf("%s-%d", key, j)).
-			Clauses(makeEvalBenchmarkClauses(bc.numClauses, operator)...).
+			Clauses(makeEvalBenchmarkClauses(bc.numClauses, bc.extraClauseValues, operator)...).
 			Variation(1))
 	}
 	return builder
@@ -372,7 +389,7 @@ func makeEvalBenchmarkFlagData(bc evalBenchmarkCase) (*ldmodel.FeatureFlag, map[
 		}
 		sb.Excluded(excluded...)
 		sb.AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(makeEvalBenchmarkClauses(bc.numClauses, bc.operator)...))
+			Clauses(makeEvalBenchmarkClauses(bc.numClauses, bc.extraClauseValues, bc.operator)...))
 		s := sb.Build()
 		segment = &s
 	}

@@ -17,7 +17,7 @@ func TestRuleWithTooHighVariationIndexReturnsMalformedFlagError(t *testing.T) {
 	f := makeFlagToMatchUser(user, ldbuilders.Variation(999))
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, user, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -27,7 +27,7 @@ func TestRuleWithNegativeVariationIndexReturnsMalformedFlagError(t *testing.T) {
 	f := makeFlagToMatchUser(user, ldbuilders.Variation(-1))
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, user, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -37,7 +37,7 @@ func TestRuleWithNoVariationOrRolloutReturnsMalformedFlagError(t *testing.T) {
 	f := makeFlagToMatchUser(user, ldmodel.VariationOrRollout{})
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, user, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -47,7 +47,7 @@ func TestRuleWithRolloutWithEmptyVariationsListReturnsMalformedFlagError(t *test
 	f := makeFlagToMatchUser(user, ldmodel.VariationOrRollout{Rollout: &ldmodel.Rollout{}})
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(f, user, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }

@@ -49,6 +49,12 @@ func (b *SegmentBuilder) Version(value int) *SegmentBuilder {
 	return b
 }
 
+// Salt sets the segment's Salt property.
+func (b *SegmentBuilder) Salt(value string) *SegmentBuilder {
+	b.segment.Salt = value
+	return b
+}
+
 // NewSegmentRuleBuilder creates a SegmentRuleBuilder.
 func NewSegmentRuleBuilder() *SegmentRuleBuilder {
 	return &SegmentRuleBuilder{}

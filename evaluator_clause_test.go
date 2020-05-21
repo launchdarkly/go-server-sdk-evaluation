@@ -17,7 +17,7 @@ func TestClauseCanMatchBuiltInAttribute(t *testing.T) {
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.True(t, result.Value.BoolValue())
 }
 
@@ -26,7 +26,7 @@ func TestClauseCanMatchCustomAttribute(t *testing.T) {
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Custom("legs", ldvalue.Int(4)).Build()
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.True(t, result.Value.BoolValue())
 }
 
@@ -35,7 +35,7 @@ func TestClauseReturnsFalseForMissingAttribute(t *testing.T) {
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.False(t, result.Value.BoolValue())
 }
 
@@ -44,7 +44,7 @@ func TestClauseMatchesIfAnyClauseValueMatches(t *testing.T) {
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUser("key2")
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.True(t, result.Value.BoolValue())
 
 }
@@ -54,17 +54,17 @@ func TestClauseMatchesIfAnyElementInUserArrayValueMatchesAnyClauseValue(t *testi
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Custom("pets", ldvalue.ArrayOf(ldvalue.String("fish"), ldvalue.String("dog"))).Build()
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.True(t, result.Value.BoolValue())
 
 }
 
 func TestClauseDoesNotMatchIfNoElementInUserArrayValueMatchesAnyClauseValue(t *testing.T) {
-	clause := ldbuilders.Clause(lduser.UserAttribute("legs"), ldmodel.OperatorIn, ldvalue.String("cat"), ldvalue.String("dog"))
+	clause := ldbuilders.Clause(lduser.UserAttribute("pets"), ldmodel.OperatorIn, ldvalue.String("cat"), ldvalue.String("dog"))
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Custom("pets", ldvalue.ArrayOf(ldvalue.String("fish"), ldvalue.String("bird"))).Build()
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.False(t, result.Value.BoolValue())
 
 }
@@ -74,7 +74,7 @@ func TestClauseCanBeNegated(t *testing.T) {
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.False(t, result.Value.BoolValue())
 }
 
@@ -83,7 +83,7 @@ func TestClauseForMissingAttributeIsFalseEvenIfNegated(t *testing.T) {
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.False(t, result.Value.BoolValue())
 }
 
@@ -92,7 +92,7 @@ func TestClauseWithUnknownOperatorDoesNotMatch(t *testing.T) {
 	f := booleanFlagWithClause(clause)
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.False(t, result.Value.BoolValue())
 }
 
@@ -107,7 +107,7 @@ func TestClauseWithUnknownOperatorDoesNotStopSubsequentRuleFromMatching(t *testi
 		Build()
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
-	result := basicEvaluator().Evaluate(f, user, nil)
+	result := basicEvaluator().Evaluate(&f, user, nil)
 	assert.True(t, result.Value.BoolValue())
 	assert.Equal(t, ldreason.NewEvalReasonRuleMatch(1, "good"), result.Reason)
 }
