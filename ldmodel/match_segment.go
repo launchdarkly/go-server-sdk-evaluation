@@ -16,10 +16,8 @@ func SegmentIncludesOrExcludesKey(s Segment, userKey string) (included bool, fou
 				return true, true
 			}
 		}
-	} else {
-		if s.preprocessed.includeMap[userKey] {
-			return true, true
-		}
+	} else if s.preprocessed.includeMap[userKey] {
+		return true, true
 	}
 
 	// Check if the user is excluded from the segment by key
@@ -29,10 +27,8 @@ func SegmentIncludesOrExcludesKey(s Segment, userKey string) (included bool, fou
 				return false, true
 			}
 		}
-	} else {
-		if s.preprocessed.excludeMap[userKey] {
-			return false, true
-		}
+	} else if s.preprocessed.excludeMap[userKey] {
+		return false, true
 	}
 
 	return false, false
