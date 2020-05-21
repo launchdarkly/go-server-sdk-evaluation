@@ -210,7 +210,7 @@ type Target struct {
 	Values []string `json:"values" bson:"values"`
 	// Variation is the index of the variation to be returned if the user matches one of these keys.
 	Variation int `json:"variation" bson:"variation"`
-	// preprocessedData is created by FeatureFlag.Preprocess() to speed up target matching.
+	// preprocessedData is created by PreprocessFlag() to speed up target matching.
 	preprocessed targetPreprocessedData
 }
 
