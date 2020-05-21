@@ -31,6 +31,7 @@ type evalBenchmarkCase struct {
 	numTargets        int
 	numRules          int
 	numClauses        int
+	extraClauseValues int
 	withSegments      bool
 	prereqsWidth      int
 	prereqsDepth      int
@@ -205,6 +206,32 @@ func makeEvalBenchmarkCases(shouldMatch bool) []evalBenchmarkCase {
 			operator:          op,
 			shouldMatchClause: shouldMatch,
 		})
+		if shouldMatch {
+			// Add a case where we have to iterate through a lot of clauses, all of which match; this is
+			// meant to detect any inefficiencies in how we're iterating
+			ret = append(ret, evalBenchmarkCase{
+				numRules:          1,
+				numClauses:        100,
+				operator:          op,
+				shouldMatchClause: true,
+			})
+		} else {
+			// Add a case where we have to iterate through a lot of rules (each with one clause, since a
+			// single non-matching clause short-circuits the rule) before falling through
+			ret = append(ret, evalBenchmarkCase{
+				numRules:   100,
+				numClauses: 1,
+				operator:   op,
+			})
+		}
+		// Add a case where there is just one clause, but it has non-matching values before the last value
+		ret = append(ret, evalBenchmarkCase{
+			numRules:          1,
+			numClauses:        1,
+			extraClauseValues: 99,
+			operator:          op,
+			shouldMatchClause: shouldMatch,
+		})
 
 		// prereqs
 		ret = append(ret, evalBenchmarkCase{
@@ -235,48 +262,41 @@ func makeEvalBenchmarkTargetUserKey(i int) string {
 	return fmt.Sprintf("user-%d", i)
 }
 
-func makeEvalBenchmarkClauses(numClauses int, op ldmodel.Operator) []ldmodel.Clause {
+func makeEvalBenchmarkClauses(numClauses int, extraClauseValues int, op ldmodel.Operator) []ldmodel.Clause {
 	clauses := make([]ldmodel.Clause, 0, numClauses)
 	for i := 0; i < numClauses; i++ {
 		clause := ldmodel.Clause{Op: op}
+		var value ldvalue.Value
 		switch op {
 		case ldmodel.OperatorGreaterThan:
 			clause.Attribute = "numAttr"
-			clause.Values = []ldvalue.Value{ldvalue.Int(i)}
+			value = ldvalue.Int(i)
 		case ldmodel.OperatorContains:
 			clause.Attribute = "name"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("name-%d", i)),
-				ldvalue.String(fmt.Sprintf("name-%d", i+1)),
-				ldvalue.String(fmt.Sprintf("name-%d", i+2)),
-			}
+			value = ldvalue.String("name-0")
 		case ldmodel.OperatorMatches:
 			clause.Attribute = "stringAttr"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+1)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+2)),
-			}
+			value = ldvalue.String("stringAttr-0")
 		case ldmodel.OperatorAfter:
 			clause.Attribute = "dateAttr"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2000+i)),
-				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2001+i)),
-				ldvalue.String(fmt.Sprintf("%d-01-01T00:00:00.000-00:00", 2002+i)),
-			}
+			value = ldvalue.String("2000-01-01T00:00:00.000-00:00")
 		case ldmodel.OperatorSemVerEqual:
 			clause.Attribute = "semVerAttr"
-			clause.Values = []ldvalue.Value{ldvalue.String("1.0.0")}
+			value = ldvalue.String("1.0.0")
 		case ldmodel.OperatorSegmentMatch:
-			clause.Values = []ldvalue.Value{ldvalue.String(evalBenchmarkSegmentKey)}
+			value = ldvalue.String(evalBenchmarkSegmentKey)
 		default:
 			clause.Op = ldmodel.OperatorIn
 			clause.Attribute = "stringAttr"
-			clause.Values = []ldvalue.Value{
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+1)),
-				ldvalue.String(fmt.Sprintf("stringAttr-%d", i+2)),
+			value = ldvalue.String("stringAttr-0")
+		}
+		if extraClauseValues == 0 {
+			clause.Values = []ldvalue.Value{value}
+		} else {
+			for i := 0; i < extraClauseValues; i++ {
+				clause.Values = append(clause.Values, ldvalue.String("not-a-match"))
 			}
+			clause.Values = append(clause.Values, value)
 		}
 		clauses = append(clauses, clause)
 	}
@@ -345,7 +365,7 @@ func buildEvalBenchmarkFlag(bc evalBenchmarkCase, key string) *ldbuilders.FlagBu
 		}
 		builder.AddRule(ldbuilders.NewRuleBuilder().
 			ID(fmt.Sprintf("%s-%d", key, j)).
-			Clauses(makeEvalBenchmarkClauses(bc.numClauses, operator)...).
+			Clauses(makeEvalBenchmarkClauses(bc.numClauses, bc.extraClauseValues, operator)...).
 			Variation(1))
 	}
 	return builder
@@ -374,7 +394,7 @@ func makeEvalBenchmarkFlagData(bc evalBenchmarkCase) (*ldmodel.FeatureFlag, map[
 		}
 		sb.Excluded(excluded...)
 		sb.AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(makeEvalBenchmarkClauses(bc.numClauses, bc.operator)...))
+			Clauses(makeEvalBenchmarkClauses(bc.numClauses, bc.extraClauseValues, bc.operator)...))
 		s := sb.Build()
 		segment = &s
 	}
