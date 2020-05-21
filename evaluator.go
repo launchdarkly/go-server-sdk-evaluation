@@ -43,10 +43,8 @@ func (e *evaluator) Evaluate(
 
 	// Check to see if targets match
 	for _, target := range flag.Targets {
-		for _, value := range target.Values {
-			if value == key {
-				return getVariation(&flag, target.Variation, ldreason.NewEvalReasonTargetMatch())
-			}
+		if ldmodel.TargetContainsKey(target, key) {
+			return getVariation(&flag, target.Variation, ldreason.NewEvalReasonTargetMatch())
 		}
 	}
 
