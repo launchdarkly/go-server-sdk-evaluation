@@ -108,18 +108,6 @@ func (f *FeatureFlag) IsDeleted() bool {
 	return f.Deleted
 }
 
-// Preprocess precomputes internal data structures based on the flag configuration, to speed up
-// evaluations.
-//
-// This is called once after a flag is deserialized from JSON, or is created with ldbuilders. If you
-// construct a flag by some other means, you should call Preprocess exactly once before making it
-// available to any other code. The method is not safe for concurrent access across goroutines.
-func (f *FeatureFlag) Preprocess() {
-	for i := range f.Targets {
-		f.Targets[i].preprocess()
-	}
-}
-
 // FlagRule describes a single rule within a feature flag.
 //
 // A rule consists of a set of ANDed matching conditions (Clause) for a user, along with either a fixed
@@ -200,6 +188,10 @@ type Clause struct {
 	// If the user does not have a value for the specified attribute, the Values are ignored and the
 	// Clause is always treated as a non-match.
 	Values []ldvalue.Value `json:"values" bson:"values"` // An array, interpreted as an OR of values
+	// preprocessedValues is created by Clause.preprocess() when FeatureFlag.Preprocess() is called, to
+	// speed up clause evaluation in scenarios like regex matching. If the operator does not require any
+	// such special handling, this will be nil.
+	preprocessedValues []clausePreprocessedValue // see preprocess.go
 	// Negate is true if the specified Operator should be inverted.
 	//
 	// For instance, this would cause OperatorIn to mean "not equal" rather than "equal". Note that if no
@@ -225,29 +217,6 @@ type Target struct {
 	// valuesMap is created by FeatureFlag.Preprocess() to speed up target matching. It contains a true
 	// value for each key in Values.
 	valuesMap map[string]bool
-}
-
-// ContainsKey returns true if the specified user key is in this Target.
-func (t *Target) ContainsKey(key string) bool {
-	if t.valuesMap != nil {
-		return t.valuesMap[key]
-	}
-	for _, value := range t.Values {
-		if value == key {
-			return true
-		}
-	}
-	return false
-}
-
-func (t *Target) preprocess() {
-	if len(t.Values) > 0 {
-		m := make(map[string]bool, len(t.Values))
-		for _, v := range t.Values {
-			m[v] = true
-		}
-		t.valuesMap = m
-	}
 }
 
 // Prerequisite describes a requirement that another feature flag return a specific variation.

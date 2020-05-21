@@ -42,7 +42,7 @@ func segmentContainsUser(s ldmodel.Segment, user *lduser.User) (bool, SegmentExp
 func segmentRuleMatchesUser(r ldmodel.SegmentRule, user *lduser.User, key, salt string) bool {
 	for _, clause := range r.Clauses {
 		c := clause
-		if !clauseMatchesUserNoSegments(&c, user) {
+		if !ldmodel.ClauseMatchesUser(c, *user) {
 			return false
 		}
 	}

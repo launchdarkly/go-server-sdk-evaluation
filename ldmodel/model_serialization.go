@@ -42,7 +42,7 @@ func (s jsonDataModelSerialization) UnmarshalFeatureFlag(data []byte) (FeatureFl
 	var item FeatureFlag
 	err := json.Unmarshal(data, &item)
 	if err == nil {
-		item.Preprocess()
+		PreprocessFlag(&item)
 	}
 	return item, err
 }
