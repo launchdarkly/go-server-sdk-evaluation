@@ -226,6 +226,9 @@ type Clause struct {
 	// If the user does not have a value for the specified attribute, the Values are ignored and the
 	// Clause is always treated as a non-match.
 	Values []ldvalue.Value `json:"values" bson:"values"` // An array, interpreted as an OR of values
+	// preprocessed is created by PreprocessFlag() to speed up clause evaluation in scenarios like
+	// regex matching.
+	preprocessed clausePreprocessedData
 	// Negate is true if the specified Operator should be inverted.
 	//
 	// For instance, this would cause OperatorIn to mean "not equal" rather than "equal". Note that if no
@@ -248,6 +251,8 @@ type Target struct {
 	Values []string `json:"values" bson:"values"`
 	// Variation is the index of the variation to be returned if the user matches one of these keys.
 	Variation int `json:"variation" bson:"variation"`
+	// preprocessedData is created by PreprocessFlag() to speed up target matching.
+	preprocessed targetPreprocessedData
 }
 
 // Prerequisite describes a requirement that another feature flag return a specific variation.

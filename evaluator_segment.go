@@ -14,23 +14,18 @@ type SegmentExplanation struct {
 func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) (bool, SegmentExplanation) {
 	userKey := es.user.GetKey()
 
-	// Check if the user is included in the segment by key
-	for _, key := range s.Included {
-		if userKey == key {
+	// Check if the user is specifically included in or excluded from the segment by key
+	if included, found := ldmodel.SegmentIncludesOrExcludesKey(s, userKey); found {
+		if included {
 			return true, SegmentExplanation{Kind: "included"}
 		}
-	}
-
-	// Check if the user is excluded from the segment by key
-	for _, key := range s.Excluded {
-		if userKey == key {
-			return false, SegmentExplanation{Kind: "excluded"}
-		}
+		return false, SegmentExplanation{Kind: "excluded"}
 	}
 
 	// Check if any of the segment rules match
 	for _, rule := range s.Rules {
-		if es.segmentRuleMatchesUser(&rule, s.Key, s.Salt) {
+		// Note, taking address of range variable here is OK because it's not used outside the loop
+		if es.segmentRuleMatchesUser(&rule, s.Key, s.Salt) { //nolint:scopelint // see comment above
 			reason := rule
 			return true, SegmentExplanation{Kind: "rule", MatchedRule: &reason}
 		}
@@ -43,7 +38,7 @@ func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, s
 	// Note that r is passed by reference only for efficiency; we do not modify it
 	for _, clause := range r.Clauses {
 		c := clause
-		if !es.clauseMatchesUserNoSegments(&c) {
+		if !ldmodel.ClauseMatchesUser(&c, &es.user) {
 			return false
 		}
 	}

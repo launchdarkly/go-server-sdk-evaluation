@@ -32,8 +32,13 @@ type PrerequisiteFlagEventRecorder func(PrerequisiteFlagEvent)
 type PrerequisiteFlagEvent struct {
 	// TargetFlagKey is the key of the feature flag that had a prerequisite.
 	TargetFlagKey string
-	// PrerequisiteFlag is the full configuration of the prerequisite flag. This is passed by
-	// reference for efficiency only, and will never be nil; the PrerequisiteFlagEventRecorder
+	// User is the user that the flag was evaluated for. We pass this back to the caller, even though the caller
+	// already passed it to us in the Evaluate parameters, so that the caller can provide a stateless function for
+	// PrerequisiteFlagEventRecorder rather than a closure (since closures are less efficient).
+	User lduser.User
+	// PrerequisiteFlag is the full configuration of the prerequisite flag. We need to pass the full flag here rather
+	// than just the key because the flag's properties (such as TrackEvents) can affect how events are generated.
+	// This is passed by reference for efficiency only, and will never be nil; the PrerequisiteFlagEventRecorder
 	// must not modify the flag's properties.
 	PrerequisiteFlag *ldmodel.FeatureFlag
 	// PrerequisiteResult is the result of evaluating the prerequisite flag.

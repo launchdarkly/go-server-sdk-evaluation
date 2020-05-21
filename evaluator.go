@@ -59,16 +59,16 @@ func (es *evaluationScope) evaluate() ldreason.EvaluationDetail {
 
 	// Check to see if targets match
 	for _, target := range es.flag.Targets {
-		for _, value := range target.Values {
-			if value == key {
-				return es.getVariation(target.Variation, ldreason.NewEvalReasonTargetMatch())
-			}
+		// Note, taking address of range variable here is OK because it's not used outside the loop
+		if ldmodel.TargetContainsKey(&target, key) { //nolint:scopelint // see comment above
+			return es.getVariation(target.Variation, ldreason.NewEvalReasonTargetMatch())
 		}
 	}
 
 	// Now walk through the rules and see if any match
 	for ruleIndex, rule := range es.flag.Rules {
-		if es.ruleMatchesUser(&rule) {
+		// Note, taking address of range variable here is OK because it's not used outside the loop
+		if es.ruleMatchesUser(&rule) { //nolint:scopelint // see comment above
 			reason := ldreason.NewEvalReasonRuleMatch(ruleIndex, rule.ID)
 			return es.getValueForVariationOrRollout(rule.VariationOrRollout, reason)
 		}
@@ -98,7 +98,7 @@ func (es *evaluationScope) checkPrerequisites() (ldreason.EvaluationReason, bool
 		}
 
 		if es.prerequisiteFlagEventRecorder != nil {
-			event := PrerequisiteFlagEvent{es.flag.Key, prereqFeatureFlag, prereqResult}
+			event := PrerequisiteFlagEvent{es.flag.Key, es.user, prereqFeatureFlag, prereqResult}
 			es.prerequisiteFlagEventRecorder(event)
 		}
 
@@ -137,32 +137,12 @@ func (es *evaluationScope) getValueForVariationOrRollout(
 func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) bool {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
 	for _, clause := range rule.Clauses {
-		if !es.clauseMatchesUser(&clause) {
+		// Note, taking address of range variable here is OK because it's not used outside the loop
+		if !es.clauseMatchesUser(&clause) { //nolint:scopelint // see comment above
 			return false
 		}
 	}
 	return true
-}
-
-func (es *evaluationScope) clauseMatchesUserNoSegments(clause *ldmodel.Clause) bool {
-	// Note that clause is passed by reference only for efficiency; we do not modify it
-	uValue := es.user.GetAttribute(clause.Attribute)
-	if uValue.IsNull() {
-		return false
-	}
-	matchFn := operatorFn(clause.Op)
-
-	// If the user value is an array, see if the intersection is non-empty. If so, this clause matches
-	if uValue.Type() == ldvalue.ArrayType {
-		for i := 0; i < uValue.Count(); i++ {
-			if matchAny(matchFn, uValue.GetByIndex(i), clause.Values) {
-				return maybeNegate(clause, true)
-			}
-		}
-		return maybeNegate(clause, false)
-	}
-
-	return maybeNegate(clause, matchAny(matchFn, uValue, clause.Values))
 }
 
 func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
@@ -174,31 +154,15 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
 			if value.Type() == ldvalue.StringType {
 				if segment := es.owner.dataProvider.GetSegment(value.StringValue()); segment != nil {
 					if matches, _ := es.segmentContainsUser(segment); matches {
-						return maybeNegate(clause, true)
+						return !clause.Negate // match - true unless negated
 					}
 				}
 			}
 		}
-		return maybeNegate(clause, false)
+		return clause.Negate // non-match - false unless negated
 	}
 
-	return es.clauseMatchesUserNoSegments(clause)
-}
-
-func maybeNegate(clause *ldmodel.Clause, b bool) bool {
-	if clause.Negate {
-		return !b
-	}
-	return b
-}
-
-func matchAny(fn opFn, value ldvalue.Value, values []ldvalue.Value) bool {
-	for _, v := range values {
-		if fn(value, v) {
-			return true
-		}
-	}
-	return false
+	return ldmodel.ClauseMatchesUser(clause, &es.user)
 }
 
 func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, key, salt string) int {
