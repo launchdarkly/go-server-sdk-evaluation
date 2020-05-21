@@ -22,20 +22,20 @@ type evalBenchmarkEnv struct {
 	user             lduser.User
 	targetFlag       *ldmodel.FeatureFlag
 	otherFlags       map[string]*ldmodel.FeatureFlag
-	segments         map[string]*ldmodel.Segment
+	targetSegment    *ldmodel.Segment
 	targetFeatureKey string
 	targetUsers      []lduser.User
 }
 
 type evalBenchmarkCase struct {
-	numTargets      int
-	numRules        int
-	numClauses      int
-	numSegmentUsers int
-	prereqsWidth    int
-	prereqsDepth    int
-	operator        ldmodel.Operator
-	shouldMatch     bool
+	numTargets        int
+	numRules          int
+	numClauses        int
+	withSegments      bool
+	prereqsWidth      int
+	prereqsDepth      int
+	operator          ldmodel.Operator
+	shouldMatchClause bool
 }
 
 func newEvalBenchmarkEnv() *evalBenchmarkEnv {
@@ -47,7 +47,7 @@ func (env *evalBenchmarkEnv) setUp(bc evalBenchmarkCase) {
 
 	env.user = makeEvalBenchmarkUser(bc)
 
-	env.targetFlag, env.otherFlags, env.segments = makeEvalBenchmarkFlagData(bc)
+	env.targetFlag, env.otherFlags, env.targetSegment = makeEvalBenchmarkFlagData(bc)
 
 	dataProvider := &simpleDataProvider{
 		getFlag: func(key string) (ldmodel.FeatureFlag, bool) {
@@ -57,8 +57,8 @@ func (env *evalBenchmarkEnv) setUp(bc evalBenchmarkCase) {
 			return ldmodel.FeatureFlag{}, false
 		},
 		getSegment: func(key string) (ldmodel.Segment, bool) {
-			if s, ok := env.segments[key]; ok {
-				return *s, true
+			if key == evalBenchmarkSegmentKey {
+				return *env.targetSegment, true
 			}
 			return ldmodel.Segment{}, false
 		},
@@ -72,7 +72,7 @@ func (env *evalBenchmarkEnv) setUp(bc evalBenchmarkCase) {
 }
 
 func makeEvalBenchmarkUser(bc evalBenchmarkCase) lduser.User {
-	if bc.shouldMatch {
+	if bc.shouldMatchClause {
 		builder := lduser.NewUserBuilder("user-match")
 		switch bc.operator {
 		case ldmodel.OperatorGreaterThan:
@@ -158,10 +158,9 @@ func BenchmarkEvaluationUsersNotFoundInTargets(b *testing.B) {
 
 func BenchmarkEvaluationUserIncludedInSegment(b *testing.B) {
 	// This attempts to match a user from the middle of the segment's include list. Currently, the execution
-	// time is  roughly linear based on the length of the list, since we are iterating it.
-	benchmarkEval(b, makeSegmentMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		s := env.segments[evalBenchmarkSegmentKey]
-		user := lduser.NewUser(s.Included[len(s.Included)/2])
+	// time is roughly linear based on the length of the list, since we are iterating it.
+	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
+		user := lduser.NewUser(env.targetSegment.Included[len(env.targetSegment.Included)/2])
 		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
@@ -169,12 +168,22 @@ func BenchmarkEvaluationUserIncludedInSegment(b *testing.B) {
 	})
 }
 
-func BenchmarkEvaluationUserNotIncludedInSegment(b *testing.B) {
-	// This attempts to match a user who is not included in the segment. Currently, the execution time is
-	// roughly linear based on the length of the include and exclude lists, since we are iterating them.
-	benchmarkEval(b, makeSegmentMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+func BenchmarkEvaluationUserExcludedFromSegment(b *testing.B) {
+	// This attempts to match a user who is explicitly excluded from the segment. Currently, the execution
+	// time is roughly linear based on the length of the include and exclude lists, since we are iterating them.
+	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
+		user := lduser.NewUser(env.targetSegment.Excluded[len(env.targetSegment.Excluded)/2])
+		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Value.BoolValue() {
+			b.FailNow()
+		}
+	})
+}
+
+func BenchmarkEvaluationUserMatchedBySegmentRule(b *testing.B) {
+	benchmarkEval(b, makeSegmentRuleMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
+		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		if !evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
 	})
@@ -191,28 +200,28 @@ func makeEvalBenchmarkCases(shouldMatch bool) []evalBenchmarkCase {
 		ldmodel.OperatorSemVerEqual,
 	} {
 		ret = append(ret, evalBenchmarkCase{
-			numRules:    1,
-			numClauses:  1,
-			operator:    op,
-			shouldMatch: shouldMatch,
+			numRules:          1,
+			numClauses:        1,
+			operator:          op,
+			shouldMatchClause: shouldMatch,
 		})
 
 		// prereqs
 		ret = append(ret, evalBenchmarkCase{
-			numRules:     1,
-			numClauses:   1,
-			operator:     op,
-			shouldMatch:  shouldMatch,
-			prereqsWidth: 5,
-			prereqsDepth: 1,
+			numRules:          1,
+			numClauses:        1,
+			operator:          op,
+			shouldMatchClause: shouldMatch,
+			prereqsWidth:      5,
+			prereqsDepth:      1,
 		})
 		ret = append(ret, evalBenchmarkCase{
-			numRules:     1,
-			numClauses:   1,
-			operator:     op,
-			shouldMatch:  shouldMatch,
-			prereqsWidth: 1,
-			prereqsDepth: 5,
+			numRules:          1,
+			numClauses:        1,
+			operator:          op,
+			shouldMatchClause: shouldMatch,
+			prereqsWidth:      1,
+			prereqsDepth:      5,
 		})
 	}
 	return ret
@@ -282,14 +291,32 @@ func makeTargetMatchBenchmarkCases() []evalBenchmarkCase {
 	}
 }
 
-func makeSegmentMatchBenchmarkCases() []evalBenchmarkCase {
+func makeSegmentIncludeExcludeBenchmarkCases() []evalBenchmarkCase {
+	// Add cases to verify the performance of include/exclude matching, regardless of segment rules
 	ret := []evalBenchmarkCase{}
 	for _, n := range []int{10, 100, 1000} {
 		ret = append(ret, evalBenchmarkCase{
-			numSegmentUsers: n,
-			numRules:        1,
-			numClauses:      1,
-			operator:        ldmodel.OperatorSegmentMatch,
+			withSegments:      true,
+			numTargets:        n,
+			numRules:          1,
+			numClauses:        1,
+			shouldMatchClause: false,
+		})
+	}
+	return ret
+}
+
+func makeSegmentRuleMatchBenchmarkCases() []evalBenchmarkCase {
+	// Add cases to verify the performance of segment rules, with no include/exclude matching
+	ret := []evalBenchmarkCase{}
+	for _, operator := range []ldmodel.Operator{ldmodel.OperatorIn, ldmodel.OperatorMatches} {
+		ret = append(ret, evalBenchmarkCase{
+			withSegments:      true,
+			numTargets:        0,
+			numRules:          1,
+			numClauses:        1,
+			operator:          operator,
+			shouldMatchClause: true,
 		})
 	}
 	return ret
@@ -312,15 +339,19 @@ func buildEvalBenchmarkFlag(bc evalBenchmarkCase, key string) *ldbuilders.FlagBu
 		builder.AddTarget(1, values...)
 	}
 	for j := 0; j < bc.numRules; j++ {
+		operator := bc.operator
+		if bc.withSegments {
+			operator = ldmodel.OperatorSegmentMatch
+		}
 		builder.AddRule(ldbuilders.NewRuleBuilder().
 			ID(fmt.Sprintf("%s-%d", key, j)).
-			Clauses(makeEvalBenchmarkClauses(bc.numClauses, bc.operator)...).
+			Clauses(makeEvalBenchmarkClauses(bc.numClauses, operator)...).
 			Variation(1))
 	}
 	return builder
 }
 
-func makeEvalBenchmarkFlagData(bc evalBenchmarkCase) (*ldmodel.FeatureFlag, map[string]*ldmodel.FeatureFlag, map[string]*ldmodel.Segment) {
+func makeEvalBenchmarkFlagData(bc evalBenchmarkCase) (*ldmodel.FeatureFlag, map[string]*ldmodel.FeatureFlag, *ldmodel.Segment) {
 	mainFlag := buildEvalBenchmarkFlag(bc, "flag-0")
 
 	otherFlags := make(map[string]*ldmodel.FeatureFlag)
@@ -329,25 +360,27 @@ func makeEvalBenchmarkFlagData(bc evalBenchmarkCase) (*ldmodel.FeatureFlag, map[
 		makeEvalBenchmarkPrerequisites(mainFlag, &flagCounter, otherFlags, bc, bc.prereqsDepth)
 	}
 
-	segments := make(map[string]*ldmodel.Segment)
-	if bc.numSegmentUsers > 0 {
+	var segment *ldmodel.Segment
+	if bc.withSegments {
 		sb := ldbuilders.NewSegmentBuilder(evalBenchmarkSegmentKey).Version(1)
-		included := make([]string, bc.numSegmentUsers)
+		included := make([]string, bc.numTargets)
 		for i := range included {
 			included[i] = makeEvalBenchmarkTargetUserKey(i)
 		}
 		sb.Included(included...)
-		excluded := make([]string, bc.numSegmentUsers)
+		excluded := make([]string, bc.numTargets)
 		for i := range excluded {
-			excluded[i] = makeEvalBenchmarkTargetUserKey(i + bc.numSegmentUsers)
+			excluded[i] = makeEvalBenchmarkTargetUserKey(i + bc.numTargets)
 		}
 		sb.Excluded(excluded...)
+		sb.AddRule(ldbuilders.NewSegmentRuleBuilder().
+			Clauses(makeEvalBenchmarkClauses(bc.numClauses, bc.operator)...))
 		s := sb.Build()
-		segments[s.Key] = &s
+		segment = &s
 	}
 
 	f := mainFlag.Build()
-	return &f, otherFlags, segments
+	return &f, otherFlags, segment
 }
 
 // When we test prerequisite matching, we want all of the prerequisite flags to be a match, because
