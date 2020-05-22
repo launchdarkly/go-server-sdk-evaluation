@@ -50,7 +50,13 @@ func maybeNegate(negate, result bool) bool {
 	return result
 }
 
-func matchAny(op Operator, fn opFn, value ldvalue.Value, values []ldvalue.Value, preprocessed clausePreprocessedData) bool {
+func matchAny(
+	op Operator,
+	fn opFn,
+	value ldvalue.Value,
+	values []ldvalue.Value,
+	preprocessed clausePreprocessedData,
+) bool {
 	if op == OperatorIn && preprocessed.valuesMap != nil {
 		if key := asPrimitiveValueKey(value); key.isValid() { // see preprocessClausee
 			return preprocessed.valuesMap[key]
