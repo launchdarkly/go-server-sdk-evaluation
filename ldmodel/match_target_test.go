@@ -14,7 +14,7 @@ func TestTargetMatchesUser(t *testing.T) {
 			if withPreprocessing {
 				target.preprocessed = preprocessTarget(target)
 			}
-			assert.True(t, TargetContainsKey(target, "b"))
+			assert.True(t, TargetContainsKey(&target, "b"))
 		})
 	}
 }
@@ -26,7 +26,7 @@ func TestTargetDoesNotMatchUser(t *testing.T) {
 			if withPreprocessing {
 				target.preprocessed = preprocessTarget(target)
 			}
-			assert.False(t, TargetContainsKey(target, "d"))
+			assert.False(t, TargetContainsKey(&target, "d"))
 		})
 	}
 }

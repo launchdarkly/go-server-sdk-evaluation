@@ -10,24 +10,25 @@ import (
 )
 
 type simpleDataProvider struct {
-	getFlag    func(string) (ldmodel.FeatureFlag, bool)
-	getSegment func(string) (ldmodel.Segment, bool)
+	getFlag    func(string) *ldmodel.FeatureFlag
+	getSegment func(string) *ldmodel.Segment
 }
 
-func (s *simpleDataProvider) GetFeatureFlag(key string) (ldmodel.FeatureFlag, bool) {
+func (s *simpleDataProvider) GetFeatureFlag(key string) *ldmodel.FeatureFlag {
 	return s.getFlag(key)
 }
 
-func (s *simpleDataProvider) GetSegment(key string) (ldmodel.Segment, bool) {
+func (s *simpleDataProvider) GetSegment(key string) *ldmodel.Segment {
 	return s.getSegment(key)
 }
 
 func (s *simpleDataProvider) withStoredFlags(flags ...ldmodel.FeatureFlag) *simpleDataProvider {
 	return &simpleDataProvider{
-		getFlag: func(key string) (ldmodel.FeatureFlag, bool) {
+		getFlag: func(key string) *ldmodel.FeatureFlag {
 			for _, f := range flags {
 				if f.Key == key {
-					return f, true
+					ff := f
+					return &ff
 				}
 			}
 			return s.getFlag(key)
@@ -38,9 +39,9 @@ func (s *simpleDataProvider) withStoredFlags(flags ...ldmodel.FeatureFlag) *simp
 
 func (s *simpleDataProvider) withNonexistentFlag(flagKey string) *simpleDataProvider {
 	return &simpleDataProvider{
-		getFlag: func(key string) (ldmodel.FeatureFlag, bool) {
+		getFlag: func(key string) *ldmodel.FeatureFlag {
 			if key == flagKey {
-				return ldmodel.FeatureFlag{}, false
+				return nil
 			}
 			return s.getFlag(key)
 		},
@@ -51,10 +52,11 @@ func (s *simpleDataProvider) withNonexistentFlag(flagKey string) *simpleDataProv
 func (s *simpleDataProvider) withStoredSegments(segments ...ldmodel.Segment) *simpleDataProvider {
 	return &simpleDataProvider{
 		getFlag: s.getFlag,
-		getSegment: func(key string) (ldmodel.Segment, bool) {
+		getSegment: func(key string) *ldmodel.Segment {
 			for _, seg := range segments {
 				if seg.Key == key {
-					return seg, true
+					ss := seg
+					return &ss
 				}
 			}
 			return s.getSegment(key)
@@ -65,9 +67,9 @@ func (s *simpleDataProvider) withStoredSegments(segments ...ldmodel.Segment) *si
 func (s *simpleDataProvider) withNonexistentSegment(segmentKey string) *simpleDataProvider {
 	return &simpleDataProvider{
 		getFlag: s.getFlag,
-		getSegment: func(key string) (ldmodel.Segment, bool) {
+		getSegment: func(key string) *ldmodel.Segment {
 			if key == segmentKey {
-				return ldmodel.Segment{}, false
+				return nil
 			}
 			return s.getSegment(key)
 		},
@@ -76,10 +78,10 @@ func (s *simpleDataProvider) withNonexistentSegment(segmentKey string) *simpleDa
 
 func basicDataProvider() *simpleDataProvider {
 	return &simpleDataProvider{
-		getFlag: func(key string) (ldmodel.FeatureFlag, bool) {
+		getFlag: func(key string) *ldmodel.FeatureFlag {
 			panic(fmt.Errorf("unexpectedly queried feature flag: %s", key))
 		},
-		getSegment: func(key string) (ldmodel.Segment, bool) {
+		getSegment: func(key string) *ldmodel.Segment {
 			panic(fmt.Errorf("unexpectedly queried segment: %s", key))
 		},
 	}

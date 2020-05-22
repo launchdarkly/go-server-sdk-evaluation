@@ -238,9 +238,6 @@ func TestUnmarshalFlagWithAllProperties(t *testing.T) {
 	flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(bytes)
 	require.NoError(t, err)
 	assert.Equal(t, flagWithAllProperties, flag)
-	assert.Equal(t, flagWithAllProperties.Key, flag.GetKey())
-	assert.Equal(t, flagWithAllProperties.Version, flag.GetVersion())
-	assert.Equal(t, flagWithAllProperties.Deleted, flag.IsDeleted())
 }
 
 func TestUnmarshalFlagWithMinimalProperties(t *testing.T) {
@@ -249,9 +246,6 @@ func TestUnmarshalFlagWithMinimalProperties(t *testing.T) {
 	flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(bytes)
 	require.NoError(t, err)
 	assert.Equal(t, flagWithMinimalProperties, flag)
-	assert.Equal(t, flagWithMinimalProperties.Key, flag.GetKey())
-	assert.Equal(t, flagWithMinimalProperties.Version, flag.GetVersion())
-	assert.Equal(t, flagWithMinimalProperties.Deleted, flag.IsDeleted())
 }
 
 func TestMarshalSegmentWithAllProperties(t *testing.T) {

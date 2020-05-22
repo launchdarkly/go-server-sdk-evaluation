@@ -121,7 +121,7 @@ func TestAllOperators(t *testing.T) {
 						c.preprocessed = preprocessClause(c)
 					}
 					user := lduser.NewUserBuilder("key").Custom(userAttr, uValue).Build()
-					isMatch := ClauseMatchesUser(c, user)
+					isMatch := ClauseMatchesUser(&c, &user)
 					assert.Equal(t, ti.expected, isMatch)
 				},
 			)

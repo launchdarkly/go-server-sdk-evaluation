@@ -14,7 +14,7 @@ func TestSegmentIncludesUser(t *testing.T) {
 			if withPreprocessing {
 				PreprocessSegment(&segment)
 			}
-			included, found := SegmentIncludesOrExcludesKey(segment, "b")
+			included, found := SegmentIncludesOrExcludesKey(&segment, "b")
 			assert.True(t, included)
 			assert.True(t, found)
 		})
@@ -28,7 +28,7 @@ func TestSegmentExcludesUser(t *testing.T) {
 			if withPreprocessing {
 				PreprocessSegment(&segment)
 			}
-			included, found := SegmentIncludesOrExcludesKey(segment, "b")
+			included, found := SegmentIncludesOrExcludesKey(&segment, "b")
 			assert.False(t, included)
 			assert.True(t, found)
 		})
@@ -42,7 +42,7 @@ func TestSegmentBothIncludesAndExcludesUser(t *testing.T) {
 			if withPreprocessing {
 				PreprocessSegment(&segment)
 			}
-			included, found := SegmentIncludesOrExcludesKey(segment, "b")
+			included, found := SegmentIncludesOrExcludesKey(&segment, "b")
 			assert.True(t, included) // include takes priority over exclude
 			assert.True(t, found)
 		})
@@ -56,7 +56,7 @@ func TestSegmentNeitherIncludesNorExcludesUser(t *testing.T) {
 			if withPreprocessing {
 				PreprocessSegment(&segment)
 			}
-			included, found := SegmentIncludesOrExcludesKey(segment, "d")
+			included, found := SegmentIncludesOrExcludesKey(&segment, "d")
 			assert.False(t, included)
 			assert.False(t, found)
 		})

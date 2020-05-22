@@ -51,17 +51,14 @@ func (env *evalBenchmarkEnv) setUp(bc evalBenchmarkCase) {
 	env.targetFlag, env.otherFlags, env.targetSegment = makeEvalBenchmarkFlagData(bc)
 
 	dataProvider := &simpleDataProvider{
-		getFlag: func(key string) (ldmodel.FeatureFlag, bool) {
-			if f, ok := env.otherFlags[key]; ok {
-				return *f, true
-			}
-			return ldmodel.FeatureFlag{}, false
+		getFlag: func(key string) *ldmodel.FeatureFlag {
+			return env.otherFlags[key]
 		},
-		getSegment: func(key string) (ldmodel.Segment, bool) {
+		getSegment: func(key string) *ldmodel.Segment {
 			if key == evalBenchmarkSegmentKey {
-				return *env.targetSegment, true
+				return env.targetSegment
 			}
-			return ldmodel.Segment{}, false
+			return nil
 		},
 	}
 	env.evaluator = NewEvaluator(dataProvider)
@@ -116,7 +113,7 @@ func benchmarkEval(b *testing.B, cases []evalBenchmarkCase, action func(*evalBen
 
 func BenchmarkEvaluationFallthrough(b *testing.B) {
 	benchmarkEval(b, makeEvalBenchmarkCases(false), func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult = env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Value.BoolValue() { // verify that we did not get a match
 			b.FailNow()
 		}
@@ -125,7 +122,7 @@ func BenchmarkEvaluationFallthrough(b *testing.B) {
 
 func BenchmarkEvaluationRuleMatch(b *testing.B) {
 	benchmarkEval(b, makeEvalBenchmarkCases(true), func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult = env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Value.BoolValue() { // verify that we got a match
 			b.FailNow()
 		}
@@ -138,7 +135,7 @@ func BenchmarkEvaluationUserFoundInTargets(b *testing.B) {
 	// not increase linearly with the length of the list.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := env.targetUsers[len(env.targetUsers)/2]
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
@@ -150,7 +147,7 @@ func BenchmarkEvaluationUsersNotFoundInTargets(b *testing.B) {
 	// which it always should be in normal usage, this is a simple map lookup and should not increase
 	// linearly with the length of the list.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
@@ -162,7 +159,7 @@ func BenchmarkEvaluationUserIncludedInSegment(b *testing.B) {
 	// time is roughly linear based on the length of the list, since we are iterating it.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := lduser.NewUser(env.targetSegment.Included[len(env.targetSegment.Included)/2])
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
@@ -174,7 +171,7 @@ func BenchmarkEvaluationUserExcludedFromSegment(b *testing.B) {
 	// time is roughly linear based on the length of the include and exclude lists, since we are iterating them.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := lduser.NewUser(env.targetSegment.Excluded[len(env.targetSegment.Excluded)/2])
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}
@@ -183,7 +180,7 @@ func BenchmarkEvaluationUserExcludedFromSegment(b *testing.B) {
 
 func BenchmarkEvaluationUserMatchedBySegmentRule(b *testing.B) {
 	benchmarkEval(b, makeSegmentRuleMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult := env.evaluator.Evaluate(*env.targetFlag, env.user, discardPrerequisiteEvents)
+		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Value.BoolValue() {
 			b.FailNow()
 		}

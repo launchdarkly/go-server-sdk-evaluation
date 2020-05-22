@@ -8,7 +8,10 @@ package ldmodel
 // internal to Evaluator, as a compromise to allow for optimizations that require storing precomputed
 // data in the model object. Exporting this function is preferable to exporting those internal
 // implementation details.
-func SegmentIncludesOrExcludesKey(s Segment, userKey string) (included bool, found bool) {
+//
+// The segment passed by reference for efficiency only; the function will not modify it. Passing a
+// nil value will cause a panic.
+func SegmentIncludesOrExcludesKey(s *Segment, userKey string) (included bool, found bool) {
 	// Check if the user is included in the segment by key
 	if s.preprocessed.includeMap == nil {
 		for _, key := range s.Included {

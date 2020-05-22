@@ -9,6 +9,10 @@
   source = "github.com/launchdarkly/go-sdk-common-private"
 
 [[constraint]]
+  name = "gopkg.in/launchdarkly/go-sdk-events.v1"
+  source = "github.com/launchdarkly/go-sdk-events-private"
+
+[[constraint]]
   name = "github.com/blang/semver"
   version = "3.5.1"
 

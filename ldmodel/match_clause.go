@@ -19,7 +19,10 @@ import (
 // internal to Evaluator, as a compromise to allow for optimizations that require storing precomputed
 // data in the model object. Exporting this function is preferable to exporting those internal
 // implementation details.
-func ClauseMatchesUser(c Clause, user lduser.User) bool {
+//
+// The clause and user are passed by reference for efficiency only; the function will not modify
+// them. Passing a nil value will cause a panic.
+func ClauseMatchesUser(c *Clause, user *lduser.User) bool {
 	uValue := user.GetAttribute(c.Attribute)
 	if uValue.IsNull() {
 		// if the user attribute is null/missing, it's an automatic non-match - regardless of c.Negate
