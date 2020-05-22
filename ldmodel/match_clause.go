@@ -33,14 +33,14 @@ func ClauseMatchesUser(c *Clause, user *lduser.User) bool {
 	// If the user value is an array, see if the intersection is non-empty. If so, this clause matches
 	if uValue.Type() == ldvalue.ArrayType {
 		for i := 0; i < uValue.Count(); i++ {
-			if matchAny(matchFn, uValue.GetByIndex(i), c.Values, c.preprocessed.values) {
+			if matchAny(c.Op, matchFn, uValue.GetByIndex(i), c.Values, c.preprocessed) {
 				return maybeNegate(c.Negate, true)
 			}
 		}
 		return maybeNegate(c.Negate, false)
 	}
 
-	return maybeNegate(c.Negate, matchAny(matchFn, uValue, c.Values, c.preprocessed.values))
+	return maybeNegate(c.Negate, matchAny(c.Op, matchFn, uValue, c.Values, c.preprocessed))
 }
 
 func maybeNegate(negate, result bool) bool {
@@ -50,11 +50,23 @@ func maybeNegate(negate, result bool) bool {
 	return result
 }
 
-func matchAny(fn opFn, value ldvalue.Value, values []ldvalue.Value, preprocessedValues []clausePreprocessedValue) bool {
+func matchAny(
+	op Operator,
+	fn opFn,
+	value ldvalue.Value,
+	values []ldvalue.Value,
+	preprocessed clausePreprocessedData,
+) bool {
+	if op == OperatorIn && preprocessed.valuesMap != nil {
+		if key := asPrimitiveValueKey(value); key.isValid() { // see preprocessClausee
+			return preprocessed.valuesMap[key]
+		}
+	}
+	preValues := preprocessed.values
 	for i, v := range values {
 		var p clausePreprocessedValue
-		if preprocessedValues != nil {
-			p = preprocessedValues[i] // this slice is always the same length as values
+		if preValues != nil {
+			p = preValues[i] // this slice is always the same length as values
 		}
 		if fn(value, v, p) {
 			return true
