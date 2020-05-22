@@ -104,8 +104,9 @@ func preprocessClause(c Clause) clausePreprocessedData {
 	switch c.Op {
 	case OperatorIn:
 		// This is a special case where the clause is testing for an exact match against any of the
-		// clause values. As long as the values are primitives, we can use them in a map key, and we
-		// can convert this test from a linear search to a map lookup.
+		// clause values. As long as the values are primitives, we can use them in a map key (map
+		// keys just can't contain slices or maps), and we can convert this test from a linear search
+		// to a map lookup.
 		if len(c.Values) > 1 { // don't bother if it's empty or has a single value
 			valid := true
 			m := make(map[jsonPrimitiveValueKey]bool, len(c.Values))
