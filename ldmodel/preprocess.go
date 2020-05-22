@@ -18,7 +18,8 @@ type segmentPreprocessedData struct {
 }
 
 type clausePreprocessedData struct {
-	values []clausePreprocessedValue
+	values    []clausePreprocessedValue
+	valuesMap map[jsonPrimitiveValueKey]bool
 }
 
 type clausePreprocessedValue struct {
@@ -27,6 +28,17 @@ type clausePreprocessedValue struct {
 	parsedRegexp *regexp.Regexp // used for OperatorMatches
 	parsedTime   time.Time      // used for OperatorAfter, OperatorBefore
 	parsedSemver semver.Version // used for OperatorSemVerEqual, etc.
+}
+
+type jsonPrimitiveValueKey struct {
+	valueType    ldvalue.ValueType
+	booleanValue bool
+	numberValue  float64
+	stringValue  string
+}
+
+func (j jsonPrimitiveValueKey) isValid() bool {
+	return j.valueType != ldvalue.NullType
 }
 
 // PreprocessFlag precomputes internal data structures based on the flag configuration, to speed up
@@ -90,6 +102,25 @@ func preprocessTarget(t Target) targetPreprocessedData {
 func preprocessClause(c Clause) clausePreprocessedData {
 	ret := clausePreprocessedData{}
 	switch c.Op {
+	case OperatorIn:
+		// This is a special case where the clause is testing for an exact match against any of the
+		// clause values. As long as the values are primitives, we can use them in a map key, and we
+		// can convert this test from a linear search to a map lookup.
+		if len(c.Values) > 1 { // don't bother if it's empty or has a single value
+			valid := true
+			m := make(map[jsonPrimitiveValueKey]bool, len(c.Values))
+			for _, v := range c.Values {
+				if key := asPrimitiveValueKey(v); key.isValid() {
+					m[key] = true
+				} else {
+					valid = false
+					break
+				}
+			}
+			if valid {
+				ret.valuesMap = m
+			}
+		}
 	case OperatorMatches:
 		ret.values = preprocessValues(c.Values, func(v ldvalue.Value) clausePreprocessedValue {
 			r, ok := parseRegexp(v)
@@ -108,6 +139,19 @@ func preprocessClause(c Clause) clausePreprocessedData {
 	default:
 	}
 	return ret
+}
+
+func asPrimitiveValueKey(v ldvalue.Value) jsonPrimitiveValueKey {
+	switch v.Type() {
+	case ldvalue.BoolType:
+		return jsonPrimitiveValueKey{valueType: ldvalue.BoolType, booleanValue: v.BoolValue()}
+	case ldvalue.NumberType:
+		return jsonPrimitiveValueKey{valueType: ldvalue.NumberType, numberValue: v.Float64Value()}
+	case ldvalue.StringType:
+		return jsonPrimitiveValueKey{valueType: ldvalue.StringType, stringValue: v.StringValue()}
+	default:
+		return jsonPrimitiveValueKey{}
+	}
 }
 
 func preprocessValues(

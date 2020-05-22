@@ -36,6 +36,102 @@ func TestPreprocessFlagBuildsTargetMap(t *testing.T) {
 	assert.True(t, f.Targets[1].preprocessed.valuesMap["b"])
 }
 
+func TestPreprocessFlagCreatesClauseValuesMapForMultiValueEqualityTest(t *testing.T) {
+	f := FeatureFlag{
+		Rules: []FlagRule{
+			{
+				Clauses: []Clause{
+					{
+						Op:     OperatorIn,
+						Values: []ldvalue.Value{ldvalue.Bool(true), ldvalue.String("a"), ldvalue.Int(0)},
+					},
+				},
+			},
+		},
+	}
+
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+
+	PreprocessFlag(&f)
+
+	m := f.Rules[0].Clauses[0].preprocessed.valuesMap
+	require.Len(t, m, 3)
+
+	assert.True(t, m[asPrimitiveValueKey(ldvalue.Bool(true))])
+	assert.False(t, m[asPrimitiveValueKey(ldvalue.Bool(false))])
+	assert.True(t, m[asPrimitiveValueKey(ldvalue.String("a"))])
+	assert.False(t, m[asPrimitiveValueKey(ldvalue.String("b"))])
+	assert.True(t, m[asPrimitiveValueKey(ldvalue.Int(0))])
+	assert.True(t, m[asPrimitiveValueKey(ldvalue.Float64(0))]) // the canonical value of this is the same as Int(0)
+	assert.False(t, m[asPrimitiveValueKey(ldvalue.Int(1))])
+}
+
+func TestPreprocessFlagDoesNotCreateClauseValuesMapForSingleValueEqualityTest(t *testing.T) {
+	f := FeatureFlag{
+		Rules: []FlagRule{
+			{
+				Clauses: []Clause{
+					{
+						Op:     OperatorIn,
+						Values: []ldvalue.Value{ldvalue.String("a")},
+					},
+				},
+			},
+		},
+	}
+
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+
+	PreprocessFlag(&f)
+
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+}
+
+func TestPreprocessFlagDoesNotCreateClauseValuesMapForEmptyEqualityTest(t *testing.T) {
+	f := FeatureFlag{
+		Rules: []FlagRule{
+			{Clauses: []Clause{{Op: OperatorIn, Values: []ldvalue.Value{}}}},
+		},
+	}
+
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+
+	PreprocessFlag(&f)
+
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+}
+
+func TestPreprocessFlagDoesNotCreateClauseValuesMapForNonEqualityOperators(t *testing.T) {
+	ops := []Operator{
+		OperatorEndsWith, OperatorStartsWith, OperatorMatches, OperatorContains, OperatorLessThan,
+		OperatorLessThanOrEqual, OperatorGreaterThan, OperatorGreaterThanOrEqual, OperatorBefore,
+		OperatorAfter, OperatorSegmentMatch, OperatorSemVerEqual, OperatorSemVerLessThan,
+		OperatorSemVerGreaterThan,
+	}
+
+	values := []ldvalue.Value{ldvalue.String("a"), ldvalue.String("b")}
+	// The values & types aren't very important here because we won't actually evaluate the clause; all that
+	// matters is that they're primitives and there's more than one of them, so that it *would* build a map
+	// if the operator were OperatorIn
+	for _, op := range ops {
+		t.Run(string(op), func(t *testing.T) {
+			f := FeatureFlag{
+				Rules: []FlagRule{
+					{
+						Clauses: []Clause{{Op: op, Values: values}},
+					},
+				},
+			}
+
+			assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+
+			PreprocessFlag(&f)
+
+			assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+		})
+	}
+}
+
 func TestPreprocessFlagParsesClauseRegex(t *testing.T) {
 	f := FeatureFlag{
 		Rules: []FlagRule{
