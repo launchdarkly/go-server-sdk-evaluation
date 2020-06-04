@@ -17,6 +17,7 @@ clean:
 	go clean
 
 test:
+	go get -t ./...
 	go test -race -v ./...
 
 benchmarks:
