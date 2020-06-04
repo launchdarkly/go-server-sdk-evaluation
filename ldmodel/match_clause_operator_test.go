@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
-
-	"github.com/stretchr/testify/assert"
 )
 
 const dateStr1 = "2017-12-06T00:00:00.000-07:00"

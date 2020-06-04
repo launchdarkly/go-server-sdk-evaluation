@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/blang/semver"
+
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
