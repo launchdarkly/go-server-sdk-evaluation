@@ -77,9 +77,9 @@ func matchAny(
 
 type opFn (func(userValue ldvalue.Value, clauseValue ldvalue.Value, preprocessed clausePreprocessedValue) bool)
 
-var versionNumericComponentsRegex = regexp.MustCompile(`^\d+(\.\d+)?(\.\d+)?`)
+var versionNumericComponentsRegex = regexp.MustCompile(`^\d+(\.\d+)?(\.\d+)?`) //nolint:gochecknoglobals
 
-var allOps = map[Operator]opFn{
+var allOps = map[Operator]opFn{ //nolint:gochecknoglobals
 	OperatorIn:                 operatorInFn,
 	OperatorEndsWith:           operatorEndsWithFn,
 	OperatorStartsWith:         operatorStartsWithFn,
