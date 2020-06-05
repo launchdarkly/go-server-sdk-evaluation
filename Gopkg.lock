@@ -46,7 +46,7 @@
 
 [[projects]]
   branch = "v2"
-  digest = "1:843acf85cd9b3f31a19d08ab5d9b81dbfc62cec9fefc0ea58ecb6a419c373696"
+  digest = "1:5f4850b7ae9547377ff482606cb06bf52a079200cc2d24b9e738fb30da6f5975"
   name = "gopkg.in/launchdarkly/go-sdk-common.v2"
   packages = [
     "ldlog",
@@ -56,17 +56,15 @@
     "ldvalue",
   ]
   pruneopts = "NUT"
-  revision = "82ce33603569b535e92951a86a2cdd8793a83546"
-  source = "github.com/launchdarkly/go-sdk-common-private"
+  revision = "9d571f47a7aede45d1a1162c7e1bd3244ef1133b"
 
 [[projects]]
   branch = "v1"
-  digest = "1:1b4bd9b27121851677376ac0f0ee64a127610743304eb9772e7311d06d470e1c"
+  digest = "1:25b86a1a4d61aa052331c2f6bf62324884af4ce1b03b96db904fb04de4d6386a"
   name = "gopkg.in/launchdarkly/go-sdk-events.v1"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "f6c971eb836273e5a4f8072fe33d5bfbecf42da1"
-  source = "github.com/launchdarkly/go-sdk-events-private"
+  revision = "335433cdd623d4ba48739b92990b528b4e6835a0"
 
 [[projects]]
   digest = "1:d9b9ac6943a512737f76bf3d61b08d97121c66686bc02ffc231313563230b468"
