@@ -43,9 +43,9 @@ jobs:
       - run: go get -u $COMMON_GO_PACKAGES
       - run: make build
       - when:
-        condition: <<parameters.run-lint>>
-        steps:
-          - run: make lint
+          condition: <<parameters.run-lint>>
+          steps:
+            - run: make lint
     
       - run:
           name: Run tests
