@@ -28,7 +28,7 @@ test:
 	go test -race -v ./...
 
 test-coverage: $(COVERAGE_PROFILE_RAW)
-	if [ -z "$(which go-coverage-enforcer)" ]; then go get github.com/eli-darkly/go-coverage-enforcer; fi
+	if [ -z "$(which go-coverage-enforcer)" ]; then go get github.com/launchdarkly-labs/go-coverage-enforcer; fi
 	go-coverage-enforcer -package gopkg.in/launchdarkly/go-server-sdk-evaluation.v1 -skipcode "// COVERAGE" -showcode -outprofile $(COVERAGE_PROFILE_FILTERED) $(COVERAGE_PROFILE_RAW)
 	go tool cover -html $(COVERAGE_PROFILE_FILTERED) -o $(COVERAGE_PROFILE_FILTERED_HTML)
 	go tool cover -html $(COVERAGE_PROFILE_RAW) -o $(COVERAGE_PROFILE_RAW_HTML)
