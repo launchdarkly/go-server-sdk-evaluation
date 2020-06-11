@@ -10,6 +10,7 @@ COVERAGE_PROFILE_RAW=./build/coverage_raw.out
 COVERAGE_PROFILE_RAW_HTML=./build/coverage_raw.html
 COVERAGE_PROFILE_FILTERED=./build/coverage.out
 COVERAGE_PROFILE_FILTERED_HTML=./build/coverage.html
+COVERAGE_ENFORCER_FLAGS=-package gopkg.in/launchdarkly/go-server-sdk-evaluation.v1 -skipcode "// COVERAGE" -packagestats -filestats -showcode
 
 TEST_BINARY=./go-server-sdk-evaluation.test
 ALLOCATIONS_LOG=./allocations.out
@@ -29,13 +30,13 @@ test:
 
 test-coverage: $(COVERAGE_PROFILE_RAW)
 	if [ -z "$(which go-coverage-enforcer)" ]; then go get github.com/launchdarkly-labs/go-coverage-enforcer; fi
-	go-coverage-enforcer -package gopkg.in/launchdarkly/go-server-sdk-evaluation.v1 -skipcode "// COVERAGE" -showcode -outprofile $(COVERAGE_PROFILE_FILTERED) $(COVERAGE_PROFILE_RAW)
+	go-coverage-enforcer $(COVERAGE_ENFORCER_FLAGS) -outprofile $(COVERAGE_PROFILE_FILTERED) $(COVERAGE_PROFILE_RAW)
 	go tool cover -html $(COVERAGE_PROFILE_FILTERED) -o $(COVERAGE_PROFILE_FILTERED_HTML)
 	go tool cover -html $(COVERAGE_PROFILE_RAW) -o $(COVERAGE_PROFILE_RAW_HTML)
 
 $(COVERAGE_PROFILE_RAW): $(ALL_SOURCES)
-	mkdir -p ./build
-	go test -coverprofile $(COVERAGE_PROFILE_RAW) ./...
+	@mkdir -p ./build
+	go test -coverprofile $(COVERAGE_PROFILE_RAW) ./... >/dev/null
 
 benchmarks:
 	go test -benchmem '-run=^$$' -bench .
