@@ -12,10 +12,7 @@ import (
 func parseDateTime(value ldvalue.Value) (time.Time, bool) {
 	switch value.Type() {
 	case ldvalue.StringType:
-		t, err := time.Parse(time.RFC3339Nano, value.StringValue())
-		if err == nil {
-			return t.UTC(), true
-		}
+		return parseRFC3339TimeUTC(value.StringValue())
 	case ldvalue.NumberType:
 		return unixMillisToUtcTime(value.Float64Value()), true
 	}

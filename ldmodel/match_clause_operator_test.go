@@ -200,6 +200,7 @@ func TestParseTimestampBeforeEpoch(t *testing.T) {
 }
 
 func testParseTime(t *testing.T, input interface{}, expected time.Time) {
+	expectedUTC := expected.UTC()
 	value := ldvalue.CopyArbitraryValue(input)
 	actual, ok := parseDateTime(value)
 	if !ok {
@@ -207,7 +208,7 @@ func testParseTime(t *testing.T, input interface{}, expected time.Time) {
 		return
 	}
 
-	if !actual.Equal(expected) {
-		t.Errorf("Got unexpected result: %+v Expected: %+v when parsing: %s", actual, expected, value)
+	if !actual.Equal(expectedUTC) {
+		t.Errorf("Got unexpected result: %+v Expected: %+v when parsing: %s", actual, expectedUTC, value)
 	}
 }
