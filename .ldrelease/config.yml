@@ -5,6 +5,9 @@ repo:
 releasableBranches:
   - name: v1
 
+template:
+  name: go
+
 publications:
   - url: https://godoc.org/github.com/launchdarkly/go-server-sdk-evaluation
     description: documentation
