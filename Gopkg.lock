@@ -2,14 +2,6 @@
 
 
 [[projects]]
-  digest = "1:45c41cd27a8d986998680bfc86da0bbff5fa4f90d0f446c00636c8b099028ffe"
-  name = "github.com/blang/semver"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "ba2c2ddd89069b46a7011d4106f6868f17ee1705"
-  version = "v3.6.1"
-
-[[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -24,6 +16,14 @@
   pruneopts = "NUT"
   revision = "0cd6bf5da1e1c83f8b45653022c74f71af0538a4"
   version = "v1.1.1"
+
+[[projects]]
+  branch = "eb/ch79213/new-semver"
+  digest = "1:3dbb1d4d0cf5a3808d7ed3ef79ee3b65e3b4e605cb42deae92c847d6b933b90a"
+  name = "github.com/launchdarkly/go-semver"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "0d153a2c6918f02a42a2c373c8be4b2085248b95"
 
 [[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
@@ -78,7 +78,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/blang/semver",
+    "github.com/launchdarkly/go-semver",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "gopkg.in/launchdarkly/go-sdk-common.v2/ldreason",
