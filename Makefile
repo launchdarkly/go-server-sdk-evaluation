@@ -18,14 +18,12 @@ ALLOCATIONS_LOG=./allocations.out
 .PHONY: build clean test lint test-coverage benchmarks benchmark-allocs
 
 build:
-	go get ./...
 	go build ./...
 
 clean:
 	go clean
 
 test:
-	go get -t ./...
 	go test -race -v ./...
 
 test-coverage: $(COVERAGE_PROFILE_RAW)

@@ -14,9 +14,9 @@ We encourage pull requests and other contributions from the community. Before su
  
 ### Prerequisites
  
-This project should be built against Go 1.8 or newer.
+This project should be built against Go 1.13 or newer.
 
-Note that the public import path is `gopkg.in/launchdarkly/go-server-sdk-evaluation.v1` (using the [`gopkg.in`](https://labix.org/gopkg.in) service as a simple way to pin to a major version). Since it does not use Go modules, and it references its own import path in imports between packages, this means that in order to build it you must check it out at `$GOPATH/src/gopkg.in/launchdarkly/go-server-sdk-evaluation.v1`-- not `$GOPATH/src/github.com/launchdarkly/go-server-sdk-evaluation`.
+Note that the public import path is `gopkg.in/launchdarkly/go-server-sdk-evaluation.v1` (using the [`gopkg.in`](https://labix.org/gopkg.in) service as a simple way to pin to a major version, when used by non-module projects).
 
 ### Building
 
