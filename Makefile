@@ -37,7 +37,7 @@ $(COVERAGE_PROFILE_RAW): $(ALL_SOURCES)
 	go test -coverprofile $(COVERAGE_PROFILE_RAW) ./... >/dev/null
 
 benchmarks:
-	go test -benchmem '-run=^$$' -bench .
+	go test -benchmem '-run=^$$' '-bench=.*' ./...
 
 # See CONTRIBUTING.md regarding the use of the benchmark-allocs target. Notes about this implementation:
 # 1. We precompile the test code because otherwise the allocation traces will include the actions of the compiler itself.
