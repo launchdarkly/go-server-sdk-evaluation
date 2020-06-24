@@ -4,24 +4,40 @@ GOLANGCI_LINT_VERSION=v1.27.0
 LINTER=./bin/golangci-lint
 LINTER_VERSION_FILE=./bin/.golangci-lint-version-$(GOLANGCI_LINT_VERSION)
 
+ALL_SOURCES := $(shell find * -type f -name "*.go")
+
+COVERAGE_PROFILE_RAW=./build/coverage_raw.out
+COVERAGE_PROFILE_RAW_HTML=./build/coverage_raw.html
+COVERAGE_PROFILE_FILTERED=./build/coverage.out
+COVERAGE_PROFILE_FILTERED_HTML=./build/coverage.html
+COVERAGE_ENFORCER_FLAGS=-package gopkg.in/launchdarkly/go-server-sdk-evaluation.v1 -skipcode "// COVERAGE" -packagestats -filestats -showcode
+
 TEST_BINARY=./go-server-sdk-evaluation.test
 ALLOCATIONS_LOG=./allocations.out
 
-.PHONY: build clean test lint benchmarks benchmark-allocs
+.PHONY: build clean test lint test-coverage benchmarks benchmark-allocs
 
 build:
-	go get ./...
 	go build ./...
 
 clean:
 	go clean
 
 test:
-	go get -t ./...
 	go test -race -v ./...
 
+test-coverage: $(COVERAGE_PROFILE_RAW)
+	if [ -z "$(which go-coverage-enforcer)" ]; then go get github.com/launchdarkly-labs/go-coverage-enforcer; fi
+	go-coverage-enforcer $(COVERAGE_ENFORCER_FLAGS) -outprofile $(COVERAGE_PROFILE_FILTERED) $(COVERAGE_PROFILE_RAW)
+	go tool cover -html $(COVERAGE_PROFILE_FILTERED) -o $(COVERAGE_PROFILE_FILTERED_HTML)
+	go tool cover -html $(COVERAGE_PROFILE_RAW) -o $(COVERAGE_PROFILE_RAW_HTML)
+
+$(COVERAGE_PROFILE_RAW): $(ALL_SOURCES)
+	@mkdir -p ./build
+	go test -coverprofile $(COVERAGE_PROFILE_RAW) ./... >/dev/null
+
 benchmarks:
-	go test -benchmem '-run=^$$' -bench .
+	go test -benchmem '-run=^$$' '-bench=.*' ./...
 
 # See CONTRIBUTING.md regarding the use of the benchmark-allocs target. Notes about this implementation:
 # 1. We precompile the test code because otherwise the allocation traces will include the actions of the compiler itself.

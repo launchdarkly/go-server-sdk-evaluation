@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/blang/semver"
+	"github.com/launchdarkly/go-semver"
 
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
@@ -12,10 +12,7 @@ import (
 func parseDateTime(value ldvalue.Value) (time.Time, bool) {
 	switch value.Type() {
 	case ldvalue.StringType:
-		t, err := time.Parse(time.RFC3339Nano, value.StringValue())
-		if err == nil {
-			return t.UTC(), true
-		}
+		return parseRFC3339TimeUTC(value.StringValue())
 	case ldvalue.NumberType:
 		return unixMillisToUtcTime(value.Float64Value()), true
 	}
@@ -38,22 +35,8 @@ func parseRegexp(value ldvalue.Value) (*regexp.Regexp, bool) {
 func parseSemVer(value ldvalue.Value) (semver.Version, bool) {
 	if value.Type() == ldvalue.StringType {
 		versionStr := value.StringValue()
-		if sv, err := semver.Parse(versionStr); err == nil {
+		if sv, err := semver.ParseAs(versionStr, semver.ParseModeAllowMissingMinorAndPatch); err == nil {
 			return sv, true
-		}
-		// Failed to parse as-is; see if we can fix it by adding zeroes
-		matchParts := versionNumericComponentsRegex.FindStringSubmatch(versionStr)
-		if matchParts != nil {
-			transformedVersionStr := matchParts[0]
-			for i := 1; i < len(matchParts); i++ {
-				if matchParts[i] == "" {
-					transformedVersionStr += ".0"
-				}
-			}
-			transformedVersionStr += versionStr[len(matchParts[0]):]
-			if sv, err := semver.Parse(transformedVersionStr); err == nil {
-				return sv, true
-			}
 		}
 	}
 	return semver.Version{}, false

@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
-
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
@@ -77,8 +75,6 @@ func matchAny(
 }
 
 type opFn (func(userValue ldvalue.Value, clauseValue ldvalue.Value, preprocessed clausePreprocessedValue) bool)
-
-var versionNumericComponentsRegex = regexp.MustCompile(`^\d+(\.\d+)?(\.\d+)?`) //nolint:gochecknoglobals
 
 var allOps = map[Operator]opFn{ //nolint:gochecknoglobals
 	OperatorIn:                 operatorInFn,
@@ -207,13 +203,13 @@ func semVerOperator(
 	uValue ldvalue.Value,
 	cValue ldvalue.Value,
 	preprocessed clausePreprocessedValue,
-	fn func(semver.Version, semver.Version) bool,
+	expectedComparisonResult int,
 ) bool {
 	if preprocessed.computed {
 		// we have already tried to parse the clause value as a version
 		if preprocessed.valid {
 			if uVer, ok := parseSemVer(uValue); ok {
-				return fn(uVer, preprocessed.parsedSemver)
+				return uVer.ComparePrecedence(preprocessed.parsedSemver) == expectedComparisonResult
 			}
 		}
 		return false
@@ -221,18 +217,18 @@ func semVerOperator(
 	// the clause did not get preprocessed, so we'll evaluate from scratch
 	if u, ok := parseSemVer(uValue); ok {
 		if c, ok := parseSemVer(cValue); ok {
-			return fn(u, c)
+			return u.ComparePrecedence(c) == expectedComparisonResult
 		}
 	}
 	return false
 }
 
 func operatorSemVerEqualFn(uValue ldvalue.Value, cValue ldvalue.Value, preprocessed clausePreprocessedValue) bool {
-	return semVerOperator(uValue, cValue, preprocessed, semver.Version.Equals)
+	return semVerOperator(uValue, cValue, preprocessed, 0)
 }
 
 func operatorSemVerLessThanFn(uValue ldvalue.Value, cValue ldvalue.Value, preprocessed clausePreprocessedValue) bool {
-	return semVerOperator(uValue, cValue, preprocessed, semver.Version.LT)
+	return semVerOperator(uValue, cValue, preprocessed, -1)
 }
 
 func operatorSemVerGreaterThanFn(
@@ -240,7 +236,7 @@ func operatorSemVerGreaterThanFn(
 	cValue ldvalue.Value,
 	preprocessed clausePreprocessedValue,
 ) bool {
-	return semVerOperator(uValue, cValue, preprocessed, semver.Version.GT)
+	return semVerOperator(uValue, cValue, preprocessed, 1)
 }
 
 func operatorNoneFn(uValue ldvalue.Value, cValue ldvalue.Value, preprocessed clausePreprocessedValue) bool {

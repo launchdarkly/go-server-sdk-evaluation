@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/blang/semver"
+	"github.com/launchdarkly/go-semver"
 
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
