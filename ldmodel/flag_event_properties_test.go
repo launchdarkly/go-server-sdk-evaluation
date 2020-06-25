@@ -33,7 +33,7 @@ func TestGetDebugEventsUntilDate(t *testing.T) {
 	assert.Equal(t, ldtime.UnixMillisecondTime(0), asFlagEventProperties(flag1).GetDebugEventsUntilDate())
 
 	date := ldtime.UnixMillisecondTime(100000)
-	flag2 := FeatureFlag{Key: "key", DebugEventsUntilDate: &date}
+	flag2 := FeatureFlag{Key: "key", DebugEventsUntilDate: date}
 	assert.Equal(t, date, asFlagEventProperties(flag2).GetDebugEventsUntilDate())
 }
 

@@ -117,10 +117,10 @@ func (es *evaluationScope) getVariation(index int, reason ldreason.EvaluationRea
 }
 
 func (es *evaluationScope) getOffValue(reason ldreason.EvaluationReason) ldreason.EvaluationDetail {
-	if es.flag.OffVariation == nil {
+	if es.flag.OffVariation < 0 {
 		return ldreason.NewEvaluationDetail(ldvalue.Null(), -1, reason)
 	}
-	return es.getVariation(*es.flag.OffVariation, reason)
+	return es.getVariation(es.flag.OffVariation, reason)
 }
 
 func (es *evaluationScope) getValueForVariationOrRollout(
@@ -166,26 +166,22 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
 }
 
 func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, key, salt string) int {
-	if r.Variation != nil {
-		return *r.Variation
+	if r.Variation >= 0 {
+		return r.Variation
 	}
-	if r.Rollout == nil {
+	if len(r.Rollout.Variations) == 0 {
 		// This is an error (malformed flag); either Variation or Rollout must be non-nil.
 		return -1
 	}
 
 	bucketBy := lduser.KeyAttribute
-	if r.Rollout.BucketBy != nil {
-		bucketBy = *r.Rollout.BucketBy
+	if r.Rollout.BucketBy != "" {
+		bucketBy = r.Rollout.BucketBy
 	}
 
 	var bucket = es.bucketUser(key, bucketBy, salt)
 	var sum float32
 
-	if len(r.Rollout.Variations) == 0 {
-		// This is an error (malformed flag); there must be at least one weighted variation.
-		return -1
-	}
 	for _, wv := range r.Rollout.Variations {
 		sum += float32(wv.Weight) / 100000.0
 		if bucket < sum {

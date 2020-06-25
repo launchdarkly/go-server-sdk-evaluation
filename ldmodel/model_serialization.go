@@ -1,9 +1,5 @@
 package ldmodel
 
-import (
-	"encoding/json"
-)
-
 // DataModelSerialization defines an encoding for SDK data model objects.
 //
 // For the default JSON encoding used by LaunchDarkly SDKs, use NewJSONDataModelSerialization.
@@ -31,27 +27,49 @@ func NewJSONDataModelSerialization() DataModelSerialization {
 }
 
 func (s jsonDataModelSerialization) MarshalFeatureFlag(item FeatureFlag) ([]byte, error) {
-	return json.Marshal(item)
+	return marshalFeatureFlag(item)
 }
 
 func (s jsonDataModelSerialization) MarshalSegment(item Segment) ([]byte, error) {
-	return json.Marshal(item)
+	return marshalSegment(item)
 }
 
 func (s jsonDataModelSerialization) UnmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
-	var item FeatureFlag
-	err := json.Unmarshal(data, &item)
-	if err == nil {
-		PreprocessFlag(&item)
-	}
-	return item, err
+	return unmarshalFeatureFlag(data)
 }
 
 func (s jsonDataModelSerialization) UnmarshalSegment(data []byte) (Segment, error) {
-	var item Segment
-	err := json.Unmarshal(data, &item)
+	return unmarshalSegment(data)
+}
+
+// MarshalJSON overrides the default json.Marshal behavior to provide the same marshalling behavior that is
+// used by NewJSONDataModelSerialization().
+func (f FeatureFlag) MarshalJSON() ([]byte, error) {
+	return marshalFeatureFlag(f)
+}
+
+// MarshalJSON overrides the default json.Marshal behavior to provide the same marshalling behavior that is
+// used by NewJSONDataModelSerialization().
+func (s Segment) MarshalJSON() ([]byte, error) {
+	return marshalSegment(s)
+}
+
+// UnmarshalJSON overrides the default json.Unmarshal behavior to provide the same unmarshalling behavior that
+// is used by NewJSONDataModelSerialization().
+func (f *FeatureFlag) UnmarshalJSON(data []byte) error {
+	result, err := unmarshalFeatureFlag(data)
 	if err == nil {
-		PreprocessSegment(&item)
+		*f = result
 	}
-	return item, err
+	return err
+}
+
+// UnmarshalJSON overrides the default json.Unmarshal behavior to provide the same unmarshalling behavior that
+// is used by NewJSONDataModelSerialization().
+func (s *Segment) UnmarshalJSON(data []byte) error {
+	result, err := unmarshalSegment(data)
+	if err == nil {
+		*s = result
+	}
+	return err
 }

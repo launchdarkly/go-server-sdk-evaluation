@@ -7,6 +7,11 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
 
+const (
+	// NoVariation represents the lack of a variation index (for FeatureFlag.OffVariation, etc.).
+	NoVariation = -1
+)
+
 // FeatureFlag describes an individual feature flag.
 //
 // The fields of this struct are exported for use by LaunchDarkly internal components. Application code
@@ -14,42 +19,43 @@ import (
 // SDK endpoints in JSON form and can be deserialized using the DataModelSerialization interface.
 type FeatureFlag struct {
 	// Key is the unique string key of the feature flag.
-	Key string `json:"key" bson:"key"`
+	Key string
 	// On is true if targeting is turned on for this flag.
 	//
 	// If On is false, the evaluator always uses OffVariation and ignores all other fields.
-	On bool `json:"on" bson:"on"`
+	On bool
 	// Prerequisites is a list of feature flag conditions that are prerequisites for this flag.
 	//
 	// If any prerequisite is not met, the flag behaves as if targeting is turned off.
-	Prerequisites []Prerequisite `json:"prerequisites" bson:"prerequisites"`
+	Prerequisites []Prerequisite
 	// Targets contains sets of individually targeted users.
 	//
 	// Targets take precedence over Rules: if a user is matched by any Target, the Rules are ignored.
 	// Targets are ignored if targeting is turned off.
-	Targets []Target `json:"targets" bson:"targets"`
+	Targets []Target
 	// Rules is a list of rules that may match a user.
 	//
 	// If a user is matched by a Rule, all subsequent Rules in the list are skipped. Rules are ignored
 	// if targeting is turned off.
-	Rules []FlagRule `json:"rules" bson:"rules"`
+	Rules []FlagRule
 	// Fallthrough defines the flag's behavior if targeting is turned on but the user is not matched
 	// by any Target or Rule.
-	Fallthrough VariationOrRollout `json:"fallthrough" bson:"fallthrough"`
+	Fallthrough VariationOrRollout
 	// OffVariation specifies the variation index to use if targeting is turned off.
 	//
-	// If this is nil, Evaluate returns nil for the variation index and ldvalue.Null() for the value.
-	OffVariation *int `json:"offVariation" bson:"offVariation"`
+	// If this is NoVariation, Evaluate returns NoVariation for the variation index and ldvalue.Null()
+	// for the value.
+	OffVariation int
 	// Variations is the list of all allowable variations for this flag. The variation index in a
 	// Target or Rule is a zero-based index to this list.
-	Variations []ldvalue.Value `json:"variations" bson:"variations"`
+	Variations []ldvalue.Value
 	// ClientSide is true if this flag is available to the LaunchDarkly client-side JavaScript SDKs.
-	ClientSide bool `json:"clientSide" bson:"-"`
+	ClientSide bool
 	// Salt is a randomized value assigned to this flag when it is created.
 	//
 	// The hash function used for calculating percentage rollouts uses this as a salt to ensure that
 	// rollouts are consistent within each flag but not predictable from one flag to another.
-	Salt string `json:"salt" bson:"salt"`
+	Salt string
 	// TrackEvents is used internally by the SDK analytics event system.
 	//
 	// This field is true if the current LaunchDarkly account has data export enabled, and has turned on
@@ -58,7 +64,7 @@ type FeatureFlag struct {
 	//
 	// The go-server-sdk-evaluation package does not implement that behavior; it is only in the data
 	// model for use by the SDK.
-	TrackEvents bool `json:"trackEvents" bson:"trackEvents"`
+	TrackEvents bool
 	// TrackEventsFallthrough is used internally by the SDK analytics event system.
 	//
 	// This field is true if the current LaunchDarkly account has experimentation enabled, has associated
@@ -68,24 +74,24 @@ type FeatureFlag struct {
 	//
 	// The go-server-sdk-evaluation package does not implement that behavior; it is only in the data
 	// model for use by the SDK.
-	TrackEventsFallthrough bool `json:"trackEventsFallthrough" bson:"trackEventsFallthrough"`
+	TrackEventsFallthrough bool
 	// DebugEventsUntilDate is used internally by the SDK analytics event system.
 	//
-	// This field is non-nil if debugging for this flag has been turned on temporarily in the
+	// This field is non-zero if debugging for this flag has been turned on temporarily in the
 	// LaunchDarkly dashboard. Debugging always is for a limited time, so the field specifies a Unix
 	// millisecond timestamp when this mode should expire. Until then, the SDK will send full event data
 	// for each evaluation of this flag.
 	//
 	// The go-server-sdk-evaluation package does not implement that behavior; it is only in the data
 	// model for use by the SDK.
-	DebugEventsUntilDate *ldtime.UnixMillisecondTime `json:"debugEventsUntilDate" bson:"debugEventsUntilDate"`
+	DebugEventsUntilDate ldtime.UnixMillisecondTime
 	// Version is an integer that is incremented by LaunchDarkly every time the configuration of the flag is
 	// changed.
-	Version int `json:"version" bson:"version"`
+	Version int
 	// Deleted is true if this is not actually a feature flag but rather a placeholder (tombstone) for a
 	// deleted flag. This is only relevant in data store implementations. The SDK does not evaluate
 	// deleted flags.
-	Deleted bool `json:"deleted" bson:"deleted"`
+	Deleted bool
 }
 
 // GetKey returns the string key for the flag.
@@ -114,12 +120,9 @@ func (f *FeatureFlag) IsFullEventTrackingEnabled() bool {
 // it returns the time at which debugging mode should expire.
 //
 // This method exists in order to conform to interfaces used internally by the SDK
-// (go-sdk-events.v1/FlagEventProperties). It simply returns DebugEventsUntilDate, with nil converted to zero.
+// (go-sdk-events.v1/FlagEventProperties). It simply returns DebugEventsUntilDate.
 func (f *FeatureFlag) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
-	if f.DebugEventsUntilDate == nil {
-		return 0
-	}
-	return *f.DebugEventsUntilDate
+	return f.DebugEventsUntilDate
 }
 
 // IsExperimentationEnabled returns true if, based on the EvaluationReason returned by the flag evaluation, an event for
@@ -153,14 +156,14 @@ func (f *FeatureFlag) IsExperimentationEnabled(reason ldreason.EvaluationReason)
 type FlagRule struct {
 	// VariationRollout properties for a FlagRule define what variation to return if the user matches
 	// this rule.
-	VariationOrRollout `bson:",inline"`
+	VariationOrRollout
 	// ID is a randomized identifier assigned to each rule when it is created.
 	//
 	// This is used to populate the RuleID property of ldreason.EvaluationReason.
-	ID string `json:"id,omitempty" bson:"id,omitempty"`
+	ID string
 	// Clauses is a list of test conditions that make up the rule. These are ANDed: every Clause must
 	// match in order for the FlagRule to match.
-	Clauses []Clause `json:"clauses" bson:"clauses"`
+	Clauses []Clause
 	// TrackEvents is used internally by the SDK analytics event system.
 	//
 	// This field is true if the current LaunchDarkly account has experimentation enabled, has associated
@@ -169,7 +172,7 @@ type FlagRule struct {
 	//
 	// The go-server-sdk-evaluation package does not implement that behavior; it is only in the data
 	// model for use by the SDK.
-	TrackEvents bool `json:"trackEvents" bson:"trackEvents"`
+	TrackEvents bool
 }
 
 // VariationOrRollout desscribes either a fixed variation or a percentage rollout.
@@ -179,10 +182,12 @@ type FlagRule struct {
 //
 // Invariant: one of the variation or rollout must be non-nil.
 type VariationOrRollout struct {
-	// Variation, if non-nil, specifies the index of the variation to return.
-	Variation *int `json:"variation,omitempty" bson:"variation,omitempty"`
-	// Rollout, if non-nil, specifies a percentage rollout to be used instead of a specific variation.
-	Rollout *Rollout `json:"rollout,omitempty" bson:"rollout,omitempty"`
+	// Variation specifies the index of the variation to return, or NoVariation if no specific variation
+	// is defined.
+	Variation int
+	// Rollout specifies a percentage rollout to be used instead of a specific variation. A rollout is
+	// only defined if it has a non-empty Variations list.
+	Rollout Rollout
 }
 
 // Rollout describes how users will be bucketed into variations during a percentage rollout.
@@ -193,15 +198,15 @@ type Rollout struct {
 	// The Weight values of all elements in this list should add up to 100000 (100%). If they do not,
 	// the last element in the list will behave as if it includes any leftover percentage (that is, if
 	// the weights are [1000, 1000, 1000] they will be treated as if they were [1000, 1000, 99000]).
-	Variations []WeightedVariation `json:"variations" bson:"variations"`
+	Variations []WeightedVariation
 	// BucketBy specifies which user attribute should be used to distinguish between users in a rollout.
 	//
-	// The default (when BucketBy is nil) is lduser.KeyAttribute, the user's primary key. If you wish to
+	// The default (when BucketBy is empty) is lduser.KeyAttribute, the user's primary key. If you wish to
 	// treat users with different keys as the same for rollout purposes as long as they have the same
 	// "country" attribute, you would set this to "country" (lduser.CountryAttribute).
 	//
 	// Rollouts always take the user's "secondary key" attribute into account as well if the user has one.
-	BucketBy *lduser.UserAttribute `json:"bucketBy,omitempty" bson:"bucketBy,omitempty"`
+	BucketBy lduser.UserAttribute
 }
 
 // Clause describes an individual cluuse within a FlagRule or SegmentRule.
@@ -212,9 +217,9 @@ type Clause struct {
 	//
 	// If the user's value for this attribute is a JSON array, then the test specified in the Clause is
 	// repeated for each value in the array until a match is found or there are no more values.
-	Attribute lduser.UserAttribute `json:"attribute" bson:"attribute"`
+	Attribute lduser.UserAttribute
 	// Op specifies the type of test to perform.
-	Op Operator `json:"op" bson:"op"`
+	Op Operator
 	// Values is a list of values to be compared to the user attribute.
 	//
 	// This is interpreted as an OR: if the user attribute matches any of these values with the specified
@@ -225,32 +230,32 @@ type Clause struct {
 	//
 	// If the user does not have a value for the specified attribute, the Values are ignored and the
 	// Clause is always treated as a non-match.
-	Values []ldvalue.Value `json:"values" bson:"values"` // An array, interpreted as an OR of values
-	// preprocessed is created by PreprocessFlag() to speed up clause evaluation in scenarios like
-	// regex matching.
-	preprocessed clausePreprocessedData
+	Values []ldvalue.Value
 	// Negate is true if the specified Operator should be inverted.
 	//
 	// For instance, this would cause OperatorIn to mean "not equal" rather than "equal". Note that if no
 	// tests are performed for this Clause because the user does not have a value for the specified
 	// attribute, then Negate will not come into effect (the Clause will just be treated as a non-match).
-	Negate bool `json:"negate" bson:"negate"`
+	Negate bool
+	// preprocessed is created by PreprocessFlag() to speed up clause evaluation in scenarios like
+	// regex matching.
+	preprocessed clausePreprocessedData
 }
 
 // WeightedVariation describes a fraction of users who will receive a specific variation.
 type WeightedVariation struct {
 	// Variation is the index of the variation to be returned if the user is in this bucket.
-	Variation int `json:"variation" bson:"variation"`
+	Variation int
 	// Weight is the proportion of users who should go into this bucket, as an integer from 0 to 100000.
-	Weight int `json:"weight" bson:"weight"`
+	Weight int
 }
 
 // Target describes a set of users who will receive a specific variation.
 type Target struct {
 	// Values is the set of user keys included in this Target.
-	Values []string `json:"values" bson:"values"`
+	Values []string
 	// Variation is the index of the variation to be returned if the user matches one of these keys.
-	Variation int `json:"variation" bson:"variation"`
+	Variation int
 	// preprocessedData is created by PreprocessFlag() to speed up target matching.
 	preprocessed targetPreprocessedData
 }
@@ -261,9 +266,9 @@ type Target struct {
 // returns the specified variation.
 type Prerequisite struct {
 	// Key is the unique key of the feature flag to be evaluated as a prerequisite.
-	Key string `json:"key"`
+	Key string
 	// Variation is the index of the variation that the prerequisite flag must return in order for
 	// the prerequisite condition to be met. If the prerequisite flag has targeting turned on, then
 	// the condition is not met even if the flag's OffVariation matches this value.
-	Variation int `json:"variation"`
+	Variation int
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
@@ -31,8 +32,7 @@ func TestVariationIndexForUser(t *testing.T) {
 
 func TestVariationIndexForUserWithCustomAttribute(t *testing.T) {
 	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 60000), ldbuilders.Bucket(1, 40000))
-	attr := lduser.UserAttribute("intAttr")
-	vr.Rollout.BucketBy = &attr
+	vr.Rollout.BucketBy = lduser.UserAttribute("intAttr")
 
 	u1 := lduser.NewUserBuilder("userKeyD").Custom("intAttr", ldvalue.Int(33333)).Build()
 	variationIndex := userEvalScope(u1).variationIndexForUser(vr, "hashKey", "saltyA")
