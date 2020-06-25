@@ -30,7 +30,7 @@ var flagWithAllProperties = FeatureFlag{
 	},
 	Rules: []FlagRule{
 		FlagRule{
-			ID: "rule-id",
+			ID: "rule-id1",
 			Clauses: []Clause{
 				Clause{
 					Attribute: lduser.NameAttribute,
@@ -40,13 +40,30 @@ var flagWithAllProperties = FeatureFlag{
 				},
 			},
 			VariationOrRollout: VariationOrRollout{
-				Variation: intPtr(1),
+				Variation: 1,
 			},
 			TrackEvents: true,
 		},
+		FlagRule{
+			ID:      "rule-id2",
+			Clauses: []Clause{},
+			VariationOrRollout: VariationOrRollout{
+				Variation: NoVariation,
+				Rollout: Rollout{
+					Variations: []WeightedVariation{
+						WeightedVariation{
+							Weight:    100000,
+							Variation: 3,
+						},
+					},
+					BucketBy: lduser.NameAttribute,
+				},
+			},
+		},
 	},
 	Fallthrough: VariationOrRollout{
-		Rollout: &Rollout{
+		Variation: NoVariation,
+		Rollout: Rollout{
 			Variations: []WeightedVariation{
 				WeightedVariation{
 					Weight:    100000,
@@ -55,13 +72,13 @@ var flagWithAllProperties = FeatureFlag{
 			},
 		},
 	},
-	OffVariation:           intPtr(3),
+	OffVariation:           3,
 	Variations:             []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
 	ClientSide:             true,
 	Salt:                   "flag-salt",
 	TrackEvents:            true,
 	TrackEventsFallthrough: true,
-	DebugEventsUntilDate:   unixTimePtr(1000),
+	DebugEventsUntilDate:   ldtime.UnixMillisecondTime(1000),
 	Version:                99,
 	Deleted:                true,
 }
@@ -83,7 +100,7 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 	},
 	"rules": []interface{}{
 		map[string]interface{}{
-			"id": "rule-id",
+			"id": "rule-id1",
 			"clauses": []interface{}{
 				map[string]interface{}{
 					"attribute": "name",
@@ -94,6 +111,19 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 			},
 			"variation":   float64(1),
 			"trackEvents": true,
+		},
+		map[string]interface{}{
+			"id":      "rule-id2",
+			"clauses": []interface{}{},
+			"rollout": map[string]interface{}{
+				"variations": []interface{}{
+					map[string]interface{}{
+						"weight":    float64(100000),
+						"variation": float64(3),
+					},
+				},
+				"bucketBy": "name",
+			},
 		},
 	},
 	"fallthrough": map[string]interface{}{
@@ -118,33 +148,22 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 }
 
 var flagWithMinimalProperties = FeatureFlag{
-	Key: "flag-key",
-	Fallthrough: VariationOrRollout{
-		Variation: intPtr(1),
-	},
-	Variations: []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
-	Salt:       "flag-salt",
-	Version:    99,
+	Key:          "flag-key",
+	Fallthrough:  VariationOrRollout{Variation: 1},
+	OffVariation: NoVariation,
+	Variations:   []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
+	Salt:         "flag-salt",
+	Version:      99,
 }
 
 var flagWithMinimalPropertiesJSON = map[string]interface{}{
-	"key":           "flag-key",
-	"on":            false,
-	"prerequisites": nil,
-	"targets":       nil,
-	"rules":         nil,
+	"key": "flag-key",
 	"fallthrough": map[string]interface{}{
 		"variation": float64(1),
 	},
-	"offVariation":           nil,
-	"variations":             []interface{}{false, float64(9), "other"},
-	"clientSide":             false,
-	"salt":                   "flag-salt",
-	"trackEvents":            false,
-	"trackEventsFallthrough": false,
-	"debugEventsUntilDate":   nil,
-	"version":                float64(99),
-	"deleted":                false,
+	"variations": []interface{}{false, float64(9), "other"},
+	"salt":       "flag-salt",
+	"version":    float64(99),
 }
 
 var segmentWithAllProperties = Segment{
@@ -157,6 +176,7 @@ var segmentWithAllProperties = Segment{
 	},
 	Rules: []SegmentRule{
 		SegmentRule{
+			ID: "rule-id",
 			Clauses: []Clause{
 				Clause{
 					Attribute: lduser.NameAttribute,
@@ -165,8 +185,12 @@ var segmentWithAllProperties = Segment{
 					Negate:    true,
 				},
 			},
-			Weight:   intPtr(50000),
-			BucketBy: attrPtr(lduser.NameAttribute),
+			Weight: -1,
+		},
+		SegmentRule{
+			Clauses:  []Clause{},
+			Weight:   50000,
+			BucketBy: lduser.NameAttribute,
 		},
 	},
 	Salt:    "segment-salt",
@@ -180,6 +204,7 @@ var segmentWithAllPropertiesJSON = map[string]interface{}{
 	"excluded": []interface{}{"user2"},
 	"rules": []interface{}{
 		map[string]interface{}{
+			"id": "rule-id",
 			"clauses": []interface{}{
 				map[string]interface{}{
 					"attribute": "name",
@@ -188,6 +213,9 @@ var segmentWithAllPropertiesJSON = map[string]interface{}{
 					"negate":    true,
 				},
 			},
+		},
+		map[string]interface{}{
+			"clauses":  []interface{}{},
 			"weight":   float64(50000),
 			"bucketBy": "name",
 		},
@@ -204,13 +232,9 @@ var segmentWithMinimalProperties = Segment{
 }
 
 var segmentWithMinimalPropertiesJSON = map[string]interface{}{
-	"key":      "segment-key",
-	"included": nil,
-	"excluded": nil,
-	"rules":    nil,
-	"salt":     "segment-salt",
-	"version":  float64(99),
-	"deleted":  false,
+	"key":     "segment-key",
+	"salt":    "segment-salt",
+	"version": float64(99),
 }
 
 func parseJsonMap(t *testing.T, bytes []byte) map[string]interface{} {
@@ -249,6 +273,14 @@ func TestUnmarshalFlagWithMinimalProperties(t *testing.T) {
 	assert.Equal(t, flagWithMinimalProperties, flag)
 }
 
+func TestUnmarshalFlagErrors(t *testing.T) {
+	_, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag([]byte(`{`))
+	assert.Error(t, err)
+
+	_, err = NewJSONDataModelSerialization().UnmarshalFeatureFlag([]byte(`{"key":[]}`))
+	assert.Error(t, err)
+}
+
 func TestMarshalSegmentWithAllProperties(t *testing.T) {
 	bytes, err := NewJSONDataModelSerialization().MarshalSegment(segmentWithAllProperties)
 	require.NoError(t, err)
@@ -285,14 +317,34 @@ func TestUnmarshalSegmentWithMinimalProperties(t *testing.T) {
 	assert.Equal(t, segmentWithMinimalProperties.Deleted, segment.IsDeleted())
 }
 
-func intPtr(n int) *int {
-	return &n
+func TestUnmarshalSegmentErrors(t *testing.T) {
+	_, err := NewJSONDataModelSerialization().UnmarshalSegment([]byte(`{`))
+	assert.Error(t, err)
+
+	_, err = NewJSONDataModelSerialization().UnmarshalSegment([]byte(`{"key":[]}`))
+	assert.Error(t, err)
 }
 
-func unixTimePtr(t ldtime.UnixMillisecondTime) *ldtime.UnixMillisecondTime {
-	return &t
+func TestJSONMarshalUsesSameSerialization(t *testing.T) {
+	f1, _ := NewJSONDataModelSerialization().MarshalFeatureFlag(flagWithMinimalProperties)
+	f2, _ := json.Marshal(flagWithMinimalProperties)
+	assert.Equal(t, f1, f2)
+
+	s1, _ := NewJSONDataModelSerialization().MarshalSegment(segmentWithMinimalProperties)
+	s2, _ := json.Marshal(segmentWithMinimalProperties)
+	assert.Equal(t, s1, s2)
 }
 
-func attrPtr(a lduser.UserAttribute) *lduser.UserAttribute {
-	return &a
+func TestJSONUnmarshalUsesSameSerialization(t *testing.T) {
+	fbytes, _ := json.Marshal(flagWithMinimalPropertiesJSON)
+	f1, _ := NewJSONDataModelSerialization().UnmarshalFeatureFlag(fbytes)
+	var f2 FeatureFlag
+	_ = json.Unmarshal(fbytes, &f2)
+	assert.Equal(t, f1, f2)
+
+	sbytes, _ := json.Marshal(segmentWithMinimalPropertiesJSON)
+	s1, _ := NewJSONDataModelSerialization().UnmarshalSegment(sbytes)
+	var s2 Segment
+	_ = json.Unmarshal(sbytes, &s2)
+	assert.Equal(t, s1, s2)
 }

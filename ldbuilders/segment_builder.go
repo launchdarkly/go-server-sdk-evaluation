@@ -59,7 +59,9 @@ func (b *SegmentBuilder) Salt(value string) *SegmentBuilder {
 
 // NewSegmentRuleBuilder creates a SegmentRuleBuilder.
 func NewSegmentRuleBuilder() *SegmentRuleBuilder {
-	return &SegmentRuleBuilder{}
+	return &SegmentRuleBuilder{rule: ldmodel.SegmentRule{
+		Weight: -1,
+	}}
 }
 
 // Build returns the configured SegmentRule.
@@ -69,11 +71,7 @@ func (b *SegmentRuleBuilder) Build() ldmodel.SegmentRule {
 
 // BucketBy sets the rule's BucketBy property.
 func (b *SegmentRuleBuilder) BucketBy(attr lduser.UserAttribute) *SegmentRuleBuilder {
-	if attr == "" {
-		b.rule.BucketBy = nil
-	} else {
-		b.rule.BucketBy = &attr
-	}
+	b.rule.BucketBy = attr
 	return b
 }
 
@@ -91,10 +89,6 @@ func (b *SegmentRuleBuilder) ID(id string) *SegmentRuleBuilder {
 
 // Weight sets the rule's Weight property.
 func (b *SegmentRuleBuilder) Weight(value int) *SegmentRuleBuilder {
-	if value <= 0 {
-		b.rule.Weight = nil
-	} else {
-		b.rule.Weight = &value
-	}
+	b.rule.Weight = value
 	return b
 }

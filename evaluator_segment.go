@@ -44,19 +44,19 @@ func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, s
 	}
 
 	// If the Weight is absent, this rule matches
-	if r.Weight == nil {
+	if r.Weight < 0 {
 		return true
 	}
 
 	// All of the clauses are met. Check to see if the user buckets in
 	bucketBy := lduser.KeyAttribute
-	if r.BucketBy != nil {
-		bucketBy = *r.BucketBy
+	if r.BucketBy != "" {
+		bucketBy = r.BucketBy
 	}
 
 	// Check whether the user buckets into the segment
 	bucket := es.bucketUser(key, bucketBy, salt)
-	weight := float32(*r.Weight) / 100000.0
+	weight := float32(r.Weight) / 100000.0
 
 	return bucket < weight
 }

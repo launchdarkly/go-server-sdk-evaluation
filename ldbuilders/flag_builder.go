@@ -7,11 +7,6 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 )
 
-const (
-	// NoVariation represents the lack of a variation index (for FlagBuilder.OffVariation, etc.).
-	NoVariation = -1
-)
-
 // Bucket constructs a WeightedVariation with the specified variation index and weight.
 func Bucket(variationIndex int, weight int) ldmodel.WeightedVariation {
 	return ldmodel.WeightedVariation{Variation: variationIndex, Weight: weight}
@@ -19,12 +14,13 @@ func Bucket(variationIndex int, weight int) ldmodel.WeightedVariation {
 
 // Rollout constructs a VariationOrRollout with the specified buckets.
 func Rollout(buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
-	return ldmodel.VariationOrRollout{Rollout: &ldmodel.Rollout{Variations: buckets}}
+	return ldmodel.VariationOrRollout{Variation: ldmodel.NoVariation,
+		Rollout: ldmodel.Rollout{Variations: buckets}}
 }
 
 // Variation constructs a VariationOrRollout with the specified variation index.
 func Variation(variationIndex int) ldmodel.VariationOrRollout {
-	return ldmodel.VariationOrRollout{Variation: &variationIndex}
+	return ldmodel.VariationOrRollout{Variation: variationIndex}
 }
 
 // FlagBuilder provides a builder pattern for FeatureFlag.
@@ -39,7 +35,11 @@ type RuleBuilder struct {
 
 // NewFlagBuilder creates a FlagBuilder.
 func NewFlagBuilder(key string) *FlagBuilder {
-	return &FlagBuilder{flag: ldmodel.FeatureFlag{Key: key}}
+	return &FlagBuilder{flag: ldmodel.FeatureFlag{
+		Key:          key,
+		OffVariation: ldmodel.NoVariation,
+		Fallthrough:  Variation(ldmodel.NoVariation),
+	}}
 }
 
 // Build returns the configured FeatureFlag.
@@ -75,11 +75,7 @@ func (b *FlagBuilder) ClientSide(value bool) *FlagBuilder {
 
 // DebugEventsUntilDate sets the flag's DebugEventsUntilDate property.
 func (b *FlagBuilder) DebugEventsUntilDate(t ldtime.UnixMillisecondTime) *FlagBuilder {
-	if t == 0 {
-		b.flag.DebugEventsUntilDate = nil
-	} else {
-		b.flag.DebugEventsUntilDate = &t
-	}
+	b.flag.DebugEventsUntilDate = t
 	return b
 }
 
@@ -102,11 +98,7 @@ func (b *FlagBuilder) FallthroughVariation(variationIndex int) *FlagBuilder {
 
 // OffVariation sets the flag's OffVariation property.
 func (b *FlagBuilder) OffVariation(variationIndex int) *FlagBuilder {
-	if variationIndex == NoVariation {
-		b.flag.OffVariation = nil
-	} else {
-		b.flag.OffVariation = &variationIndex
-	}
+	b.flag.OffVariation = variationIndex
 	return b
 }
 
