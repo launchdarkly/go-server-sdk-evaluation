@@ -9,6 +9,7 @@ github.com/kr/pretty v0.2.0/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfn
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/launchdarkly-labs/go-coverage-enforcer v0.0.0-20200610003341-8bc77dea293c/go.mod h1:fJXIR7UJYgdXVmLM40NGl/dbs2Smv+iESsaT9uC4v/s=
+github.com/launchdarkly-labs/go-coverage-enforcer v1.1.0/go.mod h1:fJXIR7UJYgdXVmLM40NGl/dbs2Smv+iESsaT9uC4v/s=
 github.com/launchdarkly/eventsource v0.0.0-20190617224151-6b837031c9ca/go.mod h1:y6+/PY1Az/AQyjCMsFt5mOZq1tfM0/KOQRS4f0pVe3M=
 github.com/launchdarkly/go-semver v1.0.0 h1:GbQX6vE/LiiReLmKNXxMWEK5FqgpCiTlWeCbBlou1Gs=
 github.com/launchdarkly/go-semver v1.0.0/go.mod h1:BuLtReaNBN28HyoXhFZqMs4tku6igmnXH8YYMi65gVk=
@@ -23,10 +24,10 @@ github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/launchdarkly/go-sdk-common.v1 v1.0.0-20200204015611-d48d1b4f4e70/go.mod h1:2kE5FCTDQ53bqRSOfJpE5fdiAQYiN9LESONDNyEBFjI=
-gopkg.in/launchdarkly/go-sdk-common.v2 v2.0.0-alpha.3 h1:0dwuzt9fZcQfWLnFgSz+eyQoEX6FqsR1VN7szuB25Z8=
-gopkg.in/launchdarkly/go-sdk-common.v2 v2.0.0-alpha.3/go.mod h1:gqJ6TGmAOTVT+XBAdYvB9O4Bc0iKv3BLA+hj9peTSSU=
-gopkg.in/launchdarkly/go-sdk-events.v1 v1.0.0-alpha.2 h1:SWavYAXisXPqCjj8HBx/gskECNCnv+u6j3Sxbz26+XU=
-gopkg.in/launchdarkly/go-sdk-events.v1 v1.0.0-alpha.2/go.mod h1:02Isl7cDtUYFUF1nbCR842Ls/13wcwv1xOIQ2avykkY=
+gopkg.in/launchdarkly/go-sdk-common.v2 v2.0.0-beta.1 h1:0IprLhB694CPh0xwoej4wEHA4tDkxWVlEpUDV7/O4CU=
+gopkg.in/launchdarkly/go-sdk-common.v2 v2.0.0-beta.1/go.mod h1:gqJ6TGmAOTVT+XBAdYvB9O4Bc0iKv3BLA+hj9peTSSU=
+gopkg.in/launchdarkly/go-sdk-events.v1 v1.0.0-beta.1 h1:yTN6mNmp9gAVAY7W8v1SwvZcGLo/D39SdsWSvgnYkRQ=
+gopkg.in/launchdarkly/go-sdk-events.v1 v1.0.0-beta.1/go.mod h1:Tc+WQhBX/1rJL4BN3fyHC9TkjJulBXyeA0Q44TIQ3Kw=
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c h1:dUUwHk2QECo/6vqA44rthZ8ie2QXMNeKRTHCNY2nXvo=
