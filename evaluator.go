@@ -153,7 +153,7 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
 		for _, value := range clause.Values {
 			if value.Type() == ldvalue.StringType {
 				if segment := es.owner.dataProvider.GetSegment(value.StringValue()); segment != nil {
-					if matches, _ := es.segmentContainsUser(segment); matches {
+					if es.segmentContainsUser(segment) {
 						return !clause.Negate // match - true unless negated
 					}
 				}
