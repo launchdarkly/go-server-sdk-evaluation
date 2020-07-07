@@ -5,33 +5,23 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 )
 
-// SegmentExplanation describes a rule that determines whether a user was included in or excluded from a segment
-type SegmentExplanation struct {
-	Kind        string
-	MatchedRule *ldmodel.SegmentRule
-}
-
-func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) (bool, SegmentExplanation) {
+func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
 	userKey := es.user.GetKey()
 
 	// Check if the user is specifically included in or excluded from the segment by key
 	if included, found := ldmodel.SegmentIncludesOrExcludesKey(s, userKey); found {
-		if included {
-			return true, SegmentExplanation{Kind: "included"}
-		}
-		return false, SegmentExplanation{Kind: "excluded"}
+		return included
 	}
 
 	// Check if any of the segment rules match
 	for _, rule := range s.Rules {
 		// Note, taking address of range variable here is OK because it's not used outside the loop
 		if es.segmentRuleMatchesUser(&rule, s.Key, s.Salt) { //nolint:gosec // see comment above
-			reason := rule
-			return true, SegmentExplanation{Kind: "rule", MatchedRule: &reason}
+			return true
 		}
 	}
 
-	return false, SegmentExplanation{}
+	return false
 }
 
 func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, salt string) bool {
