@@ -227,6 +227,7 @@ func writeClientSideAvailability(b *jsonstream.JSONBuffer, availability ClientSi
 		writePropIfNotNull(b, "usingMobileKey", usingMobileKey)
 		b.EndObject()
 	}
+	// continue to include the legacy clientSide field for use in older sdks
 	writePropIfNotNull(b, "clientSide", trueValueOrNull(availability.UsingEnvironmentID))
 }
 
