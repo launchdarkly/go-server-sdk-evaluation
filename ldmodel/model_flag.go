@@ -281,11 +281,10 @@ type Prerequisite struct {
 // This field can be used by a server-side client to determine whether to include an individual flag in
 // bootstrapped set of flag data (see https://docs.launchdarkly.com/sdk/client-side/javascript#bootstrapping).
 type ClientSideAvailability struct {
-	// UsingMobileKey indicates that this flag is available to clients using the mobile key for authoriation
-	// (this includes most desktop and mobile clients)
+	// UsingMobileKey indicates that this flag is available to clients using the mobile key for authorization
+	// (includes most desktop and mobile clients).
 	UsingMobileKey bool
 	// UsingEnvironmentID indicates that this flag is available to clients using the environment id to identify an
-	// environment.
-	// (includes client-side javascript clients).
+	// environment (includes client-side javascript clients).
 	UsingEnvironmentID bool
 }
