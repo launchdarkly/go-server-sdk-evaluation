@@ -72,6 +72,7 @@ func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	b.EndArray()
 
 	writePropIfNotNull(&b, "clientSide", trueValueOrNull(flag.ClientSide))
+	writeClientSideAvailability(&b, flag.ClientSideAvailability)
 
 	writeString(&b, "salt", flag.Salt)
 
@@ -215,4 +216,14 @@ func writeClauses(b *jsonstream.JSONBuffer, clauses []Clause) {
 		b.EndObject()
 	}
 	b.EndArray()
+}
+
+func writeClientSideAvailability(b *jsonstream.JSONBuffer, availability *ClientSideAvailability) {
+	if availability != nil {
+		b.WriteName("clientSideAvailability")
+		b.BeginObject()
+		writeProp(b, "usingEnvironmentId", ldvalue.Bool(availability.UsingEnvironmentId))
+		writeProp(b, "usingMobileKey", ldvalue.Bool(availability.UsingMobileKey))
+		b.EndObject()
+	}
 }

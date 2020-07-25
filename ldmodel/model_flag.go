@@ -51,6 +51,9 @@ type FeatureFlag struct {
 	Variations []ldvalue.Value
 	// ClientSide is true if this flag is available to the LaunchDarkly client-side JavaScript SDKs.
 	ClientSide bool
+	// ClientSideAvailability (if present) describes whether a flag is available using each of the
+	// client-side authentication methods.
+	ClientSideAvailability *ClientSideAvailability
 	// Salt is a randomized value assigned to this flag when it is created.
 	//
 	// The hash function used for calculating percentage rollouts uses this as a salt to ensure that
@@ -271,4 +274,18 @@ type Prerequisite struct {
 	// the prerequisite condition to be met. If the prerequisite flag has targeting turned on, then
 	// the condition is not met even if the flag's OffVariation matches this value.
 	Variation int
+}
+
+// ClientSideAvailability describes whether a flag is available to client-side SDKs.
+//
+// This field can be used by a server-side client to determine whether to include an individual flag in
+// bootstrapped set of flag data (see https://docs.launchdarkly.com/sdk/client-side/javascript#bootstrapping).
+type ClientSideAvailability struct {
+	// UsingMobileKey indicates that this flag is available to clients using the mobile key for authoriation
+	// (this includes most desktop and mobile clients)
+	UsingMobileKey bool
+	// UsingEnvironmentId indicates that this flag is available to clients using the environment id to identify an
+	// environment.
+	// (includes client-side javascript clients).
+	UsingEnvironmentId bool
 }

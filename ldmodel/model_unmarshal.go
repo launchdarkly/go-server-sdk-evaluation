@@ -13,21 +13,22 @@ import (
 // not want to use pointers in the internal model due to their safety issues.
 
 type featureFlagJSONRep struct {
-	Key                    string                     `json:"key"`
-	On                     bool                       `json:"on"`
-	Prerequisites          []prerequisiteJSONRep      `json:"prerequisites"`
-	Targets                []targetJSONRep            `json:"targets"`
-	Rules                  []flagRuleJSONRep          `json:"rules"`
-	Fallthrough            variationOrRolloutJSONRep  `json:"fallthrough"`
-	OffVariation           *int                       `json:"offVariation"`
-	Variations             []ldvalue.Value            `json:"variations"`
-	ClientSide             bool                       `json:"clientSide"`
-	Salt                   string                     `json:"salt"`
-	TrackEvents            bool                       `json:"trackEvents"`
-	TrackEventsFallthrough bool                       `json:"trackEventsFallthrough"`
-	DebugEventsUntilDate   ldtime.UnixMillisecondTime `json:"debugEventsUntilDate"`
-	Version                int                        `json:"version"`
-	Deleted                bool                       `json:"deleted"`
+	Key                    string                         `json:"key"`
+	On                     bool                           `json:"on"`
+	Prerequisites          []prerequisiteJSONRep          `json:"prerequisites"`
+	Targets                []targetJSONRep                `json:"targets"`
+	Rules                  []flagRuleJSONRep              `json:"rules"`
+	Fallthrough            variationOrRolloutJSONRep      `json:"fallthrough"`
+	OffVariation           *int                           `json:"offVariation"`
+	Variations             []ldvalue.Value                `json:"variations"`
+	ClientSide             bool                           `json:"clientSide"`
+	ClientSideAvailability *clientSideAvailabilityJSONRep `json:"clientSideAvailability"`
+	Salt                   string                         `json:"salt"`
+	TrackEvents            bool                           `json:"trackEvents"`
+	TrackEventsFallthrough bool                           `json:"trackEventsFallthrough"`
+	DebugEventsUntilDate   ldtime.UnixMillisecondTime     `json:"debugEventsUntilDate"`
+	Version                int                            `json:"version"`
+	Deleted                bool                           `json:"deleted"`
 }
 
 type prerequisiteJSONRep struct {
@@ -86,6 +87,11 @@ type segmentRuleJSONRep struct {
 	BucketBy *lduser.UserAttribute `json:"bucketBy"`
 }
 
+type clientSideAvailabilityJSONRep struct {
+	UsingMobileKey     bool `json:"usingMobileKey"`
+	UsingEnvironmentId bool `json:"usingEnvironmentId"`
+}
+
 func unmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
 	var fields featureFlagJSONRep
 	if err := json.Unmarshal(data, &fields); err != nil {
@@ -129,6 +135,7 @@ func unmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
 	ret.OffVariation = maybeVariation(fields.OffVariation)
 	ret.Variations = fields.Variations
 	ret.ClientSide = fields.ClientSide
+	ret.ClientSideAvailability = maybeClientSideAvailability(fields.ClientSideAvailability)
 	ret.Salt = fields.Salt
 	ret.TrackEvents = fields.TrackEvents
 	ret.TrackEventsFallthrough = fields.TrackEventsFallthrough
@@ -205,4 +212,14 @@ func maybeVariation(value *int) int {
 		return NoVariation
 	}
 	return *value
+}
+
+func maybeClientSideAvailability(rep *clientSideAvailabilityJSONRep) *ClientSideAvailability {
+	if rep == nil {
+		return nil
+	}
+	return &ClientSideAvailability{
+		UsingEnvironmentId: rep.UsingEnvironmentId,
+		UsingMobileKey:     rep.UsingMobileKey,
+	}
 }
