@@ -76,7 +76,7 @@ var flagWithAllProperties = FeatureFlag{
 	Variations:   []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
 	ClientSide:   true,
 	ClientSideAvailability: &ClientSideAvailability{
-		UsingEnvironmentId: true,
+		UsingEnvironmentID: true,
 		UsingMobileKey:     true,
 	},
 	Salt:                   "flag-salt",

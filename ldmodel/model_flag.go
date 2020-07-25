@@ -284,8 +284,8 @@ type ClientSideAvailability struct {
 	// UsingMobileKey indicates that this flag is available to clients using the mobile key for authoriation
 	// (this includes most desktop and mobile clients)
 	UsingMobileKey bool
-	// UsingEnvironmentId indicates that this flag is available to clients using the environment id to identify an
+	// UsingEnvironmentID indicates that this flag is available to clients using the environment id to identify an
 	// environment.
 	// (includes client-side javascript clients).
-	UsingEnvironmentId bool
+	UsingEnvironmentID bool
 }

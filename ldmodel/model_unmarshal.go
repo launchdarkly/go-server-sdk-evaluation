@@ -89,7 +89,7 @@ type segmentRuleJSONRep struct {
 
 type clientSideAvailabilityJSONRep struct {
 	UsingMobileKey     bool `json:"usingMobileKey"`
-	UsingEnvironmentId bool `json:"usingEnvironmentId"`
+	UsingEnvironmentID bool `json:"usingEnvironmentId"`
 }
 
 func unmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
@@ -219,7 +219,7 @@ func maybeClientSideAvailability(rep *clientSideAvailabilityJSONRep) *ClientSide
 		return nil
 	}
 	return &ClientSideAvailability{
-		UsingEnvironmentId: rep.UsingEnvironmentId,
+		UsingEnvironmentID: rep.UsingEnvironmentID,
 		UsingMobileKey:     rep.UsingMobileKey,
 	}
 }

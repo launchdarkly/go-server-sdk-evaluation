@@ -222,7 +222,7 @@ func writeClientSideAvailability(b *jsonstream.JSONBuffer, availability *ClientS
 	if availability != nil {
 		b.WriteName("clientSideAvailability")
 		b.BeginObject()
-		writeProp(b, "usingEnvironmentId", ldvalue.Bool(availability.UsingEnvironmentId))
+		writeProp(b, "usingEnvironmentId", ldvalue.Bool(availability.UsingEnvironmentID))
 		writeProp(b, "usingMobileKey", ldvalue.Bool(availability.UsingMobileKey))
 		b.EndObject()
 	}
