@@ -49,11 +49,9 @@ type FeatureFlag struct {
 	// Variations is the list of all allowable variations for this flag. The variation index in a
 	// Target or Rule is a zero-based index to this list.
 	Variations []ldvalue.Value
-	// ClientSide is true if this flag is available to the LaunchDarkly client-side JavaScript SDKs.
-	ClientSide bool
-	// ClientSideAvailability (if present) describes whether a flag is available using each of the
-	// client-side authentication methods.
-	ClientSideAvailability *ClientSideAvailability
+	// ClientSideAvailability indicates whether a flag is available using each of the client-side
+	// authentication methods.
+	ClientSideAvailability ClientSideAvailability
 	// Salt is a randomized value assigned to this flag when it is created.
 	//
 	// The hash function used for calculating percentage rollouts uses this as a salt to ensure that

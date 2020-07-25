@@ -71,7 +71,6 @@ func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	}
 	b.EndArray()
 
-	writePropIfNotNull(&b, "clientSide", trueValueOrNull(flag.ClientSide))
 	writeClientSideAvailability(&b, flag.ClientSideAvailability)
 
 	writeString(&b, "salt", flag.Salt)
@@ -218,12 +217,24 @@ func writeClauses(b *jsonstream.JSONBuffer, clauses []Clause) {
 	b.EndArray()
 }
 
-func writeClientSideAvailability(b *jsonstream.JSONBuffer, availability *ClientSideAvailability) {
-	if availability != nil {
+func writeClientSideAvailability(b *jsonstream.JSONBuffer, availability ClientSideAvailability) {
+	usingEnvironmentID := trueValueOrNull(availability.UsingEnvironmentID)
+	usingMobileKey := trueValueOrNull(availability.UsingMobileKey)
+	if isAnyNotNull(usingEnvironmentID, usingMobileKey) {
 		b.WriteName("clientSideAvailability")
 		b.BeginObject()
-		writeProp(b, "usingEnvironmentId", ldvalue.Bool(availability.UsingEnvironmentID))
-		writeProp(b, "usingMobileKey", ldvalue.Bool(availability.UsingMobileKey))
+		writePropIfNotNull(b, "usingEnvironmentId", usingEnvironmentID)
+		writePropIfNotNull(b, "usingMobileKey", usingMobileKey)
 		b.EndObject()
 	}
+	writePropIfNotNull(b, "clientSide", trueValueOrNull(availability.UsingEnvironmentID))
+}
+
+func isAnyNotNull(values ...ldvalue.Value) bool {
+	for _, value := range values {
+		if !value.IsNull() {
+			return true
+		}
+	}
+	return false
 }

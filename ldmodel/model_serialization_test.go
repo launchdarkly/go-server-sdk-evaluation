@@ -74,8 +74,7 @@ var flagWithAllProperties = FeatureFlag{
 	},
 	OffVariation: 3,
 	Variations:   []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
-	ClientSide:   true,
-	ClientSideAvailability: &ClientSideAvailability{
+	ClientSideAvailability: ClientSideAvailability{
 		UsingEnvironmentID: true,
 		UsingMobileKey:     true,
 	},
@@ -142,11 +141,11 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 	},
 	"offVariation": float64(3),
 	"variations":   []interface{}{false, float64(9), "other"},
-	"clientSide":   true,
 	"clientSideAvailability": map[string]interface{}{
 		"usingEnvironmentId": true,
 		"usingMobileKey":     true,
 	},
+	"clientSide":             true,
 	"salt":                   "flag-salt",
 	"trackEvents":            true,
 	"trackEventsFallthrough": true,

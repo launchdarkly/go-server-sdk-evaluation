@@ -22,7 +22,7 @@ type featureFlagJSONRep struct {
 	OffVariation           *int                           `json:"offVariation"`
 	Variations             []ldvalue.Value                `json:"variations"`
 	ClientSide             bool                           `json:"clientSide"`
-	ClientSideAvailability *clientSideAvailabilityJSONRep `json:"clientSideAvailability"`
+	ClientSideAvailability *clientSideAvailabilityJSONRep `json:"ClientSideAvailability"`
 	Salt                   string                         `json:"salt"`
 	TrackEvents            bool                           `json:"trackEvents"`
 	TrackEventsFallthrough bool                           `json:"trackEventsFallthrough"`
@@ -134,8 +134,7 @@ func unmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
 	ret.Fallthrough = decodeVariationOrRollout(fields.Fallthrough)
 	ret.OffVariation = maybeVariation(fields.OffVariation)
 	ret.Variations = fields.Variations
-	ret.ClientSide = fields.ClientSide
-	ret.ClientSideAvailability = maybeClientSideAvailability(fields.ClientSideAvailability)
+	ret.ClientSideAvailability = decodeClientSideAvailability(fields.ClientSideAvailability, fields.ClientSide)
 	ret.Salt = fields.Salt
 	ret.TrackEvents = fields.TrackEvents
 	ret.TrackEventsFallthrough = fields.TrackEventsFallthrough
@@ -214,12 +213,15 @@ func maybeVariation(value *int) int {
 	return *value
 }
 
-func maybeClientSideAvailability(rep *clientSideAvailabilityJSONRep) *ClientSideAvailability {
-	if rep == nil {
-		return nil
+func decodeClientSideAvailability(rep *clientSideAvailabilityJSONRep, legacyClientSide bool) ClientSideAvailability {
+	availability := ClientSideAvailability{
+		UsingEnvironmentID: legacyClientSide,
 	}
-	return &ClientSideAvailability{
-		UsingEnvironmentID: rep.UsingEnvironmentID,
-		UsingMobileKey:     rep.UsingMobileKey,
+	if rep != nil {
+		availability = ClientSideAvailability{
+			UsingEnvironmentID: rep.UsingEnvironmentID,
+			UsingMobileKey:     rep.UsingMobileKey,
+		}
 	}
+	return availability
 }

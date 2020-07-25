@@ -67,9 +67,9 @@ func (b *FlagBuilder) AddTarget(variationIndex int, keys ...string) *FlagBuilder
 	return b
 }
 
-// ClientSide sets the flag's ClientSide property.
-func (b *FlagBuilder) ClientSide(value bool) *FlagBuilder {
-	b.flag.ClientSide = value
+// ClientSideUsingEnvironmentID sets the flag's ClientSideAvailability to include the UsingEnvironmentID property.
+func (b *FlagBuilder) ClientSideUsingEnvironmentID(value bool) *FlagBuilder {
+	b.flag.ClientSideAvailability.UsingEnvironmentID = value
 	return b
 }
 
