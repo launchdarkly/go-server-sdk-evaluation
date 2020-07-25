@@ -73,6 +73,12 @@ func (b *FlagBuilder) ClientSideUsingEnvironmentID(value bool) *FlagBuilder {
 	return b
 }
 
+// ClientSideUsingMobileKey sets the flag's ClientSideAvailability to include the UsingMobileKey property.
+func (b *FlagBuilder) ClientSideUsingMobileKey(value bool) *FlagBuilder {
+	b.flag.ClientSideAvailability.UsingMobileKey = value
+	return b
+}
+
 // DebugEventsUntilDate sets the flag's DebugEventsUntilDate property.
 func (b *FlagBuilder) DebugEventsUntilDate(t ldtime.UnixMillisecondTime) *FlagBuilder {
 	b.flag.DebugEventsUntilDate = t
