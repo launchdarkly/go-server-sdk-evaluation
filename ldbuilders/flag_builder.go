@@ -36,9 +36,10 @@ type RuleBuilder struct {
 // NewFlagBuilder creates a FlagBuilder.
 func NewFlagBuilder(key string) *FlagBuilder {
 	return &FlagBuilder{flag: ldmodel.FeatureFlag{
-		Key:          key,
-		OffVariation: ldmodel.NoVariation,
-		Fallthrough:  Variation(ldmodel.NoVariation),
+		Key:                    key,
+		OffVariation:           ldmodel.NoVariation,
+		Fallthrough:            Variation(ldmodel.NoVariation),
+		ClientSideAvailability: ldmodel.ClientSideAvailability{UsingMobileKey: true},
 	}}
 }
 
@@ -67,15 +68,21 @@ func (b *FlagBuilder) AddTarget(variationIndex int, keys ...string) *FlagBuilder
 	return b
 }
 
-// ClientSideUsingEnvironmentID sets the flag's ClientSideAvailability to include the UsingEnvironmentID property.
+// ClientSideUsingEnvironmentID sets the flag's ClientSideAvailability.UsingEnvironmentID property.
+// By default, this is false. Setting this property also forces the flag to use the newer serialization
+// schema so both UsingEnvironmentID and UsingMobileKey will be explicitly specified.
 func (b *FlagBuilder) ClientSideUsingEnvironmentID(value bool) *FlagBuilder {
 	b.flag.ClientSideAvailability.UsingEnvironmentID = value
+	b.flag.ClientSideAvailability.Explicit = true
 	return b
 }
 
-// ClientSideUsingMobileKey sets the flag's ClientSideAvailability to include the UsingMobileKey property.
+// ClientSideUsingMobileKey sets the flag's ClientSideAvailability.UsingMobileKey property. By default,
+// this is true. Setting this property also forces the flag to use the newer serialization schema so
+// both UsingEnvironmentID and UsingMobileKey will be explicitly specified.
 func (b *FlagBuilder) ClientSideUsingMobileKey(value bool) *FlagBuilder {
 	b.flag.ClientSideAvailability.UsingMobileKey = value
+	b.flag.ClientSideAvailability.Explicit = true
 	return b
 }
 

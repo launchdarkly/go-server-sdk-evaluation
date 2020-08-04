@@ -285,4 +285,15 @@ type ClientSideAvailability struct {
 	// UsingEnvironmentID indicates that this flag is available to clients using the environment id to identify an
 	// environment (includes client-side javascript clients).
 	UsingEnvironmentID bool
+	// Explicit is true if, when serializing this flag, all of the ClientSideAvailability properties should
+	// be included. If it is false, then an older schema is used in which this object is entirely omitted,
+	// UsingEnvironmentID is stored in a deprecated property, and UsingMobileKey is assumed to be true.
+	//
+	// This field exists to ensure that flag representations remain consistent when sent and received
+	// even though the clientSideAvailability property may not be present in the JSON data. It is false
+	// if the flag was deserialized from an older JSON schema that did not include that property.
+	//
+	// Similarly, when deserializing a flag, if it used the older schema then Explicit will be false and
+	// UsingMobileKey will be true.
+	Explicit bool
 }

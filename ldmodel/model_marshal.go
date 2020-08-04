@@ -71,7 +71,26 @@ func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	}
 	b.EndArray()
 
-	writeClientSideAvailability(&b, flag.ClientSideAvailability)
+	// In the older JSON schema, ClientSideAvailability.UsingEnvironmentID was in "clientSide", and
+	// ClientSideAvailability.UsingMobileKey was assumed to be true. In the newer schema, those are
+	// both in a "clientSideAvailability" object.
+	//
+	// If ClientSideAvailability.Explicit is true, then this flag used the newer schema and should be
+	// reserialized the same way. If it is false, we will reserialize with the old schema, which
+	// does not include UsingMobileKey; note that in that case UsingMobileKey is assumed to be true.
+	//
+	// For backward compatibility with older SDKs that might be reading a flag that was serialized by
+	// this SDK, we always include the older "clientSide" property if it would be true.
+	if flag.ClientSideAvailability.Explicit {
+		b.WriteName("clientSideAvailability")
+		b.BeginObject()
+		b.WriteName("usingMobileKey")
+		b.WriteBool(flag.ClientSideAvailability.UsingMobileKey)
+		b.WriteName("usingEnvironmentId")
+		b.WriteBool(flag.ClientSideAvailability.UsingEnvironmentID)
+		b.EndObject()
+	}
+	writePropIfNotNull(&b, "clientSide", trueValueOrNull(flag.ClientSideAvailability.UsingEnvironmentID))
 
 	writeString(&b, "salt", flag.Salt)
 
@@ -215,27 +234,4 @@ func writeClauses(b *jsonstream.JSONBuffer, clauses []Clause) {
 		b.EndObject()
 	}
 	b.EndArray()
-}
-
-func writeClientSideAvailability(b *jsonstream.JSONBuffer, availability ClientSideAvailability) {
-	usingEnvironmentID := trueValueOrNull(availability.UsingEnvironmentID)
-	usingMobileKey := trueValueOrNull(availability.UsingMobileKey)
-	if isAnyNotNull(usingEnvironmentID, usingMobileKey) {
-		b.WriteName("clientSideAvailability")
-		b.BeginObject()
-		writePropIfNotNull(b, "usingEnvironmentId", usingEnvironmentID)
-		writePropIfNotNull(b, "usingMobileKey", usingMobileKey)
-		b.EndObject()
-	}
-	// continue to include the legacy clientSide field for use in older sdks
-	writePropIfNotNull(b, "clientSide", usingEnvironmentID)
-}
-
-func isAnyNotNull(values ...ldvalue.Value) bool {
-	for _, value := range values {
-		if !value.IsNull() {
-			return true
-		}
-	}
-	return false
 }

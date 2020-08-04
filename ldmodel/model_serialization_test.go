@@ -77,6 +77,7 @@ var flagWithAllProperties = FeatureFlag{
 	ClientSideAvailability: ClientSideAvailability{
 		UsingEnvironmentID: true,
 		UsingMobileKey:     true,
+		Explicit:           true,
 	},
 	Salt:                   "flag-salt",
 	TrackEvents:            true,
@@ -159,8 +160,12 @@ var flagWithMinimalProperties = FeatureFlag{
 	Fallthrough:  VariationOrRollout{Variation: 1},
 	OffVariation: NoVariation,
 	Variations:   []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
-	Salt:         "flag-salt",
-	Version:      99,
+	ClientSideAvailability: ClientSideAvailability{
+		UsingMobileKey: true,
+		Explicit:       false,
+	},
+	Salt:    "flag-salt",
+	Version: 99,
 }
 
 var flagWithMinimalPropertiesJSON = map[string]interface{}{
@@ -250,6 +255,14 @@ func parseJsonMap(t *testing.T, bytes []byte) map[string]interface{} {
 	return ret
 }
 
+func toJSON(x interface{}) []byte {
+	bytes, err := json.Marshal(x)
+	if err != nil {
+		panic(err)
+	}
+	return bytes
+}
+
 func TestMarshalFlagWithAllProperties(t *testing.T) {
 	bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flagWithAllProperties)
 	require.NoError(t, err)
@@ -265,19 +278,131 @@ func TestMarshalFlagWithMinimalProperties(t *testing.T) {
 }
 
 func TestUnmarshalFlagWithAllProperties(t *testing.T) {
-	bytes, err := json.Marshal(flagWithAllPropertiesJSON)
-	require.NoError(t, err)
+	bytes := toJSON(flagWithAllPropertiesJSON)
 	flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(bytes)
 	require.NoError(t, err)
 	assert.Equal(t, flagWithAllProperties, flag)
 }
 
 func TestUnmarshalFlagWithMinimalProperties(t *testing.T) {
-	bytes, err := json.Marshal(flagWithMinimalPropertiesJSON)
-	require.NoError(t, err)
+	bytes := toJSON(flagWithMinimalPropertiesJSON)
 	flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(bytes)
 	require.NoError(t, err)
 	assert.Equal(t, flagWithMinimalProperties, flag)
+}
+
+func TestUnmarshalFlagClientSideAvailability(t *testing.T) {
+	// As described in ClientSideAvailability, there was a schema change regarding these properties
+	// that is not fully accounted for by Go's standard zero-value behavior.
+
+	t.Run("old schema without clientSide, or with clientSide false", func(t *testing.T) {
+		jsonMap1 := map[string]interface{}{
+			"key": "flag-key",
+		}
+		flag1, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(toJSON(jsonMap1))
+		require.NoError(t, err)
+		assert.Equal(t, ClientSideAvailability{
+			Explicit:           false,
+			UsingEnvironmentID: false, // defaults to false, like all booleans...
+			UsingMobileKey:     true,  // ...except this one which defaults to true
+		}, flag1.ClientSideAvailability)
+
+		jsonMap2 := map[string]interface{}{
+			"key":        "flag-key",
+			"clientSide": false,
+		}
+		flag2, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(toJSON(jsonMap2))
+		require.NoError(t, err)
+		assert.Equal(t, flag1, flag2)
+	})
+
+	t.Run("old schema with clientSide true", func(t *testing.T) {
+		jsonMap := map[string]interface{}{
+			"key":        "flag-key",
+			"clientSide": true,
+		}
+		flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(toJSON(jsonMap))
+		require.NoError(t, err)
+		assert.Equal(t, ClientSideAvailability{
+			Explicit:           false,
+			UsingEnvironmentID: true,
+			UsingMobileKey:     true,
+		}, flag.ClientSideAvailability)
+	})
+
+	t.Run("new schema", func(t *testing.T) {
+		for _, usingMobile := range []bool{false, true} {
+			for _, usingEnvID := range []bool{false, true} {
+				jsonMap := map[string]interface{}{
+					"key": "flag-key",
+					"clientSideAvailability": map[string]interface{}{
+						"usingMobileKey":     usingMobile,
+						"usingEnvironmentId": usingEnvID,
+					},
+				}
+				flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(toJSON(jsonMap))
+				require.NoError(t, err)
+				assert.Equal(t, ClientSideAvailability{
+					Explicit:           true,
+					UsingEnvironmentID: usingEnvID,
+					UsingMobileKey:     usingMobile,
+				}, flag.ClientSideAvailability)
+			}
+		}
+	})
+}
+
+func TestMarshalFlagClientSideAvailability(t *testing.T) {
+	// As described in ClientSideAvailability, there was a schema change regarding these properties
+	// that is not fully accounted for by Go's standard zero-value behavior.
+
+	t.Run("old schema with clientSide false", func(t *testing.T) {
+		flag := FeatureFlag{
+			ClientSideAvailability: ClientSideAvailability{Explicit: false, UsingEnvironmentID: false},
+		}
+		bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flag)
+		require.NoError(t, err)
+		jsonMap := parseJsonMap(t, bytes)
+		assert.Nil(t, jsonMap["clientSide"])
+		assert.Nil(t, jsonMap["clientSideAvailability"])
+	})
+
+	t.Run("old schema with clientSide true", func(t *testing.T) {
+		flag := FeatureFlag{
+			ClientSideAvailability: ClientSideAvailability{Explicit: false, UsingEnvironmentID: true},
+		}
+		bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flag)
+		require.NoError(t, err)
+		jsonMap := parseJsonMap(t, bytes)
+		assert.Equal(t, true, jsonMap["clientSide"])
+		assert.Nil(t, jsonMap["clientSideAvailability"])
+	})
+
+	t.Run("new schema", func(t *testing.T) {
+		for _, usingMobile := range []bool{false, true} {
+			for _, usingEnvID := range []bool{false, true} {
+				flag := FeatureFlag{
+					ClientSideAvailability: ClientSideAvailability{
+						Explicit:           true,
+						UsingEnvironmentID: usingEnvID,
+						UsingMobileKey:     usingMobile,
+					},
+				}
+				bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flag)
+				require.NoError(t, err)
+				jsonMap := parseJsonMap(t, bytes)
+				if usingEnvID {
+					assert.Equal(t, true, jsonMap["clientSide"])
+				} else {
+					assert.Nil(t, jsonMap["clientSide"])
+				}
+				assert.Equal(t, map[string]interface{}{
+					"usingMobileKey":     usingMobile,
+					"usingEnvironmentId": usingEnvID,
+				}, jsonMap["clientSideAvailability"])
+			}
+		}
+	})
 }
 
 func TestUnmarshalFlagErrors(t *testing.T) {

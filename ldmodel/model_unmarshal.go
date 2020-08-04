@@ -134,7 +134,19 @@ func unmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
 	ret.Fallthrough = decodeVariationOrRollout(fields.Fallthrough)
 	ret.OffVariation = maybeVariation(fields.OffVariation)
 	ret.Variations = fields.Variations
-	ret.ClientSideAvailability = decodeClientSideAvailability(fields.ClientSideAvailability, fields.ClientSide)
+	if fields.ClientSideAvailability == nil {
+		ret.ClientSideAvailability = ClientSideAvailability{
+			UsingMobileKey:     true, // always assumed to be true in the old schema
+			UsingEnvironmentID: fields.ClientSide,
+			Explicit:           false,
+		}
+	} else {
+		ret.ClientSideAvailability = ClientSideAvailability{
+			UsingMobileKey:     fields.ClientSideAvailability.UsingMobileKey,
+			UsingEnvironmentID: fields.ClientSideAvailability.UsingEnvironmentID,
+			Explicit:           true,
+		}
+	}
 	ret.Salt = fields.Salt
 	ret.TrackEvents = fields.TrackEvents
 	ret.TrackEventsFallthrough = fields.TrackEventsFallthrough
@@ -211,17 +223,4 @@ func maybeVariation(value *int) int {
 		return NoVariation
 	}
 	return *value
-}
-
-func decodeClientSideAvailability(rep *clientSideAvailabilityJSONRep, legacyClientSide bool) ClientSideAvailability {
-	availability := ClientSideAvailability{
-		UsingEnvironmentID: legacyClientSide,
-	}
-	if rep != nil {
-		availability = ClientSideAvailability{
-			UsingEnvironmentID: rep.UsingEnvironmentID,
-			UsingMobileKey:     rep.UsingMobileKey,
-		}
-	}
-	return availability
 }
