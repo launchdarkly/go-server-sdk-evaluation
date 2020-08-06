@@ -71,7 +71,26 @@ func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	}
 	b.EndArray()
 
-	writePropIfNotNull(&b, "clientSide", trueValueOrNull(flag.ClientSide))
+	// In the older JSON schema, ClientSideAvailability.UsingEnvironmentID was in "clientSide", and
+	// ClientSideAvailability.UsingMobileKey was assumed to be true. In the newer schema, those are
+	// both in a "clientSideAvailability" object.
+	//
+	// If ClientSideAvailability.Explicit is true, then this flag used the newer schema and should be
+	// reserialized the same way. If it is false, we will reserialize with the old schema, which
+	// does not include UsingMobileKey; note that in that case UsingMobileKey is assumed to be true.
+	//
+	// For backward compatibility with older SDKs that might be reading a flag that was serialized by
+	// this SDK, we always include the older "clientSide" property if it would be true.
+	if flag.ClientSideAvailability.Explicit {
+		b.WriteName("clientSideAvailability")
+		b.BeginObject()
+		b.WriteName("usingMobileKey")
+		b.WriteBool(flag.ClientSideAvailability.UsingMobileKey)
+		b.WriteName("usingEnvironmentId")
+		b.WriteBool(flag.ClientSideAvailability.UsingEnvironmentID)
+		b.EndObject()
+	}
+	writePropIfNotNull(&b, "clientSide", trueValueOrNull(flag.ClientSideAvailability.UsingEnvironmentID))
 
 	writeString(&b, "salt", flag.Salt)
 
