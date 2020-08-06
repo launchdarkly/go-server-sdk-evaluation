@@ -22,7 +22,7 @@ type featureFlagJSONRep struct {
 	OffVariation           *int                           `json:"offVariation"`
 	Variations             []ldvalue.Value                `json:"variations"`
 	ClientSide             bool                           `json:"clientSide"`
-	ClientSideAvailability *clientSideAvailabilityJSONRep `json:"ClientSideAvailability"`
+	ClientSideAvailability *clientSideAvailabilityJSONRep `json:"clientSideAvailability"`
 	Salt                   string                         `json:"salt"`
 	TrackEvents            bool                           `json:"trackEvents"`
 	TrackEventsFallthrough bool                           `json:"trackEventsFallthrough"`
