@@ -49,8 +49,9 @@ type FeatureFlag struct {
 	// Variations is the list of all allowable variations for this flag. The variation index in a
 	// Target or Rule is a zero-based index to this list.
 	Variations []ldvalue.Value
-	// ClientSide is true if this flag is available to the LaunchDarkly client-side JavaScript SDKs.
-	ClientSide bool
+	// ClientSideAvailability indicates whether a flag is available using each of the client-side
+	// authentication methods.
+	ClientSideAvailability ClientSideAvailability
 	// Salt is a randomized value assigned to this flag when it is created.
 	//
 	// The hash function used for calculating percentage rollouts uses this as a salt to ensure that
@@ -271,4 +272,28 @@ type Prerequisite struct {
 	// the prerequisite condition to be met. If the prerequisite flag has targeting turned on, then
 	// the condition is not met even if the flag's OffVariation matches this value.
 	Variation int
+}
+
+// ClientSideAvailability describes whether a flag is available to client-side SDKs.
+//
+// This field can be used by a server-side client to determine whether to include an individual flag in
+// bootstrapped set of flag data (see https://docs.launchdarkly.com/sdk/client-side/javascript#bootstrapping).
+type ClientSideAvailability struct {
+	// UsingMobileKey indicates that this flag is available to clients using the mobile key for authorization
+	// (includes most desktop and mobile clients).
+	UsingMobileKey bool
+	// UsingEnvironmentID indicates that this flag is available to clients using the environment id to identify an
+	// environment (includes client-side javascript clients).
+	UsingEnvironmentID bool
+	// Explicit is true if, when serializing this flag, all of the ClientSideAvailability properties should
+	// be included. If it is false, then an older schema is used in which this object is entirely omitted,
+	// UsingEnvironmentID is stored in a deprecated property, and UsingMobileKey is assumed to be true.
+	//
+	// This field exists to ensure that flag representations remain consistent when sent and received
+	// even though the clientSideAvailability property may not be present in the JSON data. It is false
+	// if the flag was deserialized from an older JSON schema that did not include that property.
+	//
+	// Similarly, when deserializing a flag, if it used the older schema then Explicit will be false and
+	// UsingMobileKey will be true.
+	Explicit bool
 }
