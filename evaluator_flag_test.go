@@ -6,6 +6,7 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
 
 	"github.com/stretchr/testify/assert"
+
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
@@ -28,7 +29,7 @@ func TestFlagReturnsOffVariationIfFlagIsOff(t *testing.T) {
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
 	assert.Equal(t, offValue, result.Value)
-	assert.Equal(t, 1, result.VariationIndex)
+	assert.Equal(t, ldvalue.NewOptionalInt(1), result.VariationIndex)
 	assert.Equal(t, ldreason.NewEvalReasonOff(), result.Reason)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -42,7 +43,7 @@ func TestFlagReturnsNilIfFlagIsOffAndOffVariationIsUnspecified(t *testing.T) {
 
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetail(ldvalue.Null(), -1, ldreason.NewEvalReasonOff()), result)
+	assert.Equal(t, ldreason.EvaluationDetail{Reason: ldreason.NewEvalReasonOff()}, result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
 

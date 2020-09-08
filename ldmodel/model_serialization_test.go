@@ -40,7 +40,7 @@ var flagWithAllProperties = FeatureFlag{
 				},
 			},
 			VariationOrRollout: VariationOrRollout{
-				Variation: 1,
+				Variation: ldvalue.NewOptionalInt(1),
 			},
 			TrackEvents: true,
 		},
@@ -48,7 +48,6 @@ var flagWithAllProperties = FeatureFlag{
 			ID:      "rule-id2",
 			Clauses: []Clause{},
 			VariationOrRollout: VariationOrRollout{
-				Variation: NoVariation,
 				Rollout: Rollout{
 					Variations: []WeightedVariation{
 						WeightedVariation{
@@ -62,7 +61,6 @@ var flagWithAllProperties = FeatureFlag{
 		},
 	},
 	Fallthrough: VariationOrRollout{
-		Variation: NoVariation,
 		Rollout: Rollout{
 			Variations: []WeightedVariation{
 				WeightedVariation{
@@ -72,7 +70,7 @@ var flagWithAllProperties = FeatureFlag{
 			},
 		},
 	},
-	OffVariation: 3,
+	OffVariation: ldvalue.NewOptionalInt(3),
 	Variations:   []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
 	ClientSideAvailability: ClientSideAvailability{
 		UsingEnvironmentID: true,
@@ -156,10 +154,9 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 }
 
 var flagWithMinimalProperties = FeatureFlag{
-	Key:          "flag-key",
-	Fallthrough:  VariationOrRollout{Variation: 1},
-	OffVariation: NoVariation,
-	Variations:   []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
+	Key:         "flag-key",
+	Fallthrough: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)},
+	Variations:  []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
 	ClientSideAvailability: ClientSideAvailability{
 		UsingMobileKey: true,
 		Explicit:       false,

@@ -19,7 +19,7 @@ type featureFlagJSONRep struct {
 	Targets                []targetJSONRep                `json:"targets"`
 	Rules                  []flagRuleJSONRep              `json:"rules"`
 	Fallthrough            variationOrRolloutJSONRep      `json:"fallthrough"`
-	OffVariation           *int                           `json:"offVariation"`
+	OffVariation           ldvalue.OptionalInt            `json:"offVariation"`
 	Variations             []ldvalue.Value                `json:"variations"`
 	ClientSide             bool                           `json:"clientSide"`
 	ClientSideAvailability *clientSideAvailabilityJSONRep `json:"clientSideAvailability"`
@@ -56,8 +56,8 @@ type clauseJSONRep struct {
 }
 
 type variationOrRolloutJSONRep struct {
-	Variation *int            `json:"variation"`
-	Rollout   *rolloutJSONRep `json:"rollout"`
+	Variation ldvalue.OptionalInt `json:"variation"`
+	Rollout   *rolloutJSONRep     `json:"rollout"`
 }
 
 type rolloutJSONRep struct {
@@ -99,10 +99,12 @@ func unmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
 	}
 
 	ret := FeatureFlag{
-		Key:     fields.Key,
-		Version: fields.Version,
-		Deleted: fields.Deleted,
-		On:      fields.On,
+		Key:          fields.Key,
+		Version:      fields.Version,
+		Deleted:      fields.Deleted,
+		On:           fields.On,
+		OffVariation: fields.OffVariation,
+		Variations:   fields.Variations,
 	}
 	if len(fields.Prerequisites) > 0 {
 		ret.Prerequisites = make([]Prerequisite, len(fields.Prerequisites))
@@ -132,8 +134,6 @@ func unmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
 		}
 	}
 	ret.Fallthrough = decodeVariationOrRollout(fields.Fallthrough)
-	ret.OffVariation = maybeVariation(fields.OffVariation)
-	ret.Variations = fields.Variations
 	if fields.ClientSideAvailability == nil {
 		ret.ClientSideAvailability = ClientSideAvailability{
 			UsingMobileKey:     true, // always assumed to be true in the old schema
@@ -194,7 +194,7 @@ func unmarshalSegment(data []byte) (Segment, error) {
 }
 
 func decodeVariationOrRollout(fields variationOrRolloutJSONRep) VariationOrRollout {
-	ret := VariationOrRollout{Variation: maybeVariation(fields.Variation)}
+	ret := VariationOrRollout{Variation: fields.Variation}
 	if fields.Rollout != nil {
 		ret.Rollout.Variations = make([]WeightedVariation, len(fields.Rollout.Variations))
 		for i, wv := range fields.Rollout.Variations {
@@ -216,11 +216,4 @@ func decodeClauses(clauses []clauseJSONRep) []Clause {
 		}
 	}
 	return ret
-}
-
-func maybeVariation(value *int) int {
-	if value == nil {
-		return NoVariation
-	}
-	return *value
 }

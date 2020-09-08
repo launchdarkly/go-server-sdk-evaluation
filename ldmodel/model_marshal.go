@@ -60,9 +60,7 @@ func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	writeVariationOrRolloutProperties(&b, flag.Fallthrough)
 	b.EndObject()
 
-	if flag.OffVariation != NoVariation {
-		writeInt(&b, "offVariation", flag.OffVariation)
-	}
+	writeOptionalInt(&b, "offVariation", flag.OffVariation)
 
 	b.WriteName("variations")
 	b.BeginArray()
@@ -180,6 +178,13 @@ func writeInt(b *jsonstream.JSONBuffer, name string, value int) {
 	b.WriteInt(value)
 }
 
+func writeOptionalInt(b *jsonstream.JSONBuffer, name string, value ldvalue.OptionalInt) {
+	if value.IsDefined() {
+		b.WriteName(name)
+		b.WriteInt(value.IntValue())
+	}
+}
+
 func writeString(b *jsonstream.JSONBuffer, name string, value string) {
 	b.WriteName(name)
 	b.WriteString(value)
@@ -195,9 +200,7 @@ func writeStringArray(b *jsonstream.JSONBuffer, name string, values []string) {
 }
 
 func writeVariationOrRolloutProperties(b *jsonstream.JSONBuffer, vr VariationOrRollout) {
-	if vr.Variation != NoVariation {
-		writeInt(b, "variation", vr.Variation)
-	}
+	writeOptionalInt(b, "variation", vr.Variation)
 	if len(vr.Rollout.Variations) > 0 {
 		b.WriteName("rollout")
 		b.BeginObject()
