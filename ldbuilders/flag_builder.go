@@ -14,13 +14,12 @@ func Bucket(variationIndex int, weight int) ldmodel.WeightedVariation {
 
 // Rollout constructs a VariationOrRollout with the specified buckets.
 func Rollout(buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
-	return ldmodel.VariationOrRollout{Variation: ldmodel.NoVariation,
-		Rollout: ldmodel.Rollout{Variations: buckets}}
+	return ldmodel.VariationOrRollout{Rollout: ldmodel.Rollout{Variations: buckets}}
 }
 
 // Variation constructs a VariationOrRollout with the specified variation index.
 func Variation(variationIndex int) ldmodel.VariationOrRollout {
-	return ldmodel.VariationOrRollout{Variation: variationIndex}
+	return ldmodel.VariationOrRollout{Variation: ldvalue.NewOptionalInt(variationIndex)}
 }
 
 // FlagBuilder provides a builder pattern for FeatureFlag.
@@ -37,8 +36,6 @@ type RuleBuilder struct {
 func NewFlagBuilder(key string) *FlagBuilder {
 	return &FlagBuilder{flag: ldmodel.FeatureFlag{
 		Key:                    key,
-		OffVariation:           ldmodel.NoVariation,
-		Fallthrough:            Variation(ldmodel.NoVariation),
 		ClientSideAvailability: ldmodel.ClientSideAvailability{UsingMobileKey: true},
 	}}
 }
@@ -111,7 +108,7 @@ func (b *FlagBuilder) FallthroughVariation(variationIndex int) *FlagBuilder {
 
 // OffVariation sets the flag's OffVariation property.
 func (b *FlagBuilder) OffVariation(variationIndex int) *FlagBuilder {
-	b.flag.OffVariation = variationIndex
+	b.flag.OffVariation = ldvalue.NewOptionalInt(variationIndex)
 	return b
 }
 

@@ -7,11 +7,6 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
 
-const (
-	// NoVariation represents the lack of a variation index (for FeatureFlag.OffVariation, etc.).
-	NoVariation = -1
-)
-
 // FeatureFlag describes an individual feature flag.
 //
 // The fields of this struct are exported for use by LaunchDarkly internal components. Application code
@@ -43,9 +38,9 @@ type FeatureFlag struct {
 	Fallthrough VariationOrRollout
 	// OffVariation specifies the variation index to use if targeting is turned off.
 	//
-	// If this is NoVariation, Evaluate returns NoVariation for the variation index and ldvalue.Null()
-	// for the value.
-	OffVariation int
+	// If this is undefined (ldvalue.OptionalInt{}), Evaluate returns undefined for the variation
+	// index and ldvalue.Null() for the value.
+	OffVariation ldvalue.OptionalInt
 	// Variations is the list of all allowable variations for this flag. The variation index in a
 	// Target or Rule is a zero-based index to this list.
 	Variations []ldvalue.Value
@@ -183,9 +178,9 @@ type FlagRule struct {
 //
 // Invariant: one of the variation or rollout must be non-nil.
 type VariationOrRollout struct {
-	// Variation specifies the index of the variation to return, or NoVariation if no specific variation
-	// is defined.
-	Variation int
+	// Variation specifies the index of the variation to return. It is undefined (ldvalue.OptionalInt{})
+	// if no specific variation is defined.
+	Variation ldvalue.OptionalInt
 	// Rollout specifies a percentage rollout to be used instead of a specific variation. A rollout is
 	// only defined if it has a non-empty Variations list.
 	Rollout Rollout
@@ -245,7 +240,8 @@ type Clause struct {
 
 // WeightedVariation describes a fraction of users who will receive a specific variation.
 type WeightedVariation struct {
-	// Variation is the index of the variation to be returned if the user is in this bucket.
+	// Variation is the index of the variation to be returned if the user is in this bucket. This is
+	// always a real variation index; it cannot be undefined.
 	Variation int
 	// Weight is the proportion of users who should go into this bucket, as an integer from 0 to 100000.
 	Weight int
@@ -255,7 +251,8 @@ type WeightedVariation struct {
 type Target struct {
 	// Values is the set of user keys included in this Target.
 	Values []string
-	// Variation is the index of the variation to be returned if the user matches one of these keys.
+	// Variation is the index of the variation to be returned if the user matches one of these keys. This
+	// is always a real variation index; it cannot be undefined.
 	Variation int
 	// preprocessedData is created by PreprocessFlag() to speed up target matching.
 	preprocessed targetPreprocessedData
@@ -270,7 +267,8 @@ type Prerequisite struct {
 	Key string
 	// Variation is the index of the variation that the prerequisite flag must return in order for
 	// the prerequisite condition to be met. If the prerequisite flag has targeting turned on, then
-	// the condition is not met even if the flag's OffVariation matches this value.
+	// the condition is not met even if the flag's OffVariation matches this value. This is always a
+	// real variation index; it cannot be undefined.
 	Variation int
 }
 

@@ -91,7 +91,8 @@ func (es *evaluationScope) checkPrerequisites() (ldreason.EvaluationReason, bool
 		prereqOK := true
 
 		prereqResult := es.owner.Evaluate(prereqFeatureFlag, es.user, es.prerequisiteFlagEventRecorder)
-		if !prereqFeatureFlag.On || prereqResult.IsDefaultValue() || prereqResult.VariationIndex != prereq.Variation {
+		if !prereqFeatureFlag.On || prereqResult.IsDefaultValue() ||
+			prereqResult.VariationIndex.IntValue() != prereq.Variation {
 			// Note that if the prerequisite flag is off, we don't consider it a match no matter what its
 			// off variation was. But we still need to evaluate it in order to generate an event.
 			prereqOK = false
@@ -117,10 +118,10 @@ func (es *evaluationScope) getVariation(index int, reason ldreason.EvaluationRea
 }
 
 func (es *evaluationScope) getOffValue(reason ldreason.EvaluationReason) ldreason.EvaluationDetail {
-	if es.flag.OffVariation < 0 {
-		return ldreason.NewEvaluationDetail(ldvalue.Null(), -1, reason)
+	if !es.flag.OffVariation.IsDefined() {
+		return ldreason.EvaluationDetail{Reason: reason}
 	}
-	return es.getVariation(es.flag.OffVariation, reason)
+	return es.getVariation(es.flag.OffVariation.IntValue(), reason)
 }
 
 func (es *evaluationScope) getValueForVariationOrRollout(
@@ -166,8 +167,8 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
 }
 
 func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, key, salt string) int {
-	if r.Variation >= 0 {
-		return r.Variation
+	if r.Variation.IsDefined() {
+		return r.Variation.IntValue()
 	}
 	if len(r.Rollout.Variations) == 0 {
 		// This is an error (malformed flag); either Variation or Rollout must be non-nil.
