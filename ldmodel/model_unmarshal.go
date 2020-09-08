@@ -71,13 +71,14 @@ type weightedVariationJSONRep struct {
 }
 
 type segmentJSONRep struct {
-	Key      string               `json:"key"`
-	Included []string             `json:"included"`
-	Excluded []string             `json:"excluded"`
-	Salt     string               `json:"salt"`
-	Rules    []segmentRuleJSONRep `json:"rules"`
-	Version  int                  `json:"version"`
-	Deleted  bool                 `json:"deleted"`
+	Key       string               `json:"key"`
+	Included  []string             `json:"included"`
+	Excluded  []string             `json:"excluded"`
+	Salt      string               `json:"salt"`
+	Rules     []segmentRuleJSONRep `json:"rules"`
+	Unbounded bool                 `json:"unbounded"`
+	Version   int                  `json:"version"`
+	Deleted   bool                 `json:"deleted"`
 }
 
 type segmentRuleJSONRep struct {
@@ -163,12 +164,13 @@ func unmarshalSegment(data []byte) (Segment, error) {
 	}
 
 	ret := Segment{
-		Key:      fields.Key,
-		Version:  fields.Version,
-		Deleted:  fields.Deleted,
-		Included: fields.Included,
-		Excluded: fields.Excluded,
-		Salt:     fields.Salt,
+		Key:       fields.Key,
+		Version:   fields.Version,
+		Deleted:   fields.Deleted,
+		Included:  fields.Included,
+		Excluded:  fields.Excluded,
+		Salt:      fields.Salt,
+		Unbounded: fields.Unbounded,
 	}
 	if len(fields.Rules) > 0 {
 		ret.Rules = make([]SegmentRule, len(fields.Rules))

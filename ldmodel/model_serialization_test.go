@@ -202,9 +202,10 @@ var segmentWithAllProperties = Segment{
 			BucketBy: lduser.NameAttribute,
 		},
 	},
-	Salt:    "segment-salt",
-	Version: 99,
-	Deleted: true,
+	Salt:      "segment-salt",
+	Unbounded: true,
+	Version:   99,
+	Deleted:   true,
 }
 
 var segmentWithAllPropertiesJSON = map[string]interface{}{
@@ -229,9 +230,10 @@ var segmentWithAllPropertiesJSON = map[string]interface{}{
 			"bucketBy": "name",
 		},
 	},
-	"salt":    "segment-salt",
-	"version": float64(99),
-	"deleted": true,
+	"salt":      "segment-salt",
+	"unbounded": true,
+	"version":   float64(99),
+	"deleted":   true,
 }
 
 var segmentWithMinimalProperties = Segment{
