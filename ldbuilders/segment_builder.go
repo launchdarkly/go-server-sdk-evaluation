@@ -57,6 +57,12 @@ func (b *SegmentBuilder) Salt(value string) *SegmentBuilder {
 	return b
 }
 
+// Unbounded sets the segment's Unbounded property.
+func (b *SegmentBuilder) Unbounded(value bool) *SegmentBuilder {
+	b.segment.Unbounded = value
+	return b
+}
+
 // NewSegmentRuleBuilder creates a SegmentRuleBuilder.
 func NewSegmentRuleBuilder() *SegmentRuleBuilder {
 	return &SegmentRuleBuilder{rule: ldmodel.SegmentRule{

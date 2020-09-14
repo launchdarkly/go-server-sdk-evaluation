@@ -20,6 +20,10 @@ type Segment struct {
 	// If a user is matched by a Rule, all subsequent Rules in the list are skipped. Rules are ignored
 	// if the user's key is in Included or Excluded.
 	Rules []SegmentRule
+	// Unbounded is true if this is a segment whose Included list is stored separately and is not limited in size.
+	// Currently, the server-side Go SDK cannot access the user list for this kind of segment; it only works when
+	// flags are being evaluated within the LaunchDarkly service.
+	Unbounded bool
 	// Version is an integer that is incremented by LaunchDarkly every time the configuration of the segment is
 	// changed.
 	Version int
