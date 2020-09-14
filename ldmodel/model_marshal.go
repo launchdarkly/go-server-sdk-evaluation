@@ -147,6 +147,8 @@ func marshalSegment(segment Segment) ([]byte, error) {
 		b.EndArray()
 	}
 
+	writePropIfNotNull(&b, "unbounded", trueValueOrNull(segment.Unbounded))
+
 	writeInt(&b, "version", segment.Version)
 
 	writePropIfNotNull(&b, "deleted", trueValueOrNull(segment.Deleted))
