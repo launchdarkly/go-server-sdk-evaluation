@@ -10,7 +10,7 @@ Note that the base import path is `gopkg.in/launchdarkly/go-server-sdk-evaluatio
 
 ## Supported Go versions
 
-This version of the project has been tested with Go 1.13 through 1.14.
+This version of the project has been tested with Go 1.14 and higher.
 
 ## Learn more
 
