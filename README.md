@@ -1,12 +1,12 @@
 # LaunchDarkly Go SDK Evaluation Engine
 
-[![Circle CI](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation.svg?style=shield)](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation) [![Documentation](https://img.shields.io/static/v1?label=go.dev&message=reference&color=00add8)](https://pkg.go.dev/gopkg.in/launchdarkly/go-server-sdk-evaluation.v1)
+[![Circle CI](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation.svg?style=shield)](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation) [![Documentation](https://img.shields.io/static/v1?label=go.dev&message=reference&color=00add8)](https://pkg.go.dev/gopkg.in/launchdarkly/go-server-sdk-evaluation.v2)
 
 ## Overview
 
 This repository contains the internal feature flag evaluation logic and data model used by the [LaunchDarkly Go SDK](https://github.com/launchdarkly/go-server-sdk). It is packaged separately because it is also used by internal LaunchDarkly components. Applications using the LaunchDarkly Go SDK should not need to reference this package directly.
 
-Note that the base import path is `gopkg.in/launchdarkly/go-server-sdk-evaluation.v1`, not `github.com/launchdarkly/go-server-sdk-evaluation`. This ensures that the package can be referenced not only as a Go module, but also by projects that use older tools like `dep` and `govendor`, because the 5.x release of the Go SDK supports either module or non-module usage. Future releases of this package, and of the Go SDK, may drop support for non-module usage.
+Note that the base import path is `gopkg.in/launchdarkly/go-server-sdk-evaluation.v2`, not `github.com/launchdarkly/go-server-sdk-evaluation`. This ensures that the package can be referenced not only as a Go module, but also by projects that use older tools like `dep` and `govendor`, because the 5.x release of the Go SDK supports either module or non-module usage. Future releases of this package, and of the Go SDK, may drop support for non-module usage.
 
 ## Supported Go versions
 
@@ -14,7 +14,7 @@ This version of the project has been tested with Go 1.14 and higher.
 
 ## Learn more
 
-Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for the Go SDK](http://docs.launchdarkly.com/docs/go-sdk-reference), or the [generated API documentation](https://pkg.go.dev/gopkg.in/launchdarkly/go-server-sdk-evaluation.v1) for this project.
+Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for the Go SDK](http://docs.launchdarkly.com/docs/go-sdk-reference), or the [generated API documentation](https://pkg.go.dev/gopkg.in/launchdarkly/go-server-sdk-evaluation.v2) for this project.
 
 ## Contributing
 

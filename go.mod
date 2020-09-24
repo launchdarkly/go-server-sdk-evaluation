@@ -1,4 +1,4 @@
-module gopkg.in/launchdarkly/go-server-sdk-evaluation.v1
+module gopkg.in/launchdarkly/go-server-sdk-evaluation.v2
 
 go 1.13
 

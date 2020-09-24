@@ -2,7 +2,7 @@ package evaluation
 
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
 
 func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
