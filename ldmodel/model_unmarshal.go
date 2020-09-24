@@ -82,10 +82,10 @@ type segmentJSONRep struct {
 }
 
 type segmentRuleJSONRep struct {
-	ID       string                `json:"id"`
-	Clauses  []clauseJSONRep       `json:"clauses"`
-	Weight   *int                  `json:"weight"`
-	BucketBy *lduser.UserAttribute `json:"bucketBy"`
+	ID       string               `json:"id"`
+	Clauses  []clauseJSONRep      `json:"clauses"`
+	Weight   ldvalue.OptionalInt  `json:"weight"`
+	BucketBy lduser.UserAttribute `json:"bucketBy"`
 }
 
 type clientSideAvailabilityJSONRep struct {
@@ -175,19 +175,12 @@ func unmarshalSegment(data []byte) (Segment, error) {
 	if len(fields.Rules) > 0 {
 		ret.Rules = make([]SegmentRule, len(fields.Rules))
 		for i, r := range fields.Rules {
-			sr := SegmentRule{
-				ID:      r.ID,
-				Clauses: decodeClauses(r.Clauses),
+			ret.Rules[i] = SegmentRule{
+				ID:       r.ID,
+				Clauses:  decodeClauses(r.Clauses),
+				Weight:   r.Weight,
+				BucketBy: r.BucketBy,
 			}
-			if r.Weight == nil {
-				sr.Weight = -1
-			} else {
-				sr.Weight = *r.Weight
-			}
-			if r.BucketBy != nil {
-				sr.BucketBy = *r.BucketBy
-			}
-			ret.Rules[i] = sr
 		}
 	}
 

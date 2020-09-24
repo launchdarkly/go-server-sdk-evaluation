@@ -2,6 +2,7 @@ package ldbuilders
 
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 )
 
@@ -65,9 +66,7 @@ func (b *SegmentBuilder) Unbounded(value bool) *SegmentBuilder {
 
 // NewSegmentRuleBuilder creates a SegmentRuleBuilder.
 func NewSegmentRuleBuilder() *SegmentRuleBuilder {
-	return &SegmentRuleBuilder{rule: ldmodel.SegmentRule{
-		Weight: -1,
-	}}
+	return &SegmentRuleBuilder{}
 }
 
 // Build returns the configured SegmentRule.
@@ -95,6 +94,6 @@ func (b *SegmentRuleBuilder) ID(id string) *SegmentRuleBuilder {
 
 // Weight sets the rule's Weight property.
 func (b *SegmentRuleBuilder) Weight(value int) *SegmentRuleBuilder {
-	b.rule.Weight = value
+	b.rule.Weight = ldvalue.NewOptionalInt(value)
 	return b
 }

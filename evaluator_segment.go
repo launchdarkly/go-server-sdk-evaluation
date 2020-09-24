@@ -34,7 +34,7 @@ func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, s
 	}
 
 	// If the Weight is absent, this rule matches
-	if r.Weight < 0 {
+	if !r.Weight.IsDefined() {
 		return true
 	}
 
@@ -46,7 +46,7 @@ func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, s
 
 	// Check whether the user buckets into the segment
 	bucket := es.bucketUser(key, bucketBy, salt)
-	weight := float32(r.Weight) / 100000.0
+	weight := float32(r.Weight.IntValue()) / 100000.0
 
 	return bucket < weight
 }

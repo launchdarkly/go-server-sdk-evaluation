@@ -129,10 +129,10 @@ func (es *evaluationScope) getValueForVariationOrRollout(
 	reason ldreason.EvaluationReason,
 ) ldreason.EvaluationDetail {
 	index := es.variationIndexForUser(vr, es.flag.Key, es.flag.Salt)
-	if index < 0 {
+	if !index.IsDefined() {
 		return ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null())
 	}
-	return es.getVariation(index, reason)
+	return es.getVariation(index.IntValue(), reason)
 }
 
 func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) bool {
@@ -166,13 +166,13 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
 	return ldmodel.ClauseMatchesUser(clause, &es.user)
 }
 
-func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, key, salt string) int {
+func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, key, salt string) ldvalue.OptionalInt {
 	if r.Variation.IsDefined() {
-		return r.Variation.IntValue()
+		return r.Variation
 	}
 	if len(r.Rollout.Variations) == 0 {
 		// This is an error (malformed flag); either Variation or Rollout must be non-nil.
-		return -1
+		return ldvalue.OptionalInt{}
 	}
 
 	bucketBy := lduser.KeyAttribute
@@ -186,7 +186,7 @@ func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, k
 	for _, wv := range r.Rollout.Variations {
 		sum += float32(wv.Weight) / 100000.0
 		if bucket < sum {
-			return wv.Variation
+			return ldvalue.NewOptionalInt(wv.Variation)
 		}
 	}
 
@@ -195,5 +195,5 @@ func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, k
 	// data could contain buckets that don't actually add up to 100000. Rather than returning an error in
 	// this case (or changing the scaling, which would potentially change the results for *all* users), we
 	// will simply put the user in the last bucket.
-	return r.Rollout.Variations[len(r.Rollout.Variations)-1].Variation
+	return ldvalue.NewOptionalInt(r.Rollout.Variations[len(r.Rollout.Variations)-1].Variation)
 }

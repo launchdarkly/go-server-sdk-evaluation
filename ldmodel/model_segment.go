@@ -1,6 +1,9 @@
 package ldmodel
 
-import "gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
+import (
+	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+)
 
 // Segment describes a group of users based on user keys and/or matching rules.
 type Segment struct {
@@ -62,9 +65,9 @@ type SegmentRule struct {
 	// Clauses is a list of test conditions that make up the rule. These are ANDed: every Clause must
 	// match in order for the SegmentRule to match.
 	Clauses []Clause
-	// Weight, if non-negative, defines a percentage rollout in which only a subset of users matching this
+	// Weight, if defined, specifies a percentage rollout in which only a subset of users matching this
 	// rule are included in the segment. This is specified as an integer from 0 (0%) to 100000 (100%).
-	Weight int
+	Weight ldvalue.OptionalInt
 	// BucketBy specifies which user attribute should be used to distinguish between users in a rollout.
 	//
 	// The default (when BucketBy is empty) is lduser.KeyAttribute, the user's primary key. If you wish to
