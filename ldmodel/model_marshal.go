@@ -136,9 +136,7 @@ func marshalSegment(segment Segment) ([]byte, error) {
 				writeString(&b, "id", r.ID)
 			}
 			writeClauses(&b, r.Clauses)
-			if r.Weight >= 0 {
-				writeInt(&b, "weight", r.Weight)
-			}
+			writeOptionalInt(&b, "weight", r.Weight)
 			if r.BucketBy != "" {
 				writeString(&b, "bucketBy", string(r.BucketBy))
 			}

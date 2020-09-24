@@ -194,11 +194,10 @@ var segmentWithAllProperties = Segment{
 					Negate:    true,
 				},
 			},
-			Weight: -1,
 		},
 		SegmentRule{
 			Clauses:  []Clause{},
-			Weight:   50000,
+			Weight:   ldvalue.NewOptionalInt(50000),
 			BucketBy: lduser.NameAttribute,
 		},
 	},
