@@ -3,6 +3,7 @@ repo:
   private: go-server-sdk-evaluation-private
 
 releasableBranches:
+  - name: v2
   - name: v1
 
 template:
