@@ -126,6 +126,7 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 				},
 				"bucketBy": "name",
 			},
+			"trackEvents": false,
 		},
 	},
 	"fallthrough": map[string]interface{}{
@@ -166,13 +167,23 @@ var flagWithMinimalProperties = FeatureFlag{
 }
 
 var flagWithMinimalPropertiesJSON = map[string]interface{}{
-	"key": "flag-key",
+	"key":          "flag-key",
+	"on":           false,
+	"offVariation": nil,
 	"fallthrough": map[string]interface{}{
 		"variation": float64(1),
 	},
-	"variations": []interface{}{false, float64(9), "other"},
-	"salt":       "flag-salt",
-	"version":    float64(99),
+	"variations":             []interface{}{false, float64(9), "other"},
+	"targets":                []interface{}{},
+	"rules":                  []interface{}{},
+	"prerequisites":          []interface{}{},
+	"clientSide":             false,
+	"salt":                   "flag-salt",
+	"trackEvents":            false,
+	"trackEventsFallthrough": false,
+	"debugEventsUntilDate":   nil,
+	"version":                float64(99),
+	"deleted":                false,
 }
 
 var segmentWithAllProperties = Segment{
@@ -225,6 +236,7 @@ var segmentWithAllPropertiesJSON = map[string]interface{}{
 			},
 		},
 		map[string]interface{}{
+			"id":       "",
 			"clauses":  []interface{}{},
 			"weight":   float64(50000),
 			"bucketBy": "name",
@@ -237,15 +249,22 @@ var segmentWithAllPropertiesJSON = map[string]interface{}{
 }
 
 var segmentWithMinimalProperties = Segment{
-	Key:     "segment-key",
-	Salt:    "segment-salt",
-	Version: 99,
+	Key:      "segment-key",
+	Included: []string{},
+	Excluded: []string{},
+	Rules:    []SegmentRule{},
+	Salt:     "segment-salt",
+	Version:  99,
 }
 
 var segmentWithMinimalPropertiesJSON = map[string]interface{}{
-	"key":     "segment-key",
-	"salt":    "segment-salt",
-	"version": float64(99),
+	"key":      "segment-key",
+	"included": []interface{}{},
+	"excluded": []interface{}{},
+	"rules":    []interface{}{},
+	"salt":     "segment-salt",
+	"version":  float64(99),
+	"deleted":  false,
 }
 
 func parseJsonMap(t *testing.T, bytes []byte) map[string]interface{} {
@@ -362,7 +381,7 @@ func TestMarshalFlagClientSideAvailability(t *testing.T) {
 		bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flag)
 		require.NoError(t, err)
 		jsonMap := parseJsonMap(t, bytes)
-		assert.Nil(t, jsonMap["clientSide"])
+		assert.Equal(t, false, jsonMap["clientSide"])
 		assert.Nil(t, jsonMap["clientSideAvailability"])
 	})
 
@@ -390,11 +409,7 @@ func TestMarshalFlagClientSideAvailability(t *testing.T) {
 				bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flag)
 				require.NoError(t, err)
 				jsonMap := parseJsonMap(t, bytes)
-				if usingEnvID {
-					assert.Equal(t, true, jsonMap["clientSide"])
-				} else {
-					assert.Nil(t, jsonMap["clientSide"])
-				}
+				assert.Equal(t, usingEnvID, jsonMap["clientSide"])
 				assert.Equal(t, map[string]interface{}{
 					"usingMobileKey":     usingMobile,
 					"usingEnvironmentId": usingEnvID,

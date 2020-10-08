@@ -2,8 +2,19 @@ package ldmodel
 
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v2/jsonstream"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
+
+// For backward compatibility, we are only allowed to drop out properties that have default values if
+// Go SDK 4.x would also have done so (since some SDKs are not tolerant of missing properties in
+// general). This is true of all properties that have OptionalInt-like semantics (having either a
+// numeric value or "undefined"), and properties that could be either a JSON object or null (like
+// VariationOrRollout.Rollout), and the BucketBy property which has optional-string-like behavior.
+// Array properties should not be dropped even if nil.
+//
+// Properties that did not exist prior to Go SDK v5 are always safe to drop if they have default
+// values, since older SDKs will never look for them. These are:
+// - FeatureFlag.ClientSideAvailability
+// - Segment.Unbounded
 
 func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	var b jsonstream.JSONBuffer
@@ -13,54 +24,49 @@ func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 
 	writeString(&b, "key", flag.Key)
 
-	writePropIfNotNull(&b, "on", trueValueOrNull(flag.On))
+	writeBool(&b, "on", flag.On)
 
-	if len(flag.Prerequisites) > 0 {
-		b.WriteName("prerequisites")
-		b.BeginArray()
-		for _, p := range flag.Prerequisites {
-			b.BeginObject()
-			writeString(&b, "key", p.Key)
-			writeInt(&b, "variation", p.Variation)
-			b.EndObject()
-		}
-		b.EndArray()
+	b.WriteName("prerequisites")
+	b.BeginArray()
+	for _, p := range flag.Prerequisites {
+		b.BeginObject()
+		writeString(&b, "key", p.Key)
+		writeInt(&b, "variation", p.Variation)
+		b.EndObject()
 	}
+	b.EndArray()
 
-	if len(flag.Targets) > 0 {
-		b.WriteName("targets")
-		b.BeginArray()
-		for _, t := range flag.Targets {
-			b.BeginObject()
-			writeInt(&b, "variation", t.Variation)
-			writeStringArray(&b, "values", t.Values)
-			b.EndObject()
-		}
-		b.EndArray()
+	b.WriteName("targets")
+	b.BeginArray()
+	for _, t := range flag.Targets {
+		b.BeginObject()
+		writeInt(&b, "variation", t.Variation)
+		writeStringArray(&b, "values", t.Values)
+		b.EndObject()
 	}
+	b.EndArray()
 
-	if len(flag.Rules) > 0 {
-		b.WriteName("rules")
-		b.BeginArray()
-		for _, r := range flag.Rules {
-			b.BeginObject()
-			writeVariationOrRolloutProperties(&b, r.VariationOrRollout)
-			if r.ID != "" {
-				writeString(&b, "id", r.ID)
-			}
-			writeClauses(&b, r.Clauses)
-			writePropIfNotNull(&b, "trackEvents", trueValueOrNull(r.TrackEvents))
-			b.EndObject()
+	b.WriteName("rules")
+	b.BeginArray()
+	for _, r := range flag.Rules {
+		b.BeginObject()
+		writeVariationOrRolloutProperties(&b, r.VariationOrRollout)
+		if r.ID != "" {
+			writeString(&b, "id", r.ID)
 		}
-		b.EndArray()
+		writeClauses(&b, r.Clauses)
+		writeBool(&b, "trackEvents", r.TrackEvents)
+		b.EndObject()
 	}
+	b.EndArray()
 
 	b.WriteName("fallthrough")
 	b.BeginObject()
 	writeVariationOrRolloutProperties(&b, flag.Fallthrough)
 	b.EndObject()
 
-	writeOptionalInt(&b, "offVariation", flag.OffVariation)
+	b.WriteName("offVariation")
+	flag.OffVariation.WriteToJSONBuffer(&b)
 
 	b.WriteName("variations")
 	b.BeginArray()
@@ -88,21 +94,23 @@ func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 		b.WriteBool(flag.ClientSideAvailability.UsingEnvironmentID)
 		b.EndObject()
 	}
-	writePropIfNotNull(&b, "clientSide", trueValueOrNull(flag.ClientSideAvailability.UsingEnvironmentID))
+	writeBool(&b, "clientSide", flag.ClientSideAvailability.UsingEnvironmentID)
 
 	writeString(&b, "salt", flag.Salt)
 
-	writePropIfNotNull(&b, "trackEvents", trueValueOrNull(flag.TrackEvents))
-	writePropIfNotNull(&b, "trackEventsFallthrough", trueValueOrNull(flag.TrackEventsFallthrough))
+	writeBool(&b, "trackEvents", flag.TrackEvents)
+	writeBool(&b, "trackEventsFallthrough", flag.TrackEventsFallthrough)
 
-	if flag.DebugEventsUntilDate != 0 {
-		b.WriteName("debugEventsUntilDate")
+	b.WriteName("debugEventsUntilDate")
+	if flag.DebugEventsUntilDate == 0 {
+		b.WriteNull()
+	} else {
 		b.WriteUint64(uint64(flag.DebugEventsUntilDate))
 	}
 
 	writeInt(&b, "version", flag.Version)
 
-	writePropIfNotNull(&b, "deleted", trueValueOrNull(flag.Deleted))
+	writeBool(&b, "deleted", flag.Deleted)
 
 	b.EndObject()
 
@@ -116,75 +124,45 @@ func marshalSegment(segment Segment) ([]byte, error) {
 	b.BeginObject()
 
 	writeString(&b, "key", segment.Key)
-
-	if len(segment.Included) > 0 {
-		writeStringArray(&b, "included", segment.Included)
-	}
-
-	if len(segment.Excluded) > 0 {
-		writeStringArray(&b, "excluded", segment.Excluded)
-	}
-
+	writeStringArray(&b, "included", segment.Included)
+	writeStringArray(&b, "excluded", segment.Excluded)
 	writeString(&b, "salt", segment.Salt)
 
-	if len(segment.Rules) > 0 {
-		b.WriteName("rules")
-		b.BeginArray()
-		for _, r := range segment.Rules {
-			b.BeginObject()
-			if r.ID != "" {
-				writeString(&b, "id", r.ID)
-			}
-			writeClauses(&b, r.Clauses)
-			if r.Weight >= 0 {
-				writeInt(&b, "weight", r.Weight)
-			}
-			if r.BucketBy != "" {
-				writeString(&b, "bucketBy", string(r.BucketBy))
-			}
-			b.EndObject()
+	b.WriteName("rules")
+	b.BeginArray()
+	for _, r := range segment.Rules {
+		b.BeginObject()
+		writeString(&b, "id", r.ID)
+		writeClauses(&b, r.Clauses)
+		if r.Weight >= 0 {
+			writeInt(&b, "weight", r.Weight)
 		}
-		b.EndArray()
+		if r.BucketBy != "" {
+			writeString(&b, "bucketBy", string(r.BucketBy))
+		}
+		b.EndObject()
+	}
+	b.EndArray()
+
+	if segment.Unbounded {
+		writeBool(&b, "unbounded", segment.Unbounded)
 	}
 
-	writePropIfNotNull(&b, "unbounded", trueValueOrNull(segment.Unbounded))
-
 	writeInt(&b, "version", segment.Version)
-
-	writePropIfNotNull(&b, "deleted", trueValueOrNull(segment.Deleted))
+	writeBool(&b, "deleted", segment.Deleted)
 
 	b.EndObject()
 	return b.Get()
 }
 
-func writeProp(b *jsonstream.JSONBuffer, name string, value ldvalue.Value) {
+func writeBool(b *jsonstream.JSONBuffer, name string, value bool) {
 	b.WriteName(name)
-	value.WriteToJSONBuffer(b)
-}
-
-func writePropIfNotNull(b *jsonstream.JSONBuffer, name string, value ldvalue.Value) {
-	if !value.IsNull() {
-		writeProp(b, name, value)
-	}
-}
-
-func trueValueOrNull(value bool) ldvalue.Value {
-	if value {
-		return ldvalue.Bool(true)
-	}
-	return ldvalue.Null()
+	b.WriteBool(value)
 }
 
 func writeInt(b *jsonstream.JSONBuffer, name string, value int) {
 	b.WriteName(name)
 	b.WriteInt(value)
-}
-
-func writeOptionalInt(b *jsonstream.JSONBuffer, name string, value ldvalue.OptionalInt) {
-	if value.IsDefined() {
-		b.WriteName(name)
-		b.WriteInt(value.IntValue())
-	}
 }
 
 func writeString(b *jsonstream.JSONBuffer, name string, value string) {
@@ -202,7 +180,9 @@ func writeStringArray(b *jsonstream.JSONBuffer, name string, values []string) {
 }
 
 func writeVariationOrRolloutProperties(b *jsonstream.JSONBuffer, vr VariationOrRollout) {
-	writeOptionalInt(b, "variation", vr.Variation)
+	if vr.Variation.IsDefined() {
+		writeInt(b, "variation", vr.Variation.IntValue())
+	}
 	if len(vr.Rollout.Variations) > 0 {
 		b.WriteName("rollout")
 		b.BeginObject()
@@ -235,7 +215,7 @@ func writeClauses(b *jsonstream.JSONBuffer, clauses []Clause) {
 			v.WriteToJSONBuffer(b)
 		}
 		b.EndArray()
-		writePropIfNotNull(b, "negate", trueValueOrNull(c.Negate))
+		writeBool(b, "negate", c.Negate)
 		b.EndObject()
 	}
 	b.EndArray()
