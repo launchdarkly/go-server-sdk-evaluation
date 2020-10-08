@@ -7,4 +7,5 @@ require (
 	github.com/stretchr/testify v1.6.1
 	gopkg.in/launchdarkly/go-sdk-common.v2 v2.0.0
 	gopkg.in/launchdarkly/go-sdk-events.v1 v1.0.0
+	gopkg.in/launchdarkly/go-server-sdk-evaluation.v1 v1.0.0 // indirect
 )

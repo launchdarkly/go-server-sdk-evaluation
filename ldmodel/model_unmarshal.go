@@ -172,16 +172,15 @@ func unmarshalSegment(data []byte) (Segment, error) {
 		Salt:      fields.Salt,
 		Unbounded: fields.Unbounded,
 	}
-	if len(fields.Rules) > 0 {
-		ret.Rules = make([]SegmentRule, len(fields.Rules))
-		for i, r := range fields.Rules {
-			ret.Rules[i] = SegmentRule{
-				ID:       r.ID,
-				Clauses:  decodeClauses(r.Clauses),
-				Weight:   r.Weight,
-				BucketBy: r.BucketBy,
-			}
+	ret.Rules = make([]SegmentRule, len(fields.Rules))
+	for i, r := range fields.Rules {
+		sr := SegmentRule{
+			ID:       r.ID,
+			Clauses:  decodeClauses(r.Clauses),
+			Weight:   r.Weight,
+			BucketBy: r.BucketBy,
 		}
+		ret.Rules[i] = sr
 	}
 
 	PreprocessSegment(&ret)
