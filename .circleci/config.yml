@@ -37,6 +37,7 @@ jobs:
           COMMON_GO_PACKAGES: >
             github.com/golang/dep/cmd/dep
             github.com/jstemmer/go-junit-report
+          GOPRIVATE: github.com/launchdarkly
 
     steps:
       - checkout
@@ -91,6 +92,7 @@ jobs:
 
     environment:
       GOPATH: C:\Users\VssAdministrator\go
+      GOPRIVATE: github.com/launchdarkly
 
     steps:
       - checkout
@@ -106,6 +108,7 @@ jobs:
       - image: circleci/golang:1.15
         environment:
           CIRCLE_ARTIFACTS: /tmp/circle-artifacts
+          GOPRIVATE: github.com/launchdarkly
 
     steps:
       - checkout

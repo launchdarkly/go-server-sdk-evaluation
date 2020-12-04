@@ -1,8 +1,8 @@
 package ldmodel
 
 import (
-	"gopkg.in/launchdarkly/go-jsonstream.v1/jreader"
-	"gopkg.in/launchdarkly/go-jsonstream.v1/jwriter"
+	"github.com/launchdarkly/go-jsonstream/jreader"
+	"github.com/launchdarkly/go-jsonstream/jwriter"
 )
 
 // DataModelSerialization defines an encoding for SDK data model objects.

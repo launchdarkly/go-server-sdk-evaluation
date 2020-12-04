@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"gopkg.in/launchdarkly/go-jsonstream.v1/jreader"
+	"github.com/launchdarkly/go-jsonstream/jreader"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
 
