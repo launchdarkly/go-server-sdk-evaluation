@@ -37,6 +37,7 @@ jobs:
           COMMON_GO_PACKAGES: >
             github.com/golang/dep/cmd/dep
             github.com/jstemmer/go-junit-report
+          GOPRIVATE: github.com/launchdarkly
 
     steps:
       - checkout
@@ -48,6 +49,10 @@ jobs:
           name: Build
           command: make build
 
+      - run:
+          name: Build (easyjson implementation)
+          command: make build-easyjson
+
       - when:
           condition: <<parameters.run-lint>>
           steps:
@@ -57,6 +62,13 @@ jobs:
     
       - run:
           name: Run tests
+          command: |
+            mkdir -p $CIRCLE_TEST_REPORTS
+            mkdir -p $CIRCLE_ARTIFACTS
+            make test | tee $CIRCLE_ARTIFACTS/report.txt
+    
+      - run:
+          name: Run tests (easyjson implementation)
           command: |
             mkdir -p $CIRCLE_TEST_REPORTS
             mkdir -p $CIRCLE_ARTIFACTS
@@ -91,6 +103,7 @@ jobs:
 
     environment:
       GOPATH: C:\Users\VssAdministrator\go
+      GOPRIVATE: github.com/launchdarkly
 
     steps:
       - checkout
@@ -106,15 +119,20 @@ jobs:
       - image: circleci/golang:1.15
         environment:
           CIRCLE_ARTIFACTS: /tmp/circle-artifacts
+          GOPRIVATE: github.com/launchdarkly
 
     steps:
       - checkout
-      - run: go build ./...      
+
       - run:
           name: Run benchmarks
           command: |
             mkdir -p $CIRCLE_ARTIFACTS
             make benchmarks | tee $CIRCLE_ARTIFACTS/benchmarks.txt
+      - run:
+          name: Run benchmarks (easyjson implementation)
+          command: |
+            make benchmarks | tee $CIRCLE_ARTIFACTS/benchmarks-easyjson.txt
 
       - store_artifacts:
           path: /tmp/circle-artifacts

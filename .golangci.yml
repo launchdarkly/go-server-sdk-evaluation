@@ -9,10 +9,9 @@ linters:
     - depguard
     - dupl
     - errcheck
-    - goconst
     - gochecknoglobals
     - gochecknoinits
-    - goconst
+    #- goconst  # disabling goconst because our multiple uses of strings like "key" aren't always for the same purpose
     - gocritic
     - gocyclo
     - godox

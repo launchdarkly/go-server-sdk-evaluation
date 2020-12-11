@@ -15,16 +15,26 @@ COVERAGE_ENFORCER_FLAGS=-package gopkg.in/launchdarkly/go-server-sdk-evaluation.
 TEST_BINARY=./go-server-sdk-evaluation.test
 ALLOCATIONS_LOG=./allocations.out
 
-.PHONY: build clean test lint test-coverage benchmarks benchmark-allocs
+EASYJSON_TAG=-tags launchdarkly_easyjson
+
+.PHONY: all build build-easyjson clean test test-easyjson lint test-coverage benchmarks benchmark-allocs
+
+all: build build-easyjson
 
 build:
 	go build ./...
 
+build-easyjson:
+	go build $(EASYJSON_TAG) ./...
+
 clean:
 	go clean
 
-test:
-	go test -race -v ./...
+test: build
+	go test -race -v -count 1 ./...
+
+test-easyjson: build-easyjson
+	go test -race -v -count 1 $(EASYJSON_TAG) ./...
 
 test-coverage: $(COVERAGE_PROFILE_RAW)
 	if [ -z "$(which go-coverage-enforcer)" ]; then go get github.com/launchdarkly-labs/go-coverage-enforcer; fi
@@ -36,8 +46,11 @@ $(COVERAGE_PROFILE_RAW): $(ALL_SOURCES)
 	@mkdir -p ./build
 	go test -coverprofile $(COVERAGE_PROFILE_RAW) ./... >/dev/null
 
-benchmarks:
+benchmarks: build
 	go test -benchmem '-run=^$$' '-bench=.*' ./...
+
+benchmarks-easyjson: build-easyjson
+	go test $(EASYJSON_TAG) -benchmem '-run=^$$' '-bench=.*' ./...
 
 # See CONTRIBUTING.md regarding the use of the benchmark-allocs target. Notes about this implementation:
 # 1. We precompile the test code because otherwise the allocation traces will include the actions of the compiler itself.
