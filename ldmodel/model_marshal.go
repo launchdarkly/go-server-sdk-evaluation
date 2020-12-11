@@ -1,7 +1,7 @@
 package ldmodel
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/jsonstream"
+	"gopkg.in/launchdarkly/go-jsonstream.v1/jwriter"
 )
 
 // For backward compatibility, we are only allowed to drop out properties that have default values if
@@ -17,63 +17,59 @@ import (
 // - Segment.Unbounded
 
 func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
-	var b jsonstream.JSONBuffer
-	b.Grow(200)
+	w := jwriter.NewWriter()
+	marshalFeatureFlagToWriter(flag, &w)
+	return w.Bytes(), w.Error()
+}
 
-	b.BeginObject()
+func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
+	obj := w.Object()
 
-	writeString(&b, "key", flag.Key)
+	obj.String("key", flag.Key)
 
-	writeBool(&b, "on", flag.On)
+	obj.Bool("on", flag.On)
 
-	b.WriteName("prerequisites")
-	b.BeginArray()
+	prereqsArr := obj.Array("prerequisites")
 	for _, p := range flag.Prerequisites {
-		b.BeginObject()
-		writeString(&b, "key", p.Key)
-		writeInt(&b, "variation", p.Variation)
-		b.EndObject()
+		prereqObj := prereqsArr.Object()
+		prereqObj.String("key", p.Key)
+		prereqObj.Int("variation", p.Variation)
+		prereqObj.End()
 	}
-	b.EndArray()
+	prereqsArr.End()
 
-	b.WriteName("targets")
-	b.BeginArray()
+	targetsArr := obj.Array("targets")
 	for _, t := range flag.Targets {
-		b.BeginObject()
-		writeInt(&b, "variation", t.Variation)
-		writeStringArray(&b, "values", t.Values)
-		b.EndObject()
+		targetObj := targetsArr.Object()
+		targetObj.Int("variation", t.Variation)
+		writeStringArray(&targetObj, "values", t.Values)
+		targetObj.End()
 	}
-	b.EndArray()
+	targetsArr.End()
 
-	b.WriteName("rules")
-	b.BeginArray()
+	rulesArr := obj.Array("rules")
 	for _, r := range flag.Rules {
-		b.BeginObject()
-		writeVariationOrRolloutProperties(&b, r.VariationOrRollout)
-		if r.ID != "" {
-			writeString(&b, "id", r.ID)
-		}
-		writeClauses(&b, r.Clauses)
-		writeBool(&b, "trackEvents", r.TrackEvents)
-		b.EndObject()
+		ruleObj := rulesArr.Object()
+		writeVariationOrRolloutProperties(&ruleObj, r.VariationOrRollout)
+		ruleObj.OptString("id", r.ID != "", r.ID)
+		writeClauses(w, &ruleObj, r.Clauses)
+		ruleObj.Bool("trackEvents", r.TrackEvents)
+		ruleObj.End()
 	}
-	b.EndArray()
+	rulesArr.End()
 
-	b.WriteName("fallthrough")
-	b.BeginObject()
-	writeVariationOrRolloutProperties(&b, flag.Fallthrough)
-	b.EndObject()
+	fallthroughObj := obj.Object("fallthrough")
+	writeVariationOrRolloutProperties(&fallthroughObj, flag.Fallthrough)
+	fallthroughObj.End()
 
-	b.WriteName("offVariation")
-	flag.OffVariation.WriteToJSONBuffer(&b)
+	obj.Property("offVariation")
+	flag.OffVariation.WriteToJSONWriter(w)
 
-	b.WriteName("variations")
-	b.BeginArray()
+	variationsArr := obj.Array("variations")
 	for _, v := range flag.Variations {
-		v.WriteToJSONBuffer(&b)
+		v.WriteToJSONWriter(w)
 	}
-	b.EndArray()
+	variationsArr.End()
 
 	// In the older JSON schema, ClientSideAvailability.UsingEnvironmentID was in "clientSide", and
 	// ClientSideAvailability.UsingMobileKey was assumed to be true. In the newer schema, those are
@@ -86,137 +82,103 @@ func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	// For backward compatibility with older SDKs that might be reading a flag that was serialized by
 	// this SDK, we always include the older "clientSide" property if it would be true.
 	if flag.ClientSideAvailability.Explicit {
-		b.WriteName("clientSideAvailability")
-		b.BeginObject()
-		b.WriteName("usingMobileKey")
-		b.WriteBool(flag.ClientSideAvailability.UsingMobileKey)
-		b.WriteName("usingEnvironmentId")
-		b.WriteBool(flag.ClientSideAvailability.UsingEnvironmentID)
-		b.EndObject()
+		csaObj := obj.Object("clientSideAvailability")
+		csaObj.Bool("usingMobileKey", flag.ClientSideAvailability.UsingMobileKey)
+		csaObj.Bool("usingEnvironmentId", flag.ClientSideAvailability.UsingEnvironmentID)
+		csaObj.End()
 	}
-	writeBool(&b, "clientSide", flag.ClientSideAvailability.UsingEnvironmentID)
+	obj.Bool("clientSide", flag.ClientSideAvailability.UsingEnvironmentID)
 
-	writeString(&b, "salt", flag.Salt)
+	obj.String("salt", flag.Salt)
 
-	writeBool(&b, "trackEvents", flag.TrackEvents)
-	writeBool(&b, "trackEventsFallthrough", flag.TrackEventsFallthrough)
+	obj.Bool("trackEvents", flag.TrackEvents)
+	obj.Bool("trackEventsFallthrough", flag.TrackEventsFallthrough)
 
-	b.WriteName("debugEventsUntilDate")
+	obj.Property("debugEventsUntilDate")
 	if flag.DebugEventsUntilDate == 0 {
-		b.WriteNull()
+		w.Null()
 	} else {
-		b.WriteUint64(uint64(flag.DebugEventsUntilDate))
+		w.Float64(float64(flag.DebugEventsUntilDate))
 	}
 
-	writeInt(&b, "version", flag.Version)
+	obj.Int("version", flag.Version)
 
-	writeBool(&b, "deleted", flag.Deleted)
+	obj.Bool("deleted", flag.Deleted)
 
-	b.EndObject()
-
-	return b.Get()
+	obj.End()
 }
 
 func marshalSegment(segment Segment) ([]byte, error) {
-	var b jsonstream.JSONBuffer
-	b.Grow(200)
+	w := jwriter.NewWriter()
+	marshalSegmentToWriter(segment, &w)
+	return w.Bytes(), w.Error()
+}
 
-	b.BeginObject()
+func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
+	obj := w.Object()
 
-	writeString(&b, "key", segment.Key)
-	writeStringArray(&b, "included", segment.Included)
-	writeStringArray(&b, "excluded", segment.Excluded)
-	writeString(&b, "salt", segment.Salt)
+	obj.String("key", segment.Key)
+	writeStringArray(&obj, "included", segment.Included)
+	writeStringArray(&obj, "excluded", segment.Excluded)
+	obj.String("salt", segment.Salt)
 
-	b.WriteName("rules")
-	b.BeginArray()
+	rulesArr := obj.Array("rules")
 	for _, r := range segment.Rules {
-		b.BeginObject()
-		writeString(&b, "id", r.ID)
-		writeClauses(&b, r.Clauses)
-		if r.Weight >= 0 {
-			writeInt(&b, "weight", r.Weight)
-		}
-		if r.BucketBy != "" {
-			writeString(&b, "bucketBy", string(r.BucketBy))
-		}
-		b.EndObject()
+		ruleObj := rulesArr.Object()
+		ruleObj.String("id", r.ID)
+		writeClauses(w, &ruleObj, r.Clauses)
+		ruleObj.OptInt("weight", r.Weight >= 0, r.Weight)
+		ruleObj.OptString("bucketBy", r.BucketBy != "", string(r.BucketBy))
+		ruleObj.End()
 	}
-	b.EndArray()
+	rulesArr.End()
 
-	if segment.Unbounded {
-		writeBool(&b, "unbounded", segment.Unbounded)
-	}
+	obj.OptBool("unbounded", segment.Unbounded, segment.Unbounded)
 
-	writeInt(&b, "version", segment.Version)
-	writeBool(&b, "deleted", segment.Deleted)
+	obj.Int("version", segment.Version)
+	obj.Bool("deleted", segment.Deleted)
 
-	b.EndObject()
-	return b.Get()
+	obj.End()
 }
 
-func writeBool(b *jsonstream.JSONBuffer, name string, value bool) {
-	b.WriteName(name)
-	b.WriteBool(value)
-}
-
-func writeInt(b *jsonstream.JSONBuffer, name string, value int) {
-	b.WriteName(name)
-	b.WriteInt(value)
-}
-
-func writeString(b *jsonstream.JSONBuffer, name string, value string) {
-	b.WriteName(name)
-	b.WriteString(value)
-}
-
-func writeStringArray(b *jsonstream.JSONBuffer, name string, values []string) {
-	b.WriteName(name)
-	b.BeginArray()
+func writeStringArray(obj *jwriter.ObjectState, name string, values []string) {
+	arr := obj.Array(name)
 	for _, v := range values {
-		b.WriteString(v)
+		arr.String(v)
 	}
-	b.EndArray()
+	arr.End()
 }
 
-func writeVariationOrRolloutProperties(b *jsonstream.JSONBuffer, vr VariationOrRollout) {
-	if vr.Variation.IsDefined() {
-		writeInt(b, "variation", vr.Variation.IntValue())
-	}
+func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrRollout) {
+	obj.OptInt("variation", vr.Variation.IsDefined(), vr.Variation.IntValue())
 	if len(vr.Rollout.Variations) > 0 {
-		b.WriteName("rollout")
-		b.BeginObject()
-		b.WriteName("variations")
-		b.BeginArray()
+		rolloutObj := obj.Object("rollout")
+		variationsArr := rolloutObj.Array("variations")
 		for _, wv := range vr.Rollout.Variations {
-			b.BeginObject()
-			writeInt(b, "variation", wv.Variation)
-			writeInt(b, "weight", wv.Weight)
-			b.EndObject()
+			variationObj := variationsArr.Object()
+			variationObj.Int("variation", wv.Variation)
+			variationObj.Int("weight", wv.Weight)
+			variationObj.End()
 		}
-		b.EndArray()
-		if vr.Rollout.BucketBy != "" {
-			writeString(b, "bucketBy", string(vr.Rollout.BucketBy))
-		}
-		b.EndObject()
+		variationsArr.End()
+		rolloutObj.OptString("bucketBy", vr.Rollout.BucketBy != "", string(vr.Rollout.BucketBy))
+		rolloutObj.End()
 	}
 }
 
-func writeClauses(b *jsonstream.JSONBuffer, clauses []Clause) {
-	b.WriteName("clauses")
-	b.BeginArray()
+func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause) {
+	clausesArr := obj.Array("clauses")
 	for _, c := range clauses {
-		b.BeginObject()
-		writeString(b, "attribute", string(c.Attribute))
-		writeString(b, "op", string(c.Op))
-		b.WriteName("values")
-		b.BeginArray()
+		clauseObj := clausesArr.Object()
+		clauseObj.String("attribute", string(c.Attribute))
+		clauseObj.String("op", string(c.Op))
+		valuesArr := clauseObj.Array("values")
 		for _, v := range c.Values {
-			v.WriteToJSONBuffer(b)
+			v.WriteToJSONWriter(w)
 		}
-		b.EndArray()
-		writeBool(b, "negate", c.Negate)
-		b.EndObject()
+		valuesArr.End()
+		clauseObj.Bool("negate", c.Negate)
+		clauseObj.End()
 	}
-	b.EndArray()
+	clausesArr.End()
 }
