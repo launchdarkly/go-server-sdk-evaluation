@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
+	"gopkg.in/launchdarkly/go-jsonstream.v1/jreader"
+	"gopkg.in/launchdarkly/go-jsonstream.v1/jwriter"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var flagWithAllProperties = FeatureFlag{
@@ -208,7 +210,6 @@ var segmentWithAllProperties = Segment{
 			Weight: -1,
 		},
 		SegmentRule{
-			Clauses:  []Clause{},
 			Weight:   50000,
 			BucketBy: lduser.NameAttribute,
 		},
@@ -249,12 +250,9 @@ var segmentWithAllPropertiesJSON = map[string]interface{}{
 }
 
 var segmentWithMinimalProperties = Segment{
-	Key:      "segment-key",
-	Included: []string{},
-	Excluded: []string{},
-	Rules:    []SegmentRule{},
-	Salt:     "segment-salt",
-	Version:  99,
+	Key:     "segment-key",
+	Salt:    "segment-salt",
+	Version: 99,
 }
 
 var segmentWithMinimalPropertiesJSON = map[string]interface{}{
@@ -295,6 +293,14 @@ func TestMarshalFlagWithMinimalProperties(t *testing.T) {
 	assert.Equal(t, flagWithMinimalPropertiesJSON, json)
 }
 
+func TestMarshalFlagToJSONWriter(t *testing.T) {
+	w := jwriter.NewWriter()
+	MarshalFeatureFlagToJSONWriter(flagWithAllProperties, &w)
+	require.NoError(t, w.Error())
+	json := parseJsonMap(t, w.Bytes())
+	assert.Equal(t, flagWithAllPropertiesJSON, json)
+}
+
 func TestUnmarshalFlagWithAllProperties(t *testing.T) {
 	bytes := toJSON(flagWithAllPropertiesJSON)
 	flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(bytes)
@@ -307,6 +313,14 @@ func TestUnmarshalFlagWithMinimalProperties(t *testing.T) {
 	flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(bytes)
 	require.NoError(t, err)
 	assert.Equal(t, flagWithMinimalProperties, flag)
+}
+
+func TestUnmarshalFlagFromJSONReader(t *testing.T) {
+	bytes := toJSON(flagWithAllPropertiesJSON)
+	r := jreader.NewReader(bytes)
+	flag := UnmarshalFeatureFlagFromJSONReader(&r)
+	require.NoError(t, r.Error())
+	assert.Equal(t, flagWithAllProperties, flag)
 }
 
 func TestUnmarshalFlagClientSideAvailability(t *testing.T) {
@@ -441,6 +455,14 @@ func TestMarshalSegmentWithMinimalProperties(t *testing.T) {
 	assert.Equal(t, segmentWithMinimalPropertiesJSON, json)
 }
 
+func TestMarshalSegmentToJSONWriter(t *testing.T) {
+	w := jwriter.NewWriter()
+	MarshalSegmentToJSONWriter(segmentWithAllProperties, &w)
+	require.NoError(t, w.Error())
+	json := parseJsonMap(t, w.Bytes())
+	assert.Equal(t, segmentWithAllPropertiesJSON, json)
+}
+
 func TestUnmarshalSegmentWithAllProperties(t *testing.T) {
 	bytes, err := json.Marshal(segmentWithAllPropertiesJSON)
 	require.NoError(t, err)
@@ -461,6 +483,14 @@ func TestUnmarshalSegmentWithMinimalProperties(t *testing.T) {
 	assert.Equal(t, segmentWithMinimalProperties.Key, segment.GetKey())
 	assert.Equal(t, segmentWithMinimalProperties.Version, segment.GetVersion())
 	assert.Equal(t, segmentWithMinimalProperties.Deleted, segment.IsDeleted())
+}
+
+func TestUnmarshalSegmentFromJSONReader(t *testing.T) {
+	bytes := toJSON(segmentWithAllPropertiesJSON)
+	r := jreader.NewReader(bytes)
+	segment := UnmarshalSegmentFromJSONReader(&r)
+	require.NoError(t, r.Error())
+	assert.Equal(t, segmentWithAllProperties, segment)
 }
 
 func TestUnmarshalSegmentErrors(t *testing.T) {

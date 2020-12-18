@@ -1,219 +1,264 @@
 package ldmodel
 
 import (
-	"encoding/json"
-
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+
+	"gopkg.in/launchdarkly/go-jsonstream.v1/jreader"
 )
 
-// These "JSONRep" types are for use with json.Unmarshal. We will translate them to our real data model types.
-// The differences are due to having to use pointers to represent optional values with json.Unmarshal; we do
-// not want to use pointers in the internal model due to their safety issues.
-
-type featureFlagJSONRep struct {
-	Key                    string                         `json:"key"`
-	On                     bool                           `json:"on"`
-	Prerequisites          []prerequisiteJSONRep          `json:"prerequisites"`
-	Targets                []targetJSONRep                `json:"targets"`
-	Rules                  []flagRuleJSONRep              `json:"rules"`
-	Fallthrough            variationOrRolloutJSONRep      `json:"fallthrough"`
-	OffVariation           ldvalue.OptionalInt            `json:"offVariation"`
-	Variations             []ldvalue.Value                `json:"variations"`
-	ClientSide             bool                           `json:"clientSide"`
-	ClientSideAvailability *clientSideAvailabilityJSONRep `json:"clientSideAvailability"`
-	Salt                   string                         `json:"salt"`
-	TrackEvents            bool                           `json:"trackEvents"`
-	TrackEventsFallthrough bool                           `json:"trackEventsFallthrough"`
-	DebugEventsUntilDate   ldtime.UnixMillisecondTime     `json:"debugEventsUntilDate"`
-	Version                int                            `json:"version"`
-	Deleted                bool                           `json:"deleted"`
-}
-
-type prerequisiteJSONRep struct {
-	Key       string `json:"key"`
-	Variation int    `json:"variation"`
-}
-
-type targetJSONRep struct {
-	Values    []string `json:"values"`
-	Variation int      `json:"variation"`
-}
-
-type flagRuleJSONRep struct {
-	variationOrRolloutJSONRep
-	ID          string          `json:"id"`
-	Clauses     []clauseJSONRep `json:"clauses"`
-	TrackEvents bool            `json:"trackEvents"`
-}
-
-type clauseJSONRep struct {
-	Attribute lduser.UserAttribute `json:"attribute"`
-	Op        Operator             `json:"op"`
-	Values    []ldvalue.Value      `json:"values" bson:"values"` // An array, interpreted as an OR of values
-	Negate    bool                 `json:"negate"`
-}
-
-type variationOrRolloutJSONRep struct {
-	Variation ldvalue.OptionalInt `json:"variation"`
-	Rollout   *rolloutJSONRep     `json:"rollout"`
-}
-
-type rolloutJSONRep struct {
-	Variations []weightedVariationJSONRep `json:"variations"`
-	BucketBy   lduser.UserAttribute       `json:"bucketBy"`
-}
-
-type weightedVariationJSONRep struct {
-	Variation int `json:"variation"`
-	Weight    int `json:"weight"`
-}
-
-type segmentJSONRep struct {
-	Key       string               `json:"key"`
-	Included  []string             `json:"included"`
-	Excluded  []string             `json:"excluded"`
-	Salt      string               `json:"salt"`
-	Rules     []segmentRuleJSONRep `json:"rules"`
-	Unbounded bool                 `json:"unbounded"`
-	Version   int                  `json:"version"`
-	Deleted   bool                 `json:"deleted"`
-}
-
-type segmentRuleJSONRep struct {
-	ID       string                `json:"id"`
-	Clauses  []clauseJSONRep       `json:"clauses"`
-	Weight   *int                  `json:"weight"`
-	BucketBy *lduser.UserAttribute `json:"bucketBy"`
-}
-
-type clientSideAvailabilityJSONRep struct {
-	UsingMobileKey     bool `json:"usingMobileKey"`
-	UsingEnvironmentID bool `json:"usingEnvironmentId"`
-}
-
-func unmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
-	var fields featureFlagJSONRep
-	if err := json.Unmarshal(data, &fields); err != nil {
-		return FeatureFlag{}, err
+func unmarshalFeatureFlagFromBytes(data []byte) (FeatureFlag, error) {
+	r := jreader.NewReader(data)
+	parsed := unmarshalFeatureFlagFromReader(&r)
+	if err := r.Error(); err != nil {
+		return FeatureFlag{}, jreader.ToJSONError(err, &parsed)
 	}
+	return parsed, nil
+}
 
-	ret := FeatureFlag{
-		Key:          fields.Key,
-		Version:      fields.Version,
-		Deleted:      fields.Deleted,
-		On:           fields.On,
-		OffVariation: fields.OffVariation,
-		Variations:   fields.Variations,
+func unmarshalFeatureFlagFromReader(r *jreader.Reader) FeatureFlag {
+	var parsed FeatureFlag
+	readFeatureFlag(r, &parsed)
+	if r.Error() == nil {
+		PreprocessFlag(&parsed)
 	}
-	if len(fields.Prerequisites) > 0 {
-		ret.Prerequisites = make([]Prerequisite, len(fields.Prerequisites))
-		for i, p := range fields.Prerequisites {
-			ret.Prerequisites[i] = Prerequisite(p) // fields are the same
+	return parsed
+}
+
+func unmarshalSegmentFromBytes(data []byte) (Segment, error) {
+	r := jreader.NewReader(data)
+	parsed := unmarshalSegmentFromReader(&r)
+	if err := r.Error(); err != nil {
+		return Segment{}, jreader.ToJSONError(err, &parsed)
+	}
+	return parsed, nil
+}
+
+func unmarshalSegmentFromReader(r *jreader.Reader) Segment {
+	var parsed Segment
+	readSegment(r, &parsed)
+	if r.Error() == nil {
+		PreprocessSegment(&parsed)
+	}
+	return parsed
+}
+
+func readFeatureFlag(r *jreader.Reader, flag *FeatureFlag) {
+	deprecatedClientSide := false
+
+	for obj := r.Object(); obj.Next(); {
+		name := obj.Name()
+		switch string(name) {
+		case "key":
+			flag.Key = r.String()
+		case "on":
+			flag.On = r.Bool()
+		case "prerequisites":
+			readPrerequisites(r, &flag.Prerequisites)
+		case "targets":
+			readTargets(r, &flag.Targets)
+		case "rules":
+			readFlagRules(r, &flag.Rules)
+		case "fallthrough":
+			readVariationOrRollout(r, &flag.Fallthrough)
+		case "offVariation":
+			flag.OffVariation.ReadFromJSONReader(r)
+		case "variations":
+			readValueList(r, &flag.Variations)
+		case "clientSideAvailability":
+			readClientSideAvailability(r, &flag.ClientSideAvailability)
+		case "clientSide":
+			deprecatedClientSide = r.Bool()
+		case "salt":
+			flag.Salt = r.String()
+		case "trackEvents":
+			flag.TrackEvents = r.Bool()
+		case "trackEventsFallthrough":
+			flag.TrackEventsFallthrough = r.Bool()
+		case "debugEventsUntilDate":
+			val, _ := r.Float64OrNull() // val will be zero if null
+			flag.DebugEventsUntilDate = ldtime.UnixMillisecondTime(val)
+		case "version":
+			flag.Version = r.Int()
+		case "deleted":
+			flag.Deleted = r.Bool()
 		}
 	}
-	if len(fields.Targets) > 0 {
-		ret.Targets = make([]Target, len(fields.Targets))
-		for i, t := range fields.Targets {
-			ret.Targets[i] = Target{
-				Values:    t.Values,
-				Variation: t.Variation,
-			}
-		}
-	}
-	if len(fields.Rules) > 0 {
-		ret.Rules = make([]FlagRule, len(fields.Rules))
-		for i, r := range fields.Rules {
-			fr := FlagRule{
-				VariationOrRollout: decodeVariationOrRollout(r.variationOrRolloutJSONRep),
-				ID:                 r.ID,
-				Clauses:            decodeClauses(r.Clauses),
-				TrackEvents:        r.TrackEvents,
-			}
-			ret.Rules[i] = fr
-		}
-	}
-	ret.Fallthrough = decodeVariationOrRollout(fields.Fallthrough)
-	if fields.ClientSideAvailability == nil {
-		ret.ClientSideAvailability = ClientSideAvailability{
+
+	if !flag.ClientSideAvailability.Explicit {
+		flag.ClientSideAvailability = ClientSideAvailability{
 			UsingMobileKey:     true, // always assumed to be true in the old schema
-			UsingEnvironmentID: fields.ClientSide,
+			UsingEnvironmentID: deprecatedClientSide,
 			Explicit:           false,
 		}
-	} else {
-		ret.ClientSideAvailability = ClientSideAvailability{
-			UsingMobileKey:     fields.ClientSideAvailability.UsingMobileKey,
-			UsingEnvironmentID: fields.ClientSideAvailability.UsingEnvironmentID,
-			Explicit:           true,
-		}
 	}
-	ret.Salt = fields.Salt
-	ret.TrackEvents = fields.TrackEvents
-	ret.TrackEventsFallthrough = fields.TrackEventsFallthrough
-	ret.DebugEventsUntilDate = fields.DebugEventsUntilDate
-
-	PreprocessFlag(&ret)
-	return ret, nil
 }
 
-func unmarshalSegment(data []byte) (Segment, error) {
-	var fields segmentJSONRep
-	if err := json.Unmarshal(data, &fields); err != nil {
-		return Segment{}, err
-	}
-
-	ret := Segment{
-		Key:       fields.Key,
-		Version:   fields.Version,
-		Deleted:   fields.Deleted,
-		Included:  fields.Included,
-		Excluded:  fields.Excluded,
-		Salt:      fields.Salt,
-		Unbounded: fields.Unbounded,
-	}
-	ret.Rules = make([]SegmentRule, len(fields.Rules))
-	for i, r := range fields.Rules {
-		sr := SegmentRule{
-			ID:      r.ID,
-			Clauses: decodeClauses(r.Clauses),
+func readPrerequisites(r *jreader.Reader, out *[]Prerequisite) {
+	for arr := r.ArrayOrNull(); arr.Next(); {
+		var prereq Prerequisite
+		for obj := r.Object(); obj.Next(); {
+			switch string(obj.Name()) {
+			case "key":
+				prereq.Key = r.String()
+			case "variation":
+				prereq.Variation = r.Int()
+			}
 		}
-		if r.Weight == nil {
-			sr.Weight = -1
-		} else {
-			sr.Weight = *r.Weight
-		}
-		if r.BucketBy != nil {
-			sr.BucketBy = *r.BucketBy
-		}
-		ret.Rules[i] = sr
+		*out = append(*out, prereq)
 	}
-
-	PreprocessSegment(&ret)
-	return ret, nil
 }
 
-func decodeVariationOrRollout(fields variationOrRolloutJSONRep) VariationOrRollout {
-	ret := VariationOrRollout{Variation: fields.Variation}
-	if fields.Rollout != nil {
-		ret.Rollout.Variations = make([]WeightedVariation, len(fields.Rollout.Variations))
-		for i, wv := range fields.Rollout.Variations {
-			ret.Rollout.Variations[i] = WeightedVariation(wv) // fields are the same
+func readTargets(r *jreader.Reader, out *[]Target) {
+	for arr := r.ArrayOrNull(); arr.Next(); {
+		var t Target
+		for obj := r.Object(); obj.Next(); {
+			switch string(obj.Name()) {
+			case "values":
+				readStringList(r, &t.Values)
+			case "variation":
+				t.Variation = r.Int()
+			}
 		}
-		ret.Rollout.BucketBy = fields.Rollout.BucketBy
+		*out = append(*out, t)
 	}
-	return ret
 }
 
-func decodeClauses(clauses []clauseJSONRep) []Clause {
-	ret := make([]Clause, len(clauses))
-	for i, c := range clauses {
-		ret[i] = Clause{
-			Attribute: c.Attribute,
-			Op:        c.Op,
-			Values:    c.Values,
-			Negate:    c.Negate,
+func readFlagRules(r *jreader.Reader, out *[]FlagRule) {
+	for arr := r.ArrayOrNull(); arr.Next(); {
+		rule := FlagRule{Clauses: []Clause{}}
+		for obj := r.Object(); obj.Next(); {
+			switch string(obj.Name()) {
+			case "id":
+				rule.ID = r.String()
+			case "variation":
+				rule.Variation.ReadFromJSONReader(r)
+			case "rollout":
+				readRollout(r, &rule.Rollout)
+			case "clauses":
+				readClauses(r, &rule.Clauses)
+			case "trackEvents":
+				rule.TrackEvents = r.Bool()
+			}
+		}
+		*out = append(*out, rule)
+	}
+}
+
+func readClauses(r *jreader.Reader, out *[]Clause) {
+	for arr := r.ArrayOrNull(); arr.Next(); {
+		var clause Clause
+		for obj := r.Object(); obj.Next(); {
+			switch string(obj.Name()) {
+			case "attribute":
+				clause.Attribute = lduser.UserAttribute(r.String())
+			case "op":
+				clause.Op = Operator(r.String())
+			case "values":
+				readValueList(r, &clause.Values)
+			case "negate":
+				clause.Negate = r.Bool()
+			}
+		}
+		*out = append(*out, clause)
+	}
+}
+
+func readVariationOrRollout(r *jreader.Reader, out *VariationOrRollout) {
+	for obj := r.Object(); obj.Next(); {
+		switch string(obj.Name()) {
+		case "variation":
+			out.Variation.ReadFromJSONReader(r)
+		case "rollout":
+			readRollout(r, &out.Rollout)
 		}
 	}
-	return ret
+}
+
+func readRollout(r *jreader.Reader, out *Rollout) {
+	for obj := r.Object(); obj.Next(); {
+		switch string(obj.Name()) {
+		case "variations":
+			for arr := r.Array(); arr.Next(); {
+				var wv WeightedVariation
+				for wrObj := r.Object(); wrObj.Next(); {
+					switch string(wrObj.Name()) {
+					case "variation":
+						wv.Variation = r.Int()
+					case "weight":
+						wv.Weight = r.Int()
+					}
+				}
+				out.Variations = append(out.Variations, wv)
+			}
+		case "bucketBy":
+			out.BucketBy = lduser.UserAttribute(r.String())
+		}
+	}
+}
+
+func readClientSideAvailability(r *jreader.Reader, out *ClientSideAvailability) {
+	obj := r.ObjectOrNull()
+	out.Explicit = obj.IsDefined()
+	for obj.Next() {
+		switch string(obj.Name()) {
+		case "usingEnvironmentId":
+			out.UsingEnvironmentID = r.Bool()
+		case "usingMobileKey":
+			out.UsingMobileKey = r.Bool()
+		}
+	}
+}
+
+func readSegment(r *jreader.Reader, segment *Segment) {
+	for obj := r.Object(); obj.Next(); {
+		switch string(obj.Name()) {
+		case "key":
+			segment.Key = r.String()
+		case "version":
+			segment.Version = r.Int()
+		case "deleted":
+			segment.Deleted = r.Bool()
+		case "included":
+			readStringList(r, &segment.Included)
+		case "excluded":
+			readStringList(r, &segment.Excluded)
+		case "rules":
+			for rulesArr := r.ArrayOrNull(); rulesArr.Next(); {
+				rule := SegmentRule{Weight: -1}
+				for ruleObj := r.Object(); ruleObj.Next(); {
+					switch string(ruleObj.Name()) {
+					case "id":
+						rule.ID = r.String()
+					case "clauses":
+						readClauses(r, &rule.Clauses)
+					case "weight":
+						rule.Weight = r.Int()
+					case "bucketBy":
+						rule.BucketBy = lduser.UserAttribute(r.String())
+					}
+				}
+				segment.Rules = append(segment.Rules, rule)
+			}
+		case "salt":
+			segment.Salt = r.String()
+		case "unbounded":
+			segment.Unbounded = r.Bool()
+		}
+	}
+}
+
+func readStringList(r *jreader.Reader, out *[]string) {
+	for arr := r.ArrayOrNull(); arr.Next(); {
+		*out = append(*out, r.String())
+	}
+}
+
+func readValueList(r *jreader.Reader, out *[]ldvalue.Value) {
+	for arr := r.ArrayOrNull(); arr.Next(); {
+		var v ldvalue.Value
+		v.ReadFromJSONReader(r)
+		*out = append(*out, v)
+	}
 }
