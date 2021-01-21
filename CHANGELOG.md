@@ -2,6 +2,10 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [1.1.1] - 2021-01-20
+### Fixed:
+- When using semantic version operators, semantic version strings were being rejected by the parser if they contained a zero digit in any position _after_ the first character of a numeric version component. For instance, `0.1.2` and `1.2.3` were accepted, and `01.2.3` was correctly rejected (leading zeroes for nonzero values are not allowed), but `10.2.3` was incorrectly rejected.
+
 ## [1.1.0] - 2020-12-17
 ### Added:
 - In `ldmodel`, there are now additional JSON marshaling and unmarshaling methods that can interact directly with `go-jsonstream` writers and readers (see below).
