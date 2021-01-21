@@ -12,6 +12,12 @@ Note that the base import path is `gopkg.in/launchdarkly/go-server-sdk-evaluatio
 
 This version of the project has been tested with Go 1.14 and higher.
 
+## Integration with easyjson
+
+By default, `go-server-sdk-evaluation-private` uses LaunchDarkly's open-source JSON library [`go-jsonstream`](https://github.com/launchdarkly/go-jsonstream) to convert its data model types like `FeatureFlag` to and from JSON; this is considerably faster than Go's built-in `encoding/json` and does not depend on any third-party code. However, it can optionally integrate with the third-party library [`easyjson`](https://github.com/mailru/easyjson), which may be even faster in some cases, without requiring any changes in your code. To enable this, set the build tag `launchdarkly_easyjson` when you run `go build`, which both switches `go-jsonstream` to use `easyjson` internally and also generates `MarshalEasyJSON`/`UnmarshalEasyJSON` methods for each JSON-serializable type. The `easyjson` library is still under development and has some potential compatibility issues; see its documentation for more details.
+
+If you do not set the `launchdarkly_easyjson` build tag, `go-server-sdk-evaluation` does not use any code from `easyjson`.
+
 ## Learn more
 
 Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for the Go SDK](http://docs.launchdarkly.com/docs/go-sdk-reference), or the [generated API documentation](https://pkg.go.dev/gopkg.in/launchdarkly/go-server-sdk-evaluation.v2) for this project.
