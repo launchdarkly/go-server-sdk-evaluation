@@ -524,3 +524,15 @@ func TestJSONUnmarshalUsesSameSerialization(t *testing.T) {
 	_ = json.Unmarshal(sbytes, &s2)
 	assert.Equal(t, s1, s2)
 }
+
+func TestNullableFieldsAllowExplicitNulls(t *testing.T) {
+	json1 := `{"key":"flag","fallthrough":{"variation":1,"rollout":null}}`
+	f1, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag([]byte(json1))
+	assert.NoError(t, err)
+	assert.Equal(t, Rollout{}, f1.Fallthrough.Rollout)
+
+	json2 := `{"key":"flag","rules":[{"variation":1,"rollout":null}]}`
+	f2, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag([]byte(json2))
+	assert.NoError(t, err)
+	assert.Equal(t, Rollout{}, f2.Rules[0].Rollout)
+}
