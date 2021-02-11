@@ -177,7 +177,12 @@ func readVariationOrRollout(r *jreader.Reader, out *VariationOrRollout) {
 }
 
 func readRollout(r *jreader.Reader, out *Rollout) {
-	for obj := r.Object(); obj.Next(); {
+	obj := r.ObjectOrNull()
+	if !obj.IsDefined() {
+		*out = Rollout{}
+		return
+	}
+	for obj.Next() {
 		switch string(obj.Name()) {
 		case "variations":
 			for arr := r.Array(); arr.Next(); {
