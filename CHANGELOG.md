@@ -2,6 +2,10 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [1.1.2] - 2021-02-11
+### Fixed:
+- When deserializing feature flags from JSON, an explicit null value for the `rollout` property (as opposed to just omitting the property) was being treated as an error. The LaunchDarkly service endpoints do not ever send `rollout: null`, but it should be considered valid if encountered in JSON from some other source.
+
 ## [1.1.1] - 2021-01-20
 ### Fixed:
 - When using semantic version operators, semantic version strings were being rejected by the parser if they contained a zero digit in any position _after_ the first character of a numeric version component. For instance, `0.1.2` and `1.2.3` were accepted, and `01.2.3` was correctly rejected (leading zeroes for nonzero values are not allowed), but `10.2.3` was incorrectly rejected.
