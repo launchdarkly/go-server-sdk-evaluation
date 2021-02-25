@@ -1,6 +1,9 @@
 package ldmodel
 
-import "gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
+import (
+	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+)
 
 // Segment describes a group of users based on user keys and/or matching rules.
 type Segment struct {
@@ -27,6 +30,11 @@ type Segment struct {
 	// Version is an integer that is incremented by LaunchDarkly every time the configuration of the segment is
 	// changed.
 	Version int
+	// Generation is an integer that indicates which set of unbounded segment data is currently active for this segment
+	// key. LaunchDarkly increments it if a segment is deleted and recreated. This value is only meaningful for unbounded
+	// segments. If this field is unset, it means the segment representation used an older schema so the generation
+	// is unknown, in which case matching an unbounded segment is not possible.
+	Generation ldvalue.OptionalInt
 	// Deleted is true if this is not actually a user segment but rather a placeholder (tombstone) for a
 	// deleted segment. This is only relevant in data store implementations.
 	Deleted bool

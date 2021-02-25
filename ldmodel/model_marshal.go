@@ -130,6 +130,7 @@ func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
 	obj.Maybe("unbounded", segment.Unbounded).Bool(segment.Unbounded)
 
 	obj.Name("version").Int(segment.Version)
+	segment.Generation.WriteToJSONWriter(obj.Name("generation"))
 	obj.Name("deleted").Bool(segment.Deleted)
 
 	obj.End()
