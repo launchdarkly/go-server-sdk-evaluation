@@ -214,10 +214,11 @@ var segmentWithAllProperties = Segment{
 			BucketBy: lduser.NameAttribute,
 		},
 	},
-	Salt:      "segment-salt",
-	Unbounded: true,
-	Version:   99,
-	Deleted:   true,
+	Salt:       "segment-salt",
+	Unbounded:  true,
+	Version:    99,
+	Generation: ldvalue.NewOptionalInt(51),
+	Deleted:    true,
 }
 
 var segmentWithAllPropertiesJSON = map[string]interface{}{
@@ -243,10 +244,11 @@ var segmentWithAllPropertiesJSON = map[string]interface{}{
 			"bucketBy": "name",
 		},
 	},
-	"salt":      "segment-salt",
-	"unbounded": true,
-	"version":   float64(99),
-	"deleted":   true,
+	"salt":       "segment-salt",
+	"unbounded":  true,
+	"version":    float64(99),
+	"generation": float64(51),
+	"deleted":    true,
 }
 
 var segmentWithMinimalProperties = Segment{
@@ -256,13 +258,14 @@ var segmentWithMinimalProperties = Segment{
 }
 
 var segmentWithMinimalPropertiesJSON = map[string]interface{}{
-	"key":      "segment-key",
-	"included": []interface{}{},
-	"excluded": []interface{}{},
-	"rules":    []interface{}{},
-	"salt":     "segment-salt",
-	"version":  float64(99),
-	"deleted":  false,
+	"key":        "segment-key",
+	"included":   []interface{}{},
+	"excluded":   []interface{}{},
+	"rules":      []interface{}{},
+	"salt":       "segment-salt",
+	"version":    float64(99),
+	"generation": nil,
+	"deleted":    false,
 }
 
 func parseJsonMap(t *testing.T, bytes []byte) map[string]interface{} {

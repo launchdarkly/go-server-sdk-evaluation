@@ -223,6 +223,8 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 			segment.Key = r.String()
 		case "version":
 			segment.Version = r.Int()
+		case "generation":
+			segment.Generation.ReadFromJSONReader(r)
 		case "deleted":
 			segment.Deleted = r.Bool()
 		case "included":
