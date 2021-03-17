@@ -8,13 +8,28 @@ import (
 )
 
 type evaluator struct {
-	dataProvider DataProvider
+	dataProvider             DataProvider
+	unboundedSegmentProvider UnboundedSegmentProvider
 }
 
 // NewEvaluator creates an Evaluator, specifying a DataProvider that it will use if it needs to
 // query additional feature flags or user segments during an evaluation.
 func NewEvaluator(dataProvider DataProvider) Evaluator {
-	return &evaluator{dataProvider}
+	return NewEvaluatorWithUnboundedSegments(dataProvider, nil)
+}
+
+// NewEvaluatorWithUnboundedSegments is the same as NewEvaluator, but also allows specifying an
+// UnboundedSegmentProvider for evaluating unbounded segment membership. If that parameter is nil,
+// it will be treated the same as an UnboundedSegmentProvider that always returns a "store not
+// configured" status.
+func NewEvaluatorWithUnboundedSegments(
+	dataProvider DataProvider,
+	unboundedSegmentProvider UnboundedSegmentProvider,
+) Evaluator {
+	return &evaluator{
+		dataProvider:             dataProvider,
+		unboundedSegmentProvider: unboundedSegmentProvider,
+	}
 }
 
 // Used internally to hold the parameters of an evaluation, to avoid repetitive parameter passing.
@@ -25,6 +40,11 @@ type evaluationScope struct {
 	flag                          *ldmodel.FeatureFlag
 	user                          lduser.User
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder
+	// These unboundedSegments properties start out unset, and will be set only once during an
+	// evaluation the first time we query an unbounded segment, if any.
+	unboundedSegmentsReferenced bool
+	unboundedSegmentsMembership UnboundedSegmentMembership
+	unboundedSegmentsStatus     ldreason.UnboundedSegmentsStatus
 }
 
 // Implementation of the Evaluator interface.
@@ -33,8 +53,18 @@ func (e *evaluator) Evaluate(
 	user lduser.User,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 ) ldreason.EvaluationDetail {
-	es := evaluationScope{e, flag, user, prerequisiteFlagEventRecorder}
-	return es.evaluate()
+	es := evaluationScope{
+		owner:                         e,
+		flag:                          flag,
+		user:                          user,
+		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
+	}
+	result := es.evaluate()
+	if es.unboundedSegmentsReferenced {
+		result.Reason = ldreason.NewEvalReasonFromReasonWithUnboundedSegmentsStatus(result.Reason,
+			es.unboundedSegmentsStatus)
+	}
+	return result
 }
 
 func (es *evaluationScope) evaluate() ldreason.EvaluationDetail {
