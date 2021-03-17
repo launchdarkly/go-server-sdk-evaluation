@@ -177,13 +177,22 @@ func readVariationOrRollout(r *jreader.Reader, out *VariationOrRollout) {
 }
 
 func readRollout(r *jreader.Reader, out *Rollout) {
+	out.Kind = RolloutKindRollout
+
 	obj := r.ObjectOrNull()
 	if !obj.IsDefined() {
-		*out = Rollout{}
+		*out = Rollout{Kind: RolloutKindRollout}
 		return
 	}
 	for obj.Next() {
 		switch string(obj.Name()) {
+		case "kind":
+			switch RolloutKind(r.String()) {
+			case RolloutKindExperiment:
+				out.Kind = RolloutKindExperiment
+			case RolloutKindRollout:
+				out.Kind = RolloutKindRollout
+			}
 		case "variations":
 			for arr := r.Array(); arr.Next(); {
 				var wv WeightedVariation
@@ -193,6 +202,8 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 						wv.Variation = r.Int()
 					case "weight":
 						wv.Weight = r.Int()
+					case "untracked":
+						wv.Untracked = r.Bool()
 					}
 				}
 				out.Variations = append(out.Variations, wv)

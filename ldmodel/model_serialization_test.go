@@ -51,6 +51,7 @@ var flagWithAllProperties = FeatureFlag{
 			Clauses: []Clause{},
 			VariationOrRollout: VariationOrRollout{
 				Rollout: Rollout{
+					Kind: RolloutKindRollout,
 					Variations: []WeightedVariation{
 						WeightedVariation{
 							Weight:    100000,
@@ -61,9 +62,36 @@ var flagWithAllProperties = FeatureFlag{
 				},
 			},
 		},
+		FlagRule{
+			ID:      "rule-id3",
+			Clauses: []Clause{},
+			VariationOrRollout: VariationOrRollout{
+				Rollout: Rollout{
+					Kind: RolloutKindExperiment,
+					Variations: []WeightedVariation{
+						WeightedVariation{
+							Weight:    10000,
+							Variation: 1,
+						},
+						WeightedVariation{
+							Weight:    10000,
+							Variation: 2,
+						},
+						WeightedVariation{
+							Weight:    80000,
+							Variation: 3,
+							Untracked: true,
+						},
+					},
+					BucketBy: lduser.NameAttribute,
+				},
+			},
+			TrackEvents: true,
+		},
 	},
 	Fallthrough: VariationOrRollout{
 		Rollout: Rollout{
+			Kind: RolloutKindRollout,
 			Variations: []WeightedVariation{
 				WeightedVariation{
 					Weight:    100000,
@@ -129,6 +157,30 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 				"bucketBy": "name",
 			},
 			"trackEvents": false,
+		},
+		map[string]interface{}{
+			"id":      "rule-id3",
+			"clauses": []interface{}{},
+			"rollout": map[string]interface{}{
+				"kind":     "experiment",
+				"bucketBy": "name",
+				"variations": []interface{}{
+					map[string]interface{}{
+						"weight":    float64(10000),
+						"variation": float64(1),
+					},
+					map[string]interface{}{
+						"weight":    float64(10000),
+						"variation": float64(2),
+					},
+					map[string]interface{}{
+						"weight":    float64(80000),
+						"variation": float64(3),
+						"untracked": true,
+					},
+				},
+			},
+			"trackEvents": true,
 		},
 	},
 	"fallthrough": map[string]interface{}{
@@ -532,10 +584,10 @@ func TestNullableFieldsAllowExplicitNulls(t *testing.T) {
 	json1 := `{"key":"flag","fallthrough":{"variation":1,"rollout":null}}`
 	f1, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag([]byte(json1))
 	assert.NoError(t, err)
-	assert.Equal(t, Rollout{}, f1.Fallthrough.Rollout)
+	assert.Equal(t, Rollout{Kind: RolloutKindRollout}, f1.Fallthrough.Rollout)
 
 	json2 := `{"key":"flag","rules":[{"variation":1,"rollout":null}]}`
 	f2, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag([]byte(json2))
 	assert.NoError(t, err)
-	assert.Equal(t, Rollout{}, f2.Rules[0].Rollout)
+	assert.Equal(t, Rollout{Kind: RolloutKindRollout}, f2.Rules[0].Rollout)
 }

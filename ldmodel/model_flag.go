@@ -125,6 +125,7 @@ func (f *FeatureFlag) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
 // that evaluation should have full tracking enabled and always report the reason even if the application didn't
 // explicitly request this. For instance, this is true if a rule was matched that had tracking enabled for that specific
 // rule.
+// TODO how does this change?
 //
 // This differs from IsFullEventTrackingEnabled() in that it is dependent on the result of a specific evaluation; also,
 // IsFullEventTrackingEnabled() being true does not imply that the event should always contain a reason, whereas
@@ -171,6 +172,14 @@ type FlagRule struct {
 	TrackEvents bool
 }
 
+// RolloutKind is IN NEED OF A COMMENT TODO
+type RolloutKind string
+
+const (
+	RolloutKindRollout    RolloutKind = "rollout"
+	RolloutKindExperiment RolloutKind = "experiment"
+)
+
 // VariationOrRollout desscribes either a fixed variation or a percentage rollout.
 //
 // There is a VariationOrRollout for every FlagRule, and also one in FeatureFlag.Fallthrough which is
@@ -188,6 +197,8 @@ type VariationOrRollout struct {
 
 // Rollout describes how users will be bucketed into variations during a percentage rollout.
 type Rollout struct {
+	// Kind specifies THE NEED FOR A COMMENT TODO
+	Kind RolloutKind
 	// Variations is a list of the variations in the percentage rollout and what percentage of users
 	// to include in each.
 	//
@@ -203,6 +214,11 @@ type Rollout struct {
 	//
 	// Rollouts always take the user's "secondary key" attribute into account as well if the user has one.
 	BucketBy lduser.UserAttribute
+}
+
+// IsExperiment is IN NEED OF A COMMENT TODO
+func (r Rollout) IsExperiment() bool {
+	return r.Kind == RolloutKindExperiment
 }
 
 // Clause describes an individual cluuse within a FlagRule or SegmentRule.
@@ -245,6 +261,8 @@ type WeightedVariation struct {
 	Variation int
 	// Weight is the proportion of users who should go into this bucket, as an integer from 0 to 100000.
 	Weight int
+	// Untracked is IN NEED OF A COMMENT TODO
+	Untracked bool
 }
 
 // Target describes a set of users who will receive a specific variation.
