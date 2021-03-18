@@ -136,14 +136,22 @@ func (f *FeatureFlag) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
 func (f *FeatureFlag) IsExperimentationEnabled(reason ldreason.EvaluationReason) bool {
 	switch reason.GetKind() {
 	case ldreason.EvalReasonFallthrough:
-		return f.TrackEventsFallthrough
+		return isNotExcludedFromExperiment(f.Fallthrough, reason) && f.TrackEventsFallthrough
 	case ldreason.EvalReasonRuleMatch:
 		i := reason.GetRuleIndex()
 		if i >= 0 && i < len(f.Rules) {
-			return f.Rules[i].TrackEvents
+			rule := f.Rules[i]
+			return isNotExcludedFromExperiment(rule.VariationOrRollout, reason) && rule.TrackEvents
 		}
 	}
 	return false
+}
+
+func isNotExcludedFromExperiment(vr VariationOrRollout, reason ldreason.EvaluationReason) bool {
+	if vr.Rollout.IsExperiment() && !reason.IsInExperiment() {
+		return false
+	}
+	return true
 }
 
 // FlagRule describes a single rule within a feature flag.
