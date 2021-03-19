@@ -125,7 +125,6 @@ func (f *FeatureFlag) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
 // that evaluation should have full tracking enabled and always report the reason even if the application didn't
 // explicitly request this. For instance, this is true if a rule was matched that had tracking enabled for that specific
 // rule.
-// TODO how does this change?
 //
 // This differs from IsFullEventTrackingEnabled() in that it is dependent on the result of a specific evaluation; also,
 // IsFullEventTrackingEnabled() being true does not imply that the event should always contain a reason, whereas
@@ -134,24 +133,33 @@ func (f *FeatureFlag) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
 // This method exists in order to conform to interfaces used internally by the SDK
 // (go-sdk-events.v1/FlagEventProperties).
 func (f *FeatureFlag) IsExperimentationEnabled(reason ldreason.EvaluationReason) bool {
+	// This is more straightforward than it looks. Experiments are rollouts, and rollouts can occur either in the
+	// fallthrough or in a rule.
+	//
+	// We have two ways of representing an experiment, with different criteria for tracking events:
+	//  * legacy experiments are identified by TrackEventsFallthrough or rule.TrackEvents being true; they always track
+	//    events.
+	//  * newer experiments are explicitly identifiable as such via IsExperiment; they send events only for users that are
+	//    in the experiment, according to the reason.
+
 	switch reason.GetKind() {
 	case ldreason.EvalReasonFallthrough:
-		return isNotExcludedFromExperiment(f.Fallthrough, reason) && f.TrackEventsFallthrough
+		return userIsInExperiment(f.Fallthrough, reason) || f.TrackEventsFallthrough
 	case ldreason.EvalReasonRuleMatch:
 		i := reason.GetRuleIndex()
 		if i >= 0 && i < len(f.Rules) {
 			rule := f.Rules[i]
-			return isNotExcludedFromExperiment(rule.VariationOrRollout, reason) && rule.TrackEvents
+			return userIsInExperiment(rule.VariationOrRollout, reason) || rule.TrackEvents
 		}
 	}
 	return false
 }
 
-func isNotExcludedFromExperiment(vr VariationOrRollout, reason ldreason.EvaluationReason) bool {
-	if vr.Rollout.IsExperiment() && !reason.IsInExperiment() {
+func userIsInExperiment(vr VariationOrRollout, reason ldreason.EvaluationReason) bool {
+	if !vr.Rollout.IsExperiment() {
 		return false
 	}
-	return true
+	return reason.IsInExperiment()
 }
 
 // FlagRule describes a single rule within a feature flag.
