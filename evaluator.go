@@ -8,13 +8,30 @@ import (
 )
 
 type evaluator struct {
-	dataProvider DataProvider
+	dataProvider       DataProvider
+	bigSegmentProvider BigSegmentProvider
 }
 
 // NewEvaluator creates an Evaluator, specifying a DataProvider that it will use if it needs to
 // query additional feature flags or user segments during an evaluation.
+//
+// To support big segments, you must use NewEvaluatorWithBigSegments instead.
 func NewEvaluator(dataProvider DataProvider) Evaluator {
-	return &evaluator{dataProvider}
+	return NewEvaluatorWithBigSegments(dataProvider, nil)
+}
+
+// NewEvaluatorWithBigSegments is the same as NewEvaluator, but also allows specifying a
+// BigSegmentProvider for evaluating big segment membership. If that parameter is nil, it will
+// be treated the same as a BigSegmentProvider that always returns a "store not configured"
+// status.
+func NewEvaluatorWithBigSegments(
+	dataProvider DataProvider,
+	bigSegmentProvider BigSegmentProvider,
+) Evaluator {
+	return &evaluator{
+		dataProvider:       dataProvider,
+		bigSegmentProvider: bigSegmentProvider,
+	}
 }
 
 // Used internally to hold the parameters of an evaluation, to avoid repetitive parameter passing.
@@ -25,6 +42,11 @@ type evaluationScope struct {
 	flag                          *ldmodel.FeatureFlag
 	user                          lduser.User
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder
+	// These bigSegments properties start out unset, and will be set only once during an
+	// evaluation the first time we query a big segment, if any.
+	bigSegmentsReferenced bool
+	bigSegmentsMembership BigSegmentMembership
+	bigSegmentsStatus     ldreason.BigSegmentsStatus
 }
 
 // Implementation of the Evaluator interface.
@@ -33,8 +55,18 @@ func (e *evaluator) Evaluate(
 	user lduser.User,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 ) ldreason.EvaluationDetail {
-	es := evaluationScope{e, flag, user, prerequisiteFlagEventRecorder}
-	return es.evaluate()
+	es := evaluationScope{
+		owner:                         e,
+		flag:                          flag,
+		user:                          user,
+		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
+	}
+	result := es.evaluate()
+	if es.bigSegmentsReferenced {
+		result.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(result.Reason,
+			es.bigSegmentsStatus)
+	}
+	return result
 }
 
 func (es *evaluationScope) evaluate() ldreason.EvaluationDetail {
