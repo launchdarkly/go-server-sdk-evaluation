@@ -8,6 +8,13 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 )
 
+func makeBigSegmentRef(s *ldmodel.Segment) string {
+	// The format of big segment references is independent of what store implementation is being
+	// used; the store implementation receives only this string and does not know the details of
+	// the data model. The Relay Proxy will use the same format when writing to the store.
+	return fmt.Sprintf("%s.g%d", s.Key, s.Generation.IntValue())
+}
+
 func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
 	userKey := es.user.GetKey()
 
@@ -39,8 +46,7 @@ func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
 		if es.bigSegmentsMembership == nil {
 			return false
 		}
-		segmentRef := fmt.Sprintf("%s:%d", s.Key, s.Generation.IntValue())
-		included := es.bigSegmentsMembership.CheckMembership(segmentRef)
+		included := es.bigSegmentsMembership.CheckMembership(makeBigSegmentRef(s))
 		if included.IsDefined() {
 			return included.BoolValue()
 		}
