@@ -184,7 +184,7 @@ func (es *evaluationScope) variationIndexForUser(
 		bucketBy = r.Rollout.BucketBy
 	}
 
-	var bucketVal = es.bucketUser(key, bucketBy, salt)
+	var bucketVal = es.bucketUser(r.Rollout.Seed, key, bucketBy, salt)
 	var sum float32
 
 	isExperiment := r.Rollout.IsExperiment()
