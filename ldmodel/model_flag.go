@@ -133,16 +133,34 @@ func (f *FeatureFlag) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
 // This method exists in order to conform to interfaces used internally by the SDK
 // (go-sdk-events.v1/FlagEventProperties).
 func (f *FeatureFlag) IsExperimentationEnabled(reason ldreason.EvaluationReason) bool {
+	// This switch considers just two reason kinds, because it's only for rollouts that we want special behaviour for
+	// analytics events (because they may be part of an experiment), and rollouts can occur either in the fallthrough or
+	// in a rule.
 	switch reason.GetKind() {
 	case ldreason.EvalReasonFallthrough:
-		return f.TrackEventsFallthrough
+		return shouldEmitFullEvent(f.Fallthrough, reason, f.TrackEventsFallthrough)
 	case ldreason.EvalReasonRuleMatch:
 		i := reason.GetRuleIndex()
 		if i >= 0 && i < len(f.Rules) {
-			return f.Rules[i].TrackEvents
+			rule := f.Rules[i]
+			return shouldEmitFullEvent(rule.VariationOrRollout, reason, rule.TrackEvents)
 		}
 	}
 	return false
+}
+
+func shouldEmitFullEvent(vr VariationOrRollout, reason ldreason.EvaluationReason, trackEventsOverride bool) bool {
+	// This should return true if a full feature event should be emitted for this evaluation regardless of the value of
+	// f.TrackEvents; a true value also causes the evaluation reason to be included in the event regardless of whether it
+	// otherwise would have been.
+	//
+	// For new-style experiments, as identified by the rollout kind, this is determined from the evaluation reason. Legacy
+	// experiments instead use TrackEventsFallthrough or rule.TrackEvents for this purpose.
+
+	if !vr.Rollout.IsExperiment() {
+		return trackEventsOverride
+	}
+	return reason.IsInExperiment()
 }
 
 // FlagRule describes a single rule within a feature flag.
@@ -230,7 +248,7 @@ func (r Rollout) IsExperiment() bool {
 	return r.Kind == RolloutKindExperiment
 }
 
-// Clause describes an individual cluuse within a FlagRule or SegmentRule.
+// Clause describes an individual clause within a FlagRule or SegmentRule.
 type Clause struct {
 	// Attribute specifies the user attribute that is being tested.
 	//

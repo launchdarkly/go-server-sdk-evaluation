@@ -18,16 +18,19 @@ func TestVariationIndexForUser(t *testing.T) {
 	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 60000), ldbuilders.Bucket(1, 40000))
 
 	u1 := lduser.NewUser("userKeyA")
-	variationIndex := userEvalScope(u1).variationIndexForUser(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment := userEvalScope(u1).variationIndexForUser(vr, "hashKey", "saltyA")
 	assert.Equal(t, 0, variationIndex)
+	assert.False(t, inExperiment)
 
 	u2 := lduser.NewUser("userKeyB")
-	variationIndex = userEvalScope(u2).variationIndexForUser(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment = userEvalScope(u2).variationIndexForUser(vr, "hashKey", "saltyA")
 	assert.Equal(t, 1, variationIndex)
+	assert.False(t, inExperiment)
 
 	u3 := lduser.NewUser("userKeyC")
-	variationIndex = userEvalScope(u3).variationIndexForUser(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment = userEvalScope(u3).variationIndexForUser(vr, "hashKey", "saltyA")
 	assert.Equal(t, 0, variationIndex)
+	assert.False(t, inExperiment)
 }
 
 func TestVariationIndexForUserWithCustomAttribute(t *testing.T) {
@@ -35,12 +38,38 @@ func TestVariationIndexForUserWithCustomAttribute(t *testing.T) {
 	vr.Rollout.BucketBy = lduser.UserAttribute("intAttr")
 
 	u1 := lduser.NewUserBuilder("userKeyD").Custom("intAttr", ldvalue.Int(33333)).Build()
-	variationIndex := userEvalScope(u1).variationIndexForUser(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment := userEvalScope(u1).variationIndexForUser(vr, "hashKey", "saltyA")
 	assert.Equal(t, 0, variationIndex) // bucketValue = 0.54771423
+	assert.False(t, inExperiment)
 
 	u2 := lduser.NewUserBuilder("userKeyD").Custom("intAttr", ldvalue.Int(99999)).Build()
-	variationIndex = userEvalScope(u2).variationIndexForUser(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment = userEvalScope(u2).variationIndexForUser(vr, "hashKey", "saltyA")
 	assert.Equal(t, 1, variationIndex) // bucketValue = 0.7309658
+	assert.False(t, inExperiment)
+}
+
+func TestVariationIndexForUserInExperiment(t *testing.T) {
+	vr := ldbuilders.Experiment(42, ldbuilders.Bucket(0, 10000), ldbuilders.Bucket(1, 20000), ldbuilders.BucketUntracked(0, 70000))
+
+	// user keys here carefully chosen so they fall into different buckets
+
+	u1 := lduser.NewUser("userKeyA")
+	variationIndex, inExperiment := userEvalScope(u1).variationIndexForUser(vr, "hashKey", "saltyA")
+	// bucketValue = 0.42157587
+	assert.Equal(t, 0, variationIndex)
+	assert.False(t, inExperiment)
+
+	u2 := lduser.NewUser("userKeyC")
+	variationIndex, inExperiment = userEvalScope(u2).variationIndexForUser(vr, "hashKey", "saltyA")
+	// bucketValue = 0.10343106
+	assert.Equal(t, 1, variationIndex)
+	assert.True(t, inExperiment)
+
+	u3 := lduser.NewUser("userKeyI")
+	variationIndex, inExperiment = userEvalScope(u3).variationIndexForUser(vr, "hashKey", "saltyA")
+	// bucketValue = 0.079691626
+	assert.Equal(t, 0, variationIndex)
+	assert.True(t, inExperiment)
 }
 
 func TestBucketUserByKey(t *testing.T) {
@@ -90,6 +119,15 @@ func TestBucketUserByFloatAttrThatIsReallyAnIntIsAllowed(t *testing.T) {
 func TestBucketValueBeyondLastBucketIsPinnedToLastBucket(t *testing.T) {
 	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 5000), ldbuilders.Bucket(1, 5000))
 	user := lduser.NewUserBuilder("userKeyD").Custom("intAttr", ldvalue.Int(99999)).Build()
-	variationIndex := userEvalScope(user).variationIndexForUser(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment := userEvalScope(user).variationIndexForUser(vr, "hashKey", "saltyA")
 	assert.Equal(t, 1, variationIndex)
+	assert.False(t, inExperiment)
+}
+
+func TestBucketValueBeyondLastBucketIsPinnedToLastBucketForExperiment(t *testing.T) {
+	vr := ldbuilders.Experiment(42, ldbuilders.Bucket(0, 5000), ldbuilders.Bucket(1, 5000))
+	user := lduser.NewUserBuilder("userKeyD").Custom("intAttr", ldvalue.Int(99999)).Build()
+	variationIndex, inExperiment := userEvalScope(user).variationIndexForUser(vr, "hashKey", "saltyA")
+	assert.Equal(t, 1, variationIndex)
+	assert.True(t, inExperiment)
 }
