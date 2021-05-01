@@ -2,7 +2,10 @@ package ldmodel
 
 // SegmentIncludesOrExcludesKey tests whether the specified user key is in the include or exclude
 // list of this Segment. If it is in either, then the first return value is true for include or false
-// for exclude, and the second return value is true. If it is in neither, both return values are fale.
+// for exclude, and the second return value is true. If it is in neither, both return values are false.
+//
+// This is only valid for regular segments that contain their entire target lists. Big segments, which
+// reference an external data store, are handled differently by Evaluator.
 //
 // This part of the flag evaluation logic is defined in ldmodel and exported, rather than being
 // internal to Evaluator, as a compromise to allow for optimizations that require storing precomputed

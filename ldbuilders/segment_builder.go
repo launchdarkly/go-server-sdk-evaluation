@@ -2,6 +2,7 @@ package ldbuilders
 
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 )
 
@@ -57,9 +58,16 @@ func (b *SegmentBuilder) Salt(value string) *SegmentBuilder {
 	return b
 }
 
-// Unbounded sets the segment's Unbounded property.
+// Unbounded sets the segment's Unbounded property. "Unbounded segment" is the historical name for
+// a big segment.
 func (b *SegmentBuilder) Unbounded(value bool) *SegmentBuilder {
 	b.segment.Unbounded = value
+	return b
+}
+
+// Generation sets the segment's Generation property.
+func (b *SegmentBuilder) Generation(value int) *SegmentBuilder {
+	b.segment.Generation = ldvalue.NewOptionalInt(value)
 	return b
 }
 

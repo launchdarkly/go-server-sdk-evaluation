@@ -3,6 +3,7 @@ package evaluation
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 )
 
@@ -67,4 +68,54 @@ type DataProvider interface {
 	// The method returns nil if the segment was not found. The DataProvider should treat any deleted
 	// segment as "not found" even if the data store contains a deleted segment placeholder for it.
 	GetSegment(key string) *ldmodel.Segment
+}
+
+// BigSegmentProvider is an abstraction for querying user membership in big segments. The caller
+// provides an implementation of this interface to NewEvaluatorWithBigSegments.
+type BigSegmentProvider interface {
+	// GetUserMembership queries a snapshot of the current segment state for a specific user.
+	//
+	// The underlying big segment store implementation will use a hash of the user key, rather
+	// than the raw key. But computing the hash is the responsibility of the BigSegmentProvider
+	// implementation rather than the evaluator, because there may already have a cached result for
+	// that user, and we don't want to have to compute a hash repeatedly just to query a cache.
+	//
+	// If the returned BigSegmentMembership is nil, it is treated the same as an implementation
+	// whose IsUserIncluded and IsUserExcluded methods always return false.
+	GetUserMembership(
+		userKey string,
+	) (BigSegmentMembership, ldreason.BigSegmentsStatus)
+}
+
+// BigSegmentMembership is the return type of BigSegmentProvider.GetUserMembership(). It is
+// associated with a single user, and provides the ability to check whether that user is included
+// in or excluded from any number of big segments.
+//
+// This is an immutable snapshot of the state for this user at the time GetBigSegmentMembership
+// was called. Calling CheckMembership should not cause the state to be queried again. The object
+// should be safe for concurrent access by multiple goroutines.
+//
+// This interface also exists in go-server-sdk because it is exposed as part of the public SDK API;
+// users can write their own implementations of SDK components, but we do not want application code
+// to reference go-server-sdk-evaluation symbols directly as part of that, because this library is
+// versioned separately from the SDK. Currently the two interfaces are identical, but it might be
+// that the go-server-sdk-evaluation version would diverge from the go-server-sdk version due to
+// some internal requirements that aren't relevant to users, in which case go-server-sdk would be
+// responsible for bridging the difference.
+type BigSegmentMembership interface {
+	// CheckMembership tests whether the user is explicitly included or explicitly excluded in the
+	// specified segment, or neither. The segment is identified by a segmentRef which is not the
+	// same as the segment key-- it includes the key but also versioning information that the SDK
+	// will provide. The store implementation should not be concerned with the format of this.
+	//
+	// If the user is explicitly included (regardless of whether the user is also explicitly
+	// excluded or not-- that is, inclusion takes priority over exclusion), the method returns an
+	// OptionalBool with a true value.
+	//
+	// If the user is explicitly excluded, and is not explicitly included, the method returns an
+	// OptionalBool with a false value.
+	//
+	// If the user's status in the segment is undefined, the method returns OptionalBool{} with no
+	// value (so calling IsDefined() on it will return false).
+	CheckMembership(segmentRef string) ldvalue.OptionalBool
 }

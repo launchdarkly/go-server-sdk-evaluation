@@ -26,14 +26,17 @@ type Segment struct {
 	// Unbounded is true if this is a segment whose Included list is stored separately and is not limited in size.
 	// Currently, the server-side Go SDK cannot access the user list for this kind of segment; it only works when
 	// flags are being evaluated within the LaunchDarkly service.
+	//
+	// The name is historical: "unbounded segments" was an earlier name for the product feature that is currently
+	// known as "big segments". If Unbounded is true, this is a big segment.
 	Unbounded bool
 	// Version is an integer that is incremented by LaunchDarkly every time the configuration of the segment is
 	// changed.
 	Version int
-	// Generation is an integer that indicates which set of unbounded segment data is currently active for this segment
-	// key. LaunchDarkly increments it if a segment is deleted and recreated. This value is only meaningful for unbounded
+	// Generation is an integer that indicates which set of big segment data is currently active for this segment
+	// key. LaunchDarkly increments it if a segment is deleted and recreated. This value is only meaningful for big
 	// segments. If this field is unset, it means the segment representation used an older schema so the generation
-	// is unknown, in which case matching an unbounded segment is not possible.
+	// is unknown, in which case matching a big segment is not possible.
 	Generation ldvalue.OptionalInt
 	// Deleted is true if this is not actually a user segment but rather a placeholder (tombstone) for a
 	// deleted segment. This is only relevant in data store implementations.
