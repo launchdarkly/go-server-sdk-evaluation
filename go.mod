@@ -7,8 +7,6 @@ require (
 	github.com/mailru/easyjson v0.7.6
 	github.com/stretchr/testify v1.6.1
 	gopkg.in/launchdarkly/go-jsonstream.v1 v1.0.0
-	gopkg.in/launchdarkly/go-sdk-common.v2 v2.2.0
+	gopkg.in/launchdarkly/go-sdk-common.v2 v2.3.0-alpha.expalloc.1
 	gopkg.in/launchdarkly/go-sdk-events.v1 v1.0.1
 )
-
-replace gopkg.in/launchdarkly/go-sdk-common.v2 => github.com/launchdarkly/go-sdk-common-private/v2 v2.2.3-0.20210319203906-533467f10d12
