@@ -133,16 +133,34 @@ func (f *FeatureFlag) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
 // This method exists in order to conform to interfaces used internally by the SDK
 // (go-sdk-events.v1/FlagEventProperties).
 func (f *FeatureFlag) IsExperimentationEnabled(reason ldreason.EvaluationReason) bool {
+	// This switch considers just two reason kinds, because it's only for rollouts that we want special behaviour for
+	// analytics events (because they may be part of an experiment), and rollouts can occur either in the fallthrough or
+	// in a rule.
 	switch reason.GetKind() {
 	case ldreason.EvalReasonFallthrough:
-		return f.TrackEventsFallthrough
+		return shouldEmitFullEvent(f.Fallthrough, reason, f.TrackEventsFallthrough)
 	case ldreason.EvalReasonRuleMatch:
 		i := reason.GetRuleIndex()
 		if i >= 0 && i < len(f.Rules) {
-			return f.Rules[i].TrackEvents
+			rule := f.Rules[i]
+			return shouldEmitFullEvent(rule.VariationOrRollout, reason, rule.TrackEvents)
 		}
 	}
 	return false
+}
+
+func shouldEmitFullEvent(vr VariationOrRollout, reason ldreason.EvaluationReason, trackEventsOverride bool) bool {
+	// This should return true if a full feature event should be emitted for this evaluation regardless of the value of
+	// f.TrackEvents; a true value also causes the evaluation reason to be included in the event regardless of whether it
+	// otherwise would have been.
+	//
+	// For new-style experiments, as identified by the rollout kind, this is determined from the evaluation reason. Legacy
+	// experiments instead use TrackEventsFallthrough or rule.TrackEvents for this purpose.
+
+	if !vr.Rollout.IsExperiment() {
+		return trackEventsOverride
+	}
+	return reason.IsInExperiment()
 }
 
 // FlagRule describes a single rule within a feature flag.
@@ -171,6 +189,19 @@ type FlagRule struct {
 	TrackEvents bool
 }
 
+// RolloutKind describes whether a rollout is a simple percentage rollout or represents an experiment. Experiments have
+// different behaviour for tracking and variation bucketing.
+type RolloutKind string
+
+const (
+	// RolloutKindRollout represents a simple percentage rollout. This is the default rollout kind, and will be assumed if
+	// not otherwise specified.
+	RolloutKindRollout RolloutKind = "rollout"
+	// RolloutKindExperiment represents an experiment. Experiments have different behaviour for tracking and variation
+	// bucketing.
+	RolloutKindExperiment RolloutKind = "experiment"
+)
+
 // VariationOrRollout desscribes either a fixed variation or a percentage rollout.
 //
 // There is a VariationOrRollout for every FlagRule, and also one in FeatureFlag.Fallthrough which is
@@ -188,12 +219,15 @@ type VariationOrRollout struct {
 
 // Rollout describes how users will be bucketed into variations during a percentage rollout.
 type Rollout struct {
+	// Kind specifies whether this rollout is a simple percentage rollout or represents an experiment. Experiments have
+	// different behaviour for tracking and variation bucketing.
+	Kind RolloutKind
 	// Variations is a list of the variations in the percentage rollout and what percentage of users
 	// to include in each.
 	//
 	// The Weight values of all elements in this list should add up to 100000 (100%). If they do not,
 	// the last element in the list will behave as if it includes any leftover percentage (that is, if
-	// the weights are [1000, 1000, 1000] they will be treated as if they were [1000, 1000, 99000]).
+	// the weights are [1000, 1000, 1000] they will be treated as if they were [1000, 1000, 98000]).
 	Variations []WeightedVariation
 	// BucketBy specifies which user attribute should be used to distinguish between users in a rollout.
 	//
@@ -203,9 +237,18 @@ type Rollout struct {
 	//
 	// Rollouts always take the user's "secondary key" attribute into account as well if the user has one.
 	BucketBy lduser.UserAttribute
+	// Seed, if present, specifies the seed for the hashing algorithm this rollout will use to bucket users, so that
+	// rollouts with the same Seed will assign the same users to the same buckets.
+	// If unspecified, the seed will default to a combination of the flag key and flag-level Salt.
+	Seed ldvalue.OptionalInt
 }
 
-// Clause describes an individual cluuse within a FlagRule or SegmentRule.
+// IsExperiment returns whether this rollout represents an experiment.
+func (r Rollout) IsExperiment() bool {
+	return r.Kind == RolloutKindExperiment
+}
+
+// Clause describes an individual clause within a FlagRule or SegmentRule.
 type Clause struct {
 	// Attribute specifies the user attribute that is being tested.
 	//
@@ -245,6 +288,8 @@ type WeightedVariation struct {
 	Variation int
 	// Weight is the proportion of users who should go into this bucket, as an integer from 0 to 100000.
 	Weight int
+	// Untracked means that users allocated to this variation should not have tracking events sent.
+	Untracked bool
 }
 
 // Target describes a set of users who will receive a specific variation.

@@ -51,6 +51,7 @@ var flagWithAllProperties = FeatureFlag{
 			Clauses: []Clause{},
 			VariationOrRollout: VariationOrRollout{
 				Rollout: Rollout{
+					Kind: RolloutKindRollout,
 					Variations: []WeightedVariation{
 						WeightedVariation{
 							Weight:    100000,
@@ -60,6 +61,33 @@ var flagWithAllProperties = FeatureFlag{
 					BucketBy: lduser.NameAttribute,
 				},
 			},
+		},
+		FlagRule{
+			ID:      "rule-id3",
+			Clauses: []Clause{},
+			VariationOrRollout: VariationOrRollout{
+				Rollout: Rollout{
+					Kind: RolloutKindExperiment,
+					Variations: []WeightedVariation{
+						WeightedVariation{
+							Weight:    10000,
+							Variation: 1,
+						},
+						WeightedVariation{
+							Weight:    10000,
+							Variation: 2,
+						},
+						WeightedVariation{
+							Weight:    80000,
+							Variation: 3,
+							Untracked: true,
+						},
+					},
+					BucketBy: lduser.NameAttribute,
+					Seed:     ldvalue.NewOptionalInt(42),
+				},
+			},
+			TrackEvents: true,
 		},
 	},
 	Fallthrough: VariationOrRollout{
@@ -120,6 +148,7 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 			"id":      "rule-id2",
 			"clauses": []interface{}{},
 			"rollout": map[string]interface{}{
+				"kind": "rollout",
 				"variations": []interface{}{
 					map[string]interface{}{
 						"weight":    float64(100000),
@@ -129,6 +158,31 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 				"bucketBy": "name",
 			},
 			"trackEvents": false,
+		},
+		map[string]interface{}{
+			"id":      "rule-id3",
+			"clauses": []interface{}{},
+			"rollout": map[string]interface{}{
+				"kind":     "experiment",
+				"bucketBy": "name",
+				"variations": []interface{}{
+					map[string]interface{}{
+						"weight":    float64(10000),
+						"variation": float64(1),
+					},
+					map[string]interface{}{
+						"weight":    float64(10000),
+						"variation": float64(2),
+					},
+					map[string]interface{}{
+						"weight":    float64(80000),
+						"variation": float64(3),
+						"untracked": true,
+					},
+				},
+				"seed": float64(42),
+			},
+			"trackEvents": true,
 		},
 	},
 	"fallthrough": map[string]interface{}{

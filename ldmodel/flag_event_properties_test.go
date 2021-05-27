@@ -37,22 +37,50 @@ func TestGetDebugEventsUntilDate(t *testing.T) {
 	assert.Equal(t, date, asFlagEventProperties(flag2).GetDebugEventsUntilDate())
 }
 
-func TestIsExperimentDefaultsToFalse(t *testing.T) {
+func TestIsExperimentationEnabledDefaultsToFalse(t *testing.T) {
 	flag := FeatureFlag{Key: "key"}
 	assert.False(t, asFlagEventProperties(flag).IsExperimentationEnabled(ldreason.NewEvalReasonOff()))
 }
 
-func TestIsExperimentReturnsFalseForFallthroughIfTrackEventsFallthroughIsFalse(t *testing.T) {
+func TestExperimentationIsNotEnabledForFallthroughIfTrackEventsFallthroughIsFalse(t *testing.T) {
 	flag := FeatureFlag{Key: "key"}
 	assert.False(t, asFlagEventProperties(flag).IsExperimentationEnabled(ldreason.NewEvalReasonFallthrough()))
 }
 
-func TestIsExperimentReturnsTrueForFallthroughIfTrackEventsFallthroughIsTrue(t *testing.T) {
+func TestExperimentationIsEnabledForFallthroughIfTrackEventsFallthroughIsTrue(t *testing.T) {
 	flag := FeatureFlag{Key: "key", TrackEventsFallthrough: true}
 	assert.True(t, asFlagEventProperties(flag).IsExperimentationEnabled(ldreason.NewEvalReasonFallthrough()))
 }
 
-func TestIsExperimentReturnsFalseForRuleMatchIfTrackEventsIsFalseForThatRule(t *testing.T) {
+func TestExperimentationIsEnabledForFallthroughExperimentIfReasonSaysSo(t *testing.T) {
+	flag := FeatureFlag{
+		Key: "key",
+		Fallthrough: VariationOrRollout{
+			Rollout: Rollout{Kind: RolloutKindExperiment},
+		},
+	}
+	flagProps := asFlagEventProperties(flag)
+
+	assert.True(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonFallthroughExperiment(true)))
+
+	// these cases should be equivalent
+	assert.False(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonFallthroughExperiment(false)))
+	assert.False(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonFallthrough()))
+
+	t.Run(`should ignore TrackEventsFallthrough when Kind == "experiment"`, func(t *testing.T) {
+		flagTrackFallthrough := flag
+		flagTrackFallthrough.TrackEventsFallthrough = true
+		flagPropsTrackFallthrough := asFlagEventProperties(flagTrackFallthrough)
+
+		assert.True(t, flagPropsTrackFallthrough.IsExperimentationEnabled(ldreason.NewEvalReasonFallthroughExperiment(true)))
+
+		// these cases should be equivalent
+		assert.False(t, flagPropsTrackFallthrough.IsExperimentationEnabled(ldreason.NewEvalReasonFallthroughExperiment(false)))
+		assert.False(t, flagPropsTrackFallthrough.IsExperimentationEnabled(ldreason.NewEvalReasonFallthrough()))
+	})
+}
+
+func TestExperimentationIsNotEnabledForRuleMatchIfTrackEventsIsFalseForThatRule(t *testing.T) {
 	flag := FeatureFlag{
 		Key: "key",
 		Rules: []FlagRule{
@@ -64,7 +92,7 @@ func TestIsExperimentReturnsFalseForRuleMatchIfTrackEventsIsFalseForThatRule(t *
 	assert.False(t, asFlagEventProperties(flag).IsExperimentationEnabled(reason))
 }
 
-func TestIsExperimentReturnsTrueForRuleMatchIfTrackEventsIsTrueForThatRule(t *testing.T) {
+func TestExperimentationIsEnabledForRuleMatchIfTrackEventsIsTrueForThatRule(t *testing.T) {
 	flag := FeatureFlag{
 		Key: "key",
 		Rules: []FlagRule{
@@ -76,7 +104,46 @@ func TestIsExperimentReturnsTrueForRuleMatchIfTrackEventsIsTrueForThatRule(t *te
 	assert.True(t, asFlagEventProperties(flag).IsExperimentationEnabled(reason))
 }
 
-func TestIsExperimentReturnsFalseForRuleMatchIfRuleIndexIsNegative(t *testing.T) {
+func TestExperimentationIsEnabledForRuleMatchExperimentIfReasonSaysSo(t *testing.T) {
+	flag := FeatureFlag{
+		Key: "key",
+		Rules: []FlagRule{{
+			ID: "rule0",
+			VariationOrRollout: VariationOrRollout{
+				Rollout: Rollout{Kind: RolloutKindExperiment},
+			},
+		}},
+	}
+	flagProps := asFlagEventProperties(flag)
+
+	assert.True(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatchExperiment(0, "rule0", true)))
+
+	// these cases should be equivalent
+	assert.False(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatchExperiment(0, "rule0", false)))
+	assert.False(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatch(0, "rule0")))
+
+	t.Run(`should ignore rule.TrackEvents when Kind == "experiment"`, func(t *testing.T) {
+		flagTrackRule := FeatureFlag{
+			Key: "key",
+			Rules: []FlagRule{{
+				ID:          "rule0",
+				TrackEvents: true,
+				VariationOrRollout: VariationOrRollout{
+					Rollout: Rollout{Kind: RolloutKindExperiment},
+				},
+			}},
+		}
+		flagPropsTrackRule := asFlagEventProperties(flagTrackRule)
+
+		assert.True(t, flagPropsTrackRule.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatchExperiment(0, "rule0", true)))
+
+		// these cases should be equivalent
+		assert.False(t, flagPropsTrackRule.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatchExperiment(0, "rule0", false)))
+		assert.False(t, flagPropsTrackRule.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatch(0, "rule0")))
+	})
+}
+
+func TestExperimentationIsNotEnabledForRuleMatchIfRuleIndexIsNegative(t *testing.T) {
 	flag := FeatureFlag{
 		Key: "key",
 		Rules: []FlagRule{
@@ -88,7 +155,7 @@ func TestIsExperimentReturnsFalseForRuleMatchIfRuleIndexIsNegative(t *testing.T)
 	assert.False(t, asFlagEventProperties(flag).IsExperimentationEnabled(reason))
 }
 
-func TestIsExperimentReturnsFalseForRuleMatchIfRuleIndexIsTooHigh(t *testing.T) {
+func TestExperimentationIsNotEnabledForRuleMatchIfRuleIndexIsTooHigh(t *testing.T) {
 	flag := FeatureFlag{
 		Key: "key",
 		Rules: []FlagRule{

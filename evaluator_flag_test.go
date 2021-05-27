@@ -136,3 +136,63 @@ func TestFlagMatchesUserFromRules(t *testing.T) {
 	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonRuleMatch(0, "rule-id")), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
+
+func TestFlagReturnsWhetherUserWasInFallthroughExperiment(t *testing.T) {
+	// seed here carefully chosen so users fall into different buckets
+	user1 := lduser.NewUser("userKeyA")
+	user2 := lduser.NewUser("userKeyB")
+	user3 := lduser.NewUser("userKeyC")
+
+	f := ldbuilders.NewFlagBuilder("experiment").
+		On(true).
+		Fallthrough(ldbuilders.Experiment(
+			61,
+			ldbuilders.Bucket(0, 10000),
+			ldbuilders.Bucket(2, 20000),
+			ldbuilders.BucketUntracked(0, 70000),
+		)).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+
+	result := basicEvaluator().Evaluate(&f, user1, nil)
+	// bucketVal = 0.09801207
+	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthroughExperiment(true)), result)
+
+	result = basicEvaluator().Evaluate(&f, user2, nil)
+	// bucketVal = 0.14483777
+	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonFallthroughExperiment(true)), result)
+
+	result = basicEvaluator().Evaluate(&f, user3, nil)
+	// bucketVal = 0.9242641
+	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthroughExperiment(false)), result)
+}
+
+func TestFlagReturnsWhetherUserWasInRuleExperiment(t *testing.T) {
+	// seed here carefully chosen so users fall into different buckets
+	user1 := lduser.NewUser("userKeyA")
+	user2 := lduser.NewUser("userKeyB")
+	user3 := lduser.NewUser("userKeyC")
+
+	f := ldbuilders.NewFlagBuilder("experiment").
+		On(true).
+		AddRule(makeRuleToMatchUserKeyPrefix("user", ldbuilders.Experiment(
+			61,
+			ldbuilders.Bucket(0, 10000),
+			ldbuilders.Bucket(2, 20000),
+			ldbuilders.BucketUntracked(0, 70000),
+		))).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+
+	result := basicEvaluator().Evaluate(&f, user1, nil)
+	// bucketVal = 0.09801207
+	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonRuleMatchExperiment(0, "rule-id", true)), result)
+
+	result = basicEvaluator().Evaluate(&f, user2, nil)
+	// bucketVal = 0.14483777
+	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonRuleMatchExperiment(0, "rule-id", true)), result)
+
+	result = basicEvaluator().Evaluate(&f, user3, nil)
+	// bucketVal = 0.9242641
+	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonRuleMatchExperiment(0, "rule-id", false)), result)
+}

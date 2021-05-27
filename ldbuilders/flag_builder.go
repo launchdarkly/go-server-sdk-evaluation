@@ -12,9 +12,26 @@ func Bucket(variationIndex int, weight int) ldmodel.WeightedVariation {
 	return ldmodel.WeightedVariation{Variation: variationIndex, Weight: weight}
 }
 
+// BucketUntracked constructs a WeightedVariation with the specified variation index and weight, where users in this
+// bucket will not have tracking events sent.
+func BucketUntracked(variationIndex int, weight int) ldmodel.WeightedVariation {
+	return ldmodel.WeightedVariation{Variation: variationIndex, Weight: weight, Untracked: true}
+}
+
 // Rollout constructs a VariationOrRollout with the specified buckets.
 func Rollout(buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
-	return ldmodel.VariationOrRollout{Rollout: ldmodel.Rollout{Variations: buckets}}
+	return ldmodel.VariationOrRollout{Rollout: ldmodel.Rollout{Kind: ldmodel.RolloutKindRollout, Variations: buckets}}
+}
+
+// Experiment constructs a VariationOrRollout representing an experiment with the specified buckets.
+func Experiment(seed int32, buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
+	return ldmodel.VariationOrRollout{
+		Rollout: ldmodel.Rollout{
+			Kind:       ldmodel.RolloutKindExperiment,
+			Variations: buckets,
+			Seed:       ldvalue.NewOptionalInt(int(seed)),
+		},
+	}
 }
 
 // Variation constructs a VariationOrRollout with the specified variation index.
