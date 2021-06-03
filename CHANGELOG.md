@@ -2,6 +2,10 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [1.2.1] - 2021-06-03
+### Fixed:
+- Updated `go-jsonstream` to [v1.0.1](https://github.com/launchdarkly/go-jsonstream/releases/tag/1.0.1) to incorporate a bugfix in JSON number parsing.
+
 ## [1.2.0] - 2021-02-26
 ### Added:
 - New `Generation` field in `ldmodel.Segment`.
