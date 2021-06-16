@@ -67,7 +67,7 @@ func TestExperimentationIsEnabledForFallthroughExperimentIfReasonSaysSo(t *testi
 	assert.False(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonFallthroughExperiment(false)))
 	assert.False(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonFallthrough()))
 
-	t.Run(`should ignore TrackEventsFallthrough when Kind == "experiment"`, func(t *testing.T) {
+	t.Run(`should fall back to rule exclusion logic when not IsInExperiment and TrackEventsFallthrough is true`, func(t *testing.T) {
 		flagTrackFallthrough := flag
 		flagTrackFallthrough.TrackEventsFallthrough = true
 		flagPropsTrackFallthrough := asFlagEventProperties(flagTrackFallthrough)
@@ -75,8 +75,8 @@ func TestExperimentationIsEnabledForFallthroughExperimentIfReasonSaysSo(t *testi
 		assert.True(t, flagPropsTrackFallthrough.IsExperimentationEnabled(ldreason.NewEvalReasonFallthroughExperiment(true)))
 
 		// these cases should be equivalent
-		assert.False(t, flagPropsTrackFallthrough.IsExperimentationEnabled(ldreason.NewEvalReasonFallthroughExperiment(false)))
-		assert.False(t, flagPropsTrackFallthrough.IsExperimentationEnabled(ldreason.NewEvalReasonFallthrough()))
+		assert.True(t, flagPropsTrackFallthrough.IsExperimentationEnabled(ldreason.NewEvalReasonFallthroughExperiment(false)))
+		assert.True(t, flagPropsTrackFallthrough.IsExperimentationEnabled(ldreason.NewEvalReasonFallthrough()))
 	})
 }
 
@@ -122,7 +122,7 @@ func TestExperimentationIsEnabledForRuleMatchExperimentIfReasonSaysSo(t *testing
 	assert.False(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatchExperiment(0, "rule0", false)))
 	assert.False(t, flagProps.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatch(0, "rule0")))
 
-	t.Run(`should ignore rule.TrackEvents when Kind == "experiment"`, func(t *testing.T) {
+	t.Run(`should fall back to rule exclusion logic when not IsInExperiment and rule.TrackEvents is true"`, func(t *testing.T) {
 		flagTrackRule := FeatureFlag{
 			Key: "key",
 			Rules: []FlagRule{{
@@ -138,8 +138,8 @@ func TestExperimentationIsEnabledForRuleMatchExperimentIfReasonSaysSo(t *testing
 		assert.True(t, flagPropsTrackRule.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatchExperiment(0, "rule0", true)))
 
 		// these cases should be equivalent
-		assert.False(t, flagPropsTrackRule.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatchExperiment(0, "rule0", false)))
-		assert.False(t, flagPropsTrackRule.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatch(0, "rule0")))
+		assert.True(t, flagPropsTrackRule.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatchExperiment(0, "rule0", false)))
+		assert.True(t, flagPropsTrackRule.IsExperimentationEnabled(ldreason.NewEvalReasonRuleMatch(0, "rule0")))
 	})
 }
 
