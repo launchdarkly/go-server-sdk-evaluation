@@ -14,7 +14,15 @@ const (
 	longScale = float32(0xFFFFFFFFFFFFFFF)
 )
 
-func (es *evaluationScope) bucketUser(key string, attr lduser.UserAttribute, salt string) float32 {
+func (es *evaluationScope) bucketUser(
+	seed ldvalue.OptionalInt, key string, attr lduser.UserAttribute, salt string) float32 {
+	var prefix string
+	if seed.IsDefined() {
+		prefix = strconv.Itoa(seed.IntValue())
+	} else {
+		prefix = key + "." + salt
+	}
+
 	uValue := es.user.GetAttribute(attr)
 	idHash, ok := bucketableStringValue(uValue)
 	if !ok {
@@ -26,7 +34,7 @@ func (es *evaluationScope) bucketUser(key string, attr lduser.UserAttribute, sal
 	}
 
 	h := sha1.New() // nolint:gas // just used for insecure hashing
-	_, _ = io.WriteString(h, key+"."+salt+"."+idHash)
+	_, _ = io.WriteString(h, prefix+"."+idHash)
 	hash := hex.EncodeToString(h.Sum(nil))[:15]
 
 	intVal, _ := strconv.ParseInt(hash, 16, 64)
