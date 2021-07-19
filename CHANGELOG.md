@@ -2,6 +2,10 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [1.4.0] - 2021-07-19
+### Added:
+- Added support for evaluating big segments.
+
 ## [1.3.0] - 2021-06-17
 ### Added:
 - The SDK now supports the ability to control the proportion of traffic allocation to an experiment. This works in conjunction with a new platform feature now available to early access customers.
