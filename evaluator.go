@@ -160,9 +160,12 @@ func (es *evaluationScope) getValueForVariationOrRollout(
 	vr ldmodel.VariationOrRollout,
 	reason ldreason.EvaluationReason,
 ) ldreason.EvaluationDetail {
-	index := es.variationIndexForUser(vr, es.flag.Key, es.flag.Salt)
+	index, inExperiment := es.variationIndexForUser(vr, es.flag.Key, es.flag.Salt)
 	if index < 0 {
 		return ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null())
+	}
+	if inExperiment {
+		reason = reasonToExperimentReason(reason)
 	}
 	return es.getVariation(index, reason)
 }
@@ -198,13 +201,14 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
 	return ldmodel.ClauseMatchesUser(clause, &es.user)
 }
 
-func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, key, salt string) int {
+func (es *evaluationScope) variationIndexForUser(
+	r ldmodel.VariationOrRollout, key, salt string) (variationIndex int, inExperiment bool) {
 	if r.Variation.IsDefined() {
-		return r.Variation.IntValue()
+		return r.Variation.IntValue(), false
 	}
 	if len(r.Rollout.Variations) == 0 {
 		// This is an error (malformed flag); either Variation or Rollout must be non-nil.
-		return -1
+		return -1, false
 	}
 
 	bucketBy := lduser.KeyAttribute
@@ -212,13 +216,15 @@ func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, k
 		bucketBy = r.Rollout.BucketBy
 	}
 
-	var bucket = es.bucketUser(key, bucketBy, salt)
+	var bucketVal = es.bucketUser(r.Rollout.Seed, key, bucketBy, salt)
 	var sum float32
 
-	for _, wv := range r.Rollout.Variations {
-		sum += float32(wv.Weight) / 100000.0
-		if bucket < sum {
-			return wv.Variation
+	isExperiment := r.Rollout.IsExperiment()
+
+	for _, bucket := range r.Rollout.Variations {
+		sum += float32(bucket.Weight) / 100000.0
+		if bucketVal < sum {
+			return bucket.Variation, isExperiment && !bucket.Untracked
 		}
 	}
 
@@ -227,5 +233,17 @@ func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, k
 	// data could contain buckets that don't actually add up to 100000. Rather than returning an error in
 	// this case (or changing the scaling, which would potentially change the results for *all* users), we
 	// will simply put the user in the last bucket.
-	return r.Rollout.Variations[len(r.Rollout.Variations)-1].Variation
+	lastBucket := r.Rollout.Variations[len(r.Rollout.Variations)-1]
+	return lastBucket.Variation, isExperiment && !lastBucket.Untracked
+}
+
+func reasonToExperimentReason(reason ldreason.EvaluationReason) ldreason.EvaluationReason {
+	switch reason.GetKind() {
+	case ldreason.EvalReasonFallthrough:
+		return ldreason.NewEvalReasonFallthroughExperiment(true)
+	case ldreason.EvalReasonRuleMatch:
+		return ldreason.NewEvalReasonRuleMatchExperiment(reason.GetRuleIndex(), reason.GetRuleID(), true)
+	default:
+		return reason // COVERAGE: unreachable
+	}
 }

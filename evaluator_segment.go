@@ -5,6 +5,7 @@ import (
 
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 )
 
@@ -86,7 +87,7 @@ func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, s
 	}
 
 	// Check whether the user buckets into the segment
-	bucket := es.bucketUser(key, bucketBy, salt)
+	bucket := es.bucketUser(ldvalue.OptionalInt{}, key, bucketBy, salt)
 	weight := float32(r.Weight) / 100000.0
 
 	return bucket < weight
