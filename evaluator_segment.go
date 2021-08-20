@@ -44,12 +44,11 @@ func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
 					es.owner.bigSegmentProvider.GetUserMembership(userKey)
 			}
 		}
-		if es.bigSegmentsMembership == nil {
-			return false
-		}
-		included := es.bigSegmentsMembership.CheckMembership(makeBigSegmentRef(s))
-		if included.IsDefined() {
-			return included.BoolValue()
+		if es.bigSegmentsMembership != nil {
+			included := es.bigSegmentsMembership.CheckMembership(makeBigSegmentRef(s))
+			if included.IsDefined() {
+				return included.BoolValue()
+			}
 		}
 	} else if included, found := ldmodel.SegmentIncludesOrExcludesKey(s, userKey); found {
 		return included
