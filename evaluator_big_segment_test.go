@@ -139,7 +139,7 @@ func TestBigSegmentIsMatchedWithInclude(t *testing.T) {
 	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Reason.GetBigSegmentsStatus())
 }
 
-func TestBigSegmentIsMatchedWithRule(t *testing.T) {
+func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserShowsNoMatch(t *testing.T) {
 	segment := ldbuilders.NewSegmentBuilder("segmentkey").
 		Unbounded(true).
 		Generation(2).
@@ -149,6 +149,24 @@ func TestBigSegmentIsMatchedWithRule(t *testing.T) {
 	evaluator := NewEvaluatorWithBigSegments(
 		basicDataProvider().withStoredSegments(segment),
 		basicBigSegmentsProvider().withUserMembership(basicUserKey, basicUserMembership()),
+	)
+	f := booleanFlagWithSegmentMatch(segment.Key)
+
+	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
+	assert.Equal(t, ldvalue.Bool(true), result.Value)
+	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Reason.GetBigSegmentsStatus())
+}
+
+func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserDoesNotExist(t *testing.T) {
+	segment := ldbuilders.NewSegmentBuilder("segmentkey").
+		Unbounded(true).
+		Generation(2).
+		AddRule(ldbuilders.NewSegmentRuleBuilder().
+			Clauses(ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorIn, ldvalue.String(basicUserKey)))).
+		Build()
+	evaluator := NewEvaluatorWithBigSegments(
+		basicDataProvider().withStoredSegments(segment),
+		basicBigSegmentsProvider(),
 	)
 	f := booleanFlagWithSegmentMatch(segment.Key)
 
