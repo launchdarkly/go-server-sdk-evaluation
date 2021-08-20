@@ -2,6 +2,10 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [1.4.1] - 2021-08-20
+### Fixed:
+- When using big segments, if a big segment store query for a user returned `nil`, the evaluator was treating that as an automatic exclusion for the user and skipping any rules that might exist in the segment. It should instead treat `nil` the same as an empty result.
+
 ## [1.4.0] - 2021-07-19
 ### Added:
 - Added support for evaluating big segments.
