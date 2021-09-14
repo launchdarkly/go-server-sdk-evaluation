@@ -1,12 +1,12 @@
-module gopkg.in/launchdarkly/go-server-sdk-evaluation.v1
+module gopkg.in/launchdarkly/go-server-sdk-evaluation.v2
 
 go 1.13
 
 require (
-	github.com/launchdarkly/go-semver v1.0.1
+	github.com/launchdarkly/go-semver v1.0.2
 	github.com/mailru/easyjson v0.7.6
 	github.com/stretchr/testify v1.6.1
-	gopkg.in/launchdarkly/go-jsonstream.v1 v1.0.0
-	gopkg.in/launchdarkly/go-sdk-common.v2 v2.2.0
-	gopkg.in/launchdarkly/go-sdk-events.v1 v1.0.1
+	gopkg.in/launchdarkly/go-jsonstream.v1 v1.0.1
+	gopkg.in/launchdarkly/go-sdk-common.v2 v2.4.0
+	gopkg.in/launchdarkly/go-sdk-events.v1 v1.1.1
 )

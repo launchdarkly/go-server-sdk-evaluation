@@ -2,6 +2,38 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [1.4.1] - 2021-08-20
+### Fixed:
+- When using big segments, if a big segment store query for a user returned `nil`, the evaluator was treating that as an automatic exclusion for the user and skipping any rules that might exist in the segment. It should instead treat `nil` the same as an empty result.
+
+## [1.4.0] - 2021-07-19
+### Added:
+- Added support for evaluating big segments.
+
+## [1.3.0] - 2021-06-17
+### Added:
+- The SDK now supports the ability to control the proportion of traffic allocation to an experiment. This works in conjunction with a new platform feature now available to early access customers.
+
+## [1.2.2] - 2021-06-03
+### Fixed:
+- The 1.2.1 release updated the `go-sdk-common` dependency, but not to the latest version that actually contained the relevant bugfix. This release updates to the latest.
+
+## [1.2.1] - 2021-06-03
+### Fixed:
+- Updated `go-jsonstream` to [v1.0.1](https://github.com/launchdarkly/go-jsonstream/releases/tag/1.0.1) to incorporate a bugfix in JSON number parsing.
+
+## [1.2.0] - 2021-02-26
+### Added:
+- New `Generation` field in `ldmodel.Segment`.
+
+## [1.1.2] - 2021-02-11
+### Fixed:
+- When deserializing feature flags from JSON, an explicit null value for the `rollout` property (as opposed to just omitting the property) was being treated as an error. The LaunchDarkly service endpoints do not ever send `rollout: null`, but it should be considered valid if encountered in JSON from some other source.
+
+## [1.1.1] - 2021-01-20
+### Fixed:
+- When using semantic version operators, semantic version strings were being rejected by the parser if they contained a zero digit in any position _after_ the first character of a numeric version component. For instance, `0.1.2` and `1.2.3` were accepted, and `01.2.3` was correctly rejected (leading zeroes for nonzero values are not allowed), but `10.2.3` was incorrectly rejected.
+
 ## [1.1.0] - 2020-12-17
 ### Added:
 - In `ldmodel`, there are now additional JSON marshaling and unmarshaling methods that can interact directly with `go-jsonstream` writers and readers (see below).

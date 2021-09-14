@@ -177,8 +177,15 @@ func readVariationOrRollout(r *jreader.Reader, out *VariationOrRollout) {
 }
 
 func readRollout(r *jreader.Reader, out *Rollout) {
-	for obj := r.Object(); obj.Next(); {
+	obj := r.ObjectOrNull()
+	if !obj.IsDefined() {
+		*out = Rollout{}
+		return
+	}
+	for obj.Next() {
 		switch string(obj.Name()) {
+		case "kind":
+			out.Kind = RolloutKind(r.String())
 		case "variations":
 			for arr := r.Array(); arr.Next(); {
 				var wv WeightedVariation
@@ -188,12 +195,16 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 						wv.Variation = r.Int()
 					case "weight":
 						wv.Weight = r.Int()
+					case "untracked":
+						wv.Untracked = r.Bool()
 					}
 				}
 				out.Variations = append(out.Variations, wv)
 			}
 		case "bucketBy":
 			out.BucketBy = lduser.UserAttribute(r.String())
+		case "seed":
+			out.Seed = ldvalue.NewOptionalInt(r.Int())
 		}
 	}
 }
@@ -218,6 +229,8 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 			segment.Key = r.String()
 		case "version":
 			segment.Version = r.Int()
+		case "generation":
+			segment.Generation.ReadFromJSONReader(r)
 		case "deleted":
 			segment.Deleted = r.Bool()
 		case "included":
@@ -226,7 +239,7 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 			readStringList(r, &segment.Excluded)
 		case "rules":
 			for rulesArr := r.ArrayOrNull(); rulesArr.Next(); {
-				rule := SegmentRule{Weight: -1}
+				rule := SegmentRule{}
 				for ruleObj := r.Object(); ruleObj.Next(); {
 					switch string(ruleObj.Name()) {
 					case "id":
@@ -234,7 +247,9 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 					case "clauses":
 						readClauses(r, &rule.Clauses)
 					case "weight":
-						rule.Weight = r.Int()
+						if v, ok := r.IntOrNull(); ok {
+							rule.Weight = ldvalue.NewOptionalInt(v)
+						}
 					case "bucketBy":
 						rule.BucketBy = lduser.UserAttribute(r.String())
 					}

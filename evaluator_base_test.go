@@ -117,6 +117,12 @@ func makeFlagToMatchUser(user lduser.User, variationOrRollout ldmodel.VariationO
 		Build()
 }
 
+func makeRuleToMatchUserKeyPrefix(prefix string, variationOrRollout ldmodel.VariationOrRollout) *ldbuilders.RuleBuilder {
+	return ldbuilders.NewRuleBuilder().ID("rule-id").
+		VariationOrRollout(variationOrRollout).
+		Clauses(ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorStartsWith, ldvalue.String(prefix)))
+}
+
 func booleanFlagWithClause(clause ldmodel.Clause) ldmodel.FeatureFlag {
 	return ldbuilders.NewFlagBuilder("feature").
 		On(true).

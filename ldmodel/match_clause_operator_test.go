@@ -118,7 +118,7 @@ var operatorTests = []opTestInfo{
 	{"semVerLessThan", "2.0.1", "xbad%ver", nil, false},
 	{"semVerLessThan", "2.0.0-rc", "2.0.0-rc.beta", nil, true},
 	{"semVerGreaterThan", "2.0.1", "2.0", nil, true},
-	{"semVerGreaterThan", "2.0.1", "2.0", nil, true},
+	{"semVerGreaterThan", "10.0.1", "2.0", nil, true},
 	{"semVerGreaterThan", "2.0.0", "2.0.1", nil, false},
 	{"semVerGreaterThan", "2.0", "2.0.1", nil, false},
 	{"semVerGreaterThan", "2.0.1", "xbad%ver", nil, false},

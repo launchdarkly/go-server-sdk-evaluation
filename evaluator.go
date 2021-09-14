@@ -8,13 +8,30 @@ import (
 )
 
 type evaluator struct {
-	dataProvider DataProvider
+	dataProvider       DataProvider
+	bigSegmentProvider BigSegmentProvider
 }
 
 // NewEvaluator creates an Evaluator, specifying a DataProvider that it will use if it needs to
 // query additional feature flags or user segments during an evaluation.
+//
+// To support big segments, you must use NewEvaluatorWithBigSegments instead.
 func NewEvaluator(dataProvider DataProvider) Evaluator {
-	return &evaluator{dataProvider}
+	return NewEvaluatorWithBigSegments(dataProvider, nil)
+}
+
+// NewEvaluatorWithBigSegments is the same as NewEvaluator, but also allows specifying a
+// BigSegmentProvider for evaluating big segment membership. If that parameter is nil, it will
+// be treated the same as a BigSegmentProvider that always returns a "store not configured"
+// status.
+func NewEvaluatorWithBigSegments(
+	dataProvider DataProvider,
+	bigSegmentProvider BigSegmentProvider,
+) Evaluator {
+	return &evaluator{
+		dataProvider:       dataProvider,
+		bigSegmentProvider: bigSegmentProvider,
+	}
 }
 
 // Used internally to hold the parameters of an evaluation, to avoid repetitive parameter passing.
@@ -25,6 +42,11 @@ type evaluationScope struct {
 	flag                          *ldmodel.FeatureFlag
 	user                          lduser.User
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder
+	// These bigSegments properties start out unset, and will be set only once during an
+	// evaluation the first time we query a big segment, if any.
+	bigSegmentsReferenced bool
+	bigSegmentsMembership BigSegmentMembership
+	bigSegmentsStatus     ldreason.BigSegmentsStatus
 }
 
 // Implementation of the Evaluator interface.
@@ -33,8 +55,18 @@ func (e *evaluator) Evaluate(
 	user lduser.User,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 ) ldreason.EvaluationDetail {
-	es := evaluationScope{e, flag, user, prerequisiteFlagEventRecorder}
-	return es.evaluate()
+	es := evaluationScope{
+		owner:                         e,
+		flag:                          flag,
+		user:                          user,
+		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
+	}
+	result := es.evaluate()
+	if es.bigSegmentsReferenced {
+		result.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(result.Reason,
+			es.bigSegmentsStatus)
+	}
+	return result
 }
 
 func (es *evaluationScope) evaluate() ldreason.EvaluationDetail {
@@ -128,9 +160,12 @@ func (es *evaluationScope) getValueForVariationOrRollout(
 	vr ldmodel.VariationOrRollout,
 	reason ldreason.EvaluationReason,
 ) ldreason.EvaluationDetail {
-	index := es.variationIndexForUser(vr, es.flag.Key, es.flag.Salt)
+	index, inExperiment := es.variationIndexForUser(vr, es.flag.Key, es.flag.Salt)
 	if !index.IsDefined() {
 		return ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null())
+	}
+	if inExperiment {
+		reason = reasonToExperimentReason(reason)
 	}
 	return es.getVariation(index.IntValue(), reason)
 }
@@ -166,13 +201,14 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
 	return ldmodel.ClauseMatchesUser(clause, &es.user)
 }
 
-func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, key, salt string) ldvalue.OptionalInt {
+func (es *evaluationScope) variationIndexForUser(
+	r ldmodel.VariationOrRollout, key, salt string) (variationIndex ldvalue.OptionalInt, inExperiment bool) {
 	if r.Variation.IsDefined() {
-		return r.Variation
+		return r.Variation, false
 	}
 	if len(r.Rollout.Variations) == 0 {
 		// This is an error (malformed flag); either Variation or Rollout must be non-nil.
-		return ldvalue.OptionalInt{}
+		return ldvalue.OptionalInt{}, false
 	}
 
 	bucketBy := lduser.KeyAttribute
@@ -180,13 +216,15 @@ func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, k
 		bucketBy = r.Rollout.BucketBy
 	}
 
-	var bucket = es.bucketUser(key, bucketBy, salt)
+	var bucketVal = es.bucketUser(r.Rollout.Seed, key, bucketBy, salt)
 	var sum float32
 
-	for _, wv := range r.Rollout.Variations {
-		sum += float32(wv.Weight) / 100000.0
-		if bucket < sum {
-			return ldvalue.NewOptionalInt(wv.Variation)
+	isExperiment := r.Rollout.IsExperiment()
+
+	for _, bucket := range r.Rollout.Variations {
+		sum += float32(bucket.Weight) / 100000.0
+		if bucketVal < sum {
+			return ldvalue.NewOptionalInt(bucket.Variation), isExperiment && !bucket.Untracked
 		}
 	}
 
@@ -195,5 +233,17 @@ func (es *evaluationScope) variationIndexForUser(r ldmodel.VariationOrRollout, k
 	// data could contain buckets that don't actually add up to 100000. Rather than returning an error in
 	// this case (or changing the scaling, which would potentially change the results for *all* users), we
 	// will simply put the user in the last bucket.
-	return ldvalue.NewOptionalInt(r.Rollout.Variations[len(r.Rollout.Variations)-1].Variation)
+	lastBucket := r.Rollout.Variations[len(r.Rollout.Variations)-1]
+	return ldvalue.NewOptionalInt(lastBucket.Variation), isExperiment && !lastBucket.Untracked
+}
+
+func reasonToExperimentReason(reason ldreason.EvaluationReason) ldreason.EvaluationReason {
+	switch reason.GetKind() {
+	case ldreason.EvalReasonFallthrough:
+		return ldreason.NewEvalReasonFallthroughExperiment(true)
+	case ldreason.EvalReasonRuleMatch:
+		return ldreason.NewEvalReasonRuleMatchExperiment(reason.GetRuleIndex(), reason.GetRuleID(), true)
+	default:
+		return reason // COVERAGE: unreachable
+	}
 }
