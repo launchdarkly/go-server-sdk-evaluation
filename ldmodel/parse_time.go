@@ -166,7 +166,7 @@ func (s *simpleASCIIScanner) peek() int8 {
 	if s.pos >= s.length {
 		return scannerEOF
 	}
-	var ch uint8 = s.source[s.pos]
+	var ch uint8 = s.source[s.pos] //nolint:revive,stylecheck
 	if ch == 0 || ch > unicode.MaxASCII {
 		return scannerNonASCII
 	}
