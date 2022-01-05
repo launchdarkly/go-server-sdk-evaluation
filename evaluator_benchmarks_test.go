@@ -11,6 +11,25 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
 )
 
+func BenchmarkEvaluationTempDebuggingTest(b *testing.B) {
+	cases := []evalBenchmarkCase{
+		{
+			numRules:          1,
+			numClauses:        1,
+			operator:          ldmodel.OperatorIn,
+			shouldMatchClause: true,
+			prereqsWidth:      5,
+			prereqsDepth:      1,
+		},
+	}
+	benchmarkEval(b, cases, func(env *evalBenchmarkEnv) {
+		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
+		if !evalBenchmarkResult.Value.BoolValue() { // verify that we got a match
+			b.FailNow()
+		}
+	})
+}
+
 var evalBenchmarkResult ldreason.EvaluationDetail
 
 const evalBenchmarkSegmentKey = "segment-key"
