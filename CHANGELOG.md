@@ -2,6 +2,17 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [1.5.0] - 2022-01-05
+### Added:
+- `NewEvaluatorWithOptions`, `EvaluatorOptionBigSegmentProvider`, `EvaluatorOptionErrorLogger`
+- If a logger is specified with `EvaluatorOptionErrorLogger`, the evaluator will now log error messages in all cases involving a `MALFORMED_FLAG`, to explain more specifically what is wrong with the flag data.
+
+### Fixed:
+- It is no longer possible for the evaluator to recurse indefinitely due to a circular reference in flag prerequisites. Now it will stop the evaluation if it detects a circular reference, and return a `MALFORMED_FLAG` error reason.
+
+### Deprecated:
+- `NewEvaluatorWithBigSegments`
+
 ## [1.4.1] - 2021-08-20
 ### Fixed:
 - When using big segments, if a big segment store query for a user returned `nil`, the evaluator was treating that as an automatic exclusion for the user and skipping any rules that might exist in the segment. It should instead treat `nil` the same as an empty result.
