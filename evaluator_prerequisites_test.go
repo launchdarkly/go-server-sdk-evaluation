@@ -6,7 +6,10 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldlog"
+	"gopkg.in/launchdarkly/go-sdk-common.v2/ldlogtest"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
@@ -178,4 +181,93 @@ func TestMultipleLevelsOfPrerequisiteProduceMultipleEvents(t *testing.T) {
 	assert.Equal(t, flagUser, e1.User)
 	assert.Equal(t, &f1, e1.PrerequisiteFlag)
 	assert.Equal(t, ldreason.NewEvaluationDetail(ldvalue.String("go"), 1, ldreason.NewEvalReasonFallthrough()), e1.PrerequisiteResult)
+}
+
+func TestPrerequisiteCycleLeadingBackToOriginalFlagReturnsErrorAndDoesNotOverflow(t *testing.T) {
+	f0 := ldbuilders.NewFlagBuilder("feature0").
+		On(true).
+		OffVariation(1).
+		AddPrerequisite("feature1", 1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+	f1 := ldbuilders.NewFlagBuilder("feature1").
+		On(true).
+		AddPrerequisite("feature2", 1).
+		FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
+	f2 := ldbuilders.NewFlagBuilder("feature2").
+		On(true).
+		AddPrerequisite("feature0", 1). // deliberate error: this points back to the original flag
+		FallthroughVariation(1).        // this 1 matches the 1 in f1's prerequisites
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f0, f1, f2))
+
+	eventSink := prereqEventSink{}
+	result := evaluator.Evaluate(&f0, flagUser, eventSink.record)
+	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+
+	assert.Len(t, eventSink.events, 0)
+}
+
+func TestPrerequisiteCycleNotInvolvingOriginalFlagReturnsErrorAndDoesNotOverflow(t *testing.T) {
+	f0 := ldbuilders.NewFlagBuilder("feature0").
+		On(true).
+		OffVariation(1).
+		AddPrerequisite("feature1", 1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+	f1 := ldbuilders.NewFlagBuilder("feature1").
+		On(true).
+		AddPrerequisite("feature2", 1).
+		FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
+	f2 := ldbuilders.NewFlagBuilder("feature2").
+		On(true).
+		AddPrerequisite("feature1", 1). // deliberate error: this points back to a flag we've already visited
+		FallthroughVariation(1).        // this 1 matches the 1 in f1's prerequisites
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f0, f1, f2))
+
+	eventSink := prereqEventSink{}
+	result := evaluator.Evaluate(&f0, flagUser, eventSink.record)
+	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+
+	assert.Len(t, eventSink.events, 0)
+}
+
+func TestPrerequisiteCycleCausesErrorToBeLogged(t *testing.T) {
+	f0 := ldbuilders.NewFlagBuilder("feature0").
+		On(true).
+		OffVariation(1).
+		AddPrerequisite("feature1", 1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+	f1 := ldbuilders.NewFlagBuilder("feature1").
+		On(true).
+		AddPrerequisite("feature0", 1). // deliberate error
+		FallthroughVariation(1).        // this 1 matches the 1 in f0's prerequisites
+		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+		Build()
+	logCapture := ldlogtest.NewMockLog()
+	evaluator := NewEvaluatorWithOptions(
+		basicDataProvider().withStoredFlags(f0, f1),
+		EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)),
+	)
+
+	eventSink := prereqEventSink{}
+	result := evaluator.Evaluate(&f0, flagUser, eventSink.record)
+	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+
+	assert.Len(t, eventSink.events, 0)
+
+	errorLines := logCapture.GetOutput(ldlog.Error)
+	require.Len(t, errorLines, 1)
+	assert.Regexp(t, `flag "feature1" has a prerequisite of "feature0".*circular reference`, errorLines[0])
 }
