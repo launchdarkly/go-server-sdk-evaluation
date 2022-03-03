@@ -1,6 +1,6 @@
 module gopkg.in/launchdarkly/go-server-sdk-evaluation.v2
 
-go 1.13
+go 1.16
 
 require (
 	github.com/launchdarkly/go-semver v1.0.2
