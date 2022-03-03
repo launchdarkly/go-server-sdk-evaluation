@@ -39,16 +39,6 @@ func NewEvaluatorWithOptions(dataProvider DataProvider, options ...EvaluatorOpti
 	return e
 }
 
-// NewEvaluatorWithBigSegments is a deprecated way to specify a BigSegmentProvider.
-//
-// Deprecated: Use NewEvaluatorWithOptions instead.
-func NewEvaluatorWithBigSegments(
-	dataProvider DataProvider,
-	bigSegmentProvider BigSegmentProvider,
-) Evaluator {
-	return NewEvaluatorWithOptions(dataProvider, EvaluatorOptionBigSegmentProvider(bigSegmentProvider))
-}
-
 // Used internally to hold the parameters of an evaluation, to avoid repetitive parameter passing.
 // Its methods use a pointer receiver for efficiency, even though it is allocated on the stack and
 // its fields are never modified.

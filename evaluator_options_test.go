@@ -38,12 +38,3 @@ func TestEvaluatorOptionErrorLogger(t *testing.T) {
 	assert.Nil(t, e.bigSegmentProvider)
 	assert.Equal(t, logger, e.errorLogger)
 }
-
-func TestDeprecatedConstructor(t *testing.T) {
-	d := basicDataProvider()
-	b := basicBigSegmentsProvider()
-	e := NewEvaluatorWithBigSegments(d, b).(*evaluator)
-	assert.Equal(t, d, e.dataProvider)
-	assert.Equal(t, b, e.bigSegmentProvider)
-	assert.Nil(t, e.errorLogger)
-}
