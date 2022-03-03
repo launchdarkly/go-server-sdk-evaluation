@@ -6,11 +6,11 @@
 
 This repository contains the internal feature flag evaluation logic and data model used by the [LaunchDarkly Go SDK](https://github.com/launchdarkly/go-server-sdk). It is packaged separately because it is also used by internal LaunchDarkly components. Applications using the LaunchDarkly Go SDK should not need to reference this package directly.
 
-Note that the base import path is `gopkg.in/launchdarkly/go-server-sdk-evaluation.v2`, not `github.com/launchdarkly/go-server-sdk-evaluation`. This ensures that the package can be referenced not only as a Go module, but also by projects that use older tools like `dep` and `govendor`, because the 5.x release of the Go SDK supports either module or non-module usage. Future releases of this package, and of the Go SDK, may drop support for non-module usage.
+Note that the base import path is `gopkg.in/launchdarkly/go-server-sdk-evaluation.v2`, not `github.com/launchdarkly/go-server-sdk-evaluation/v2`. This ensures that the package can be referenced not only as a Go module, but also by projects that use older tools like `dep` and `govendor`, because the 5.x release of the Go SDK supports either module or non-module usage. Future releases of this package, and of the Go SDK, may drop support for non-module usage.
 
 ## Supported Go versions
 
-This version of the project has been tested with Go 1.14 and higher.
+This version of the project has been tested with Go 1.16 and higher.
 
 ## Integration with easyjson
 
