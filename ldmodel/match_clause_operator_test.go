@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"github.com/stretchr/testify/assert"
 )
 
 const dateStr1 = "2017-12-06T00:00:00.000-07:00"
@@ -137,7 +138,7 @@ func TestAllOperators(t *testing.T) {
 				func(t *testing.T) {
 					uValue := ldvalue.CopyArbitraryValue(ti.userValue)
 					cValue := ldvalue.CopyArbitraryValue(ti.clauseValue)
-					c := Clause{Attribute: lduser.UserAttribute(userAttr), Op: ti.opName}
+					c := Clause{Attribute: ldattr.NewNameRef(userAttr), Op: ti.opName}
 					for _, v := range ti.moreClauseValues {
 						c.Values = append(c.Values, ldvalue.CopyArbitraryValue(v))
 					}
@@ -145,8 +146,8 @@ func TestAllOperators(t *testing.T) {
 					if withPreprocessing {
 						c.preprocessed = preprocessClause(c)
 					}
-					user := lduser.NewUserBuilder("key").Custom(userAttr, uValue).Build()
-					isMatch := ClauseMatchesUser(&c, &user)
+					context := lduser.NewUserBuilder("key").Custom(userAttr, uValue).Build()
+					isMatch := ClauseMatchesContext(&c, &context)
 					assert.Equal(t, ti.expected, isMatch)
 				},
 			)

@@ -3,9 +3,9 @@ package evaluation
 import (
 	"fmt"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
 
@@ -17,7 +17,7 @@ func makeBigSegmentRef(s *ldmodel.Segment) string {
 }
 
 func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
-	userKey := es.user.GetKey()
+	userKey := es.context.Key()
 
 	// Check if the user is specifically included in or excluded from the segment by key
 	if s.Unbounded {
@@ -69,7 +69,7 @@ func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, s
 	// Note that r is passed by reference only for efficiency; we do not modify it
 	for _, clause := range r.Clauses {
 		c := clause
-		if !ldmodel.ClauseMatchesUser(&c, &es.user) {
+		if !ldmodel.ClauseMatchesContext(&c, &es.context) {
 			return false
 		}
 	}
@@ -80,9 +80,9 @@ func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, s
 	}
 
 	// All of the clauses are met. Check to see if the user buckets in
-	bucketBy := lduser.KeyAttribute
-	if r.BucketBy != "" {
-		bucketBy = r.BucketBy
+	bucketBy := r.BucketBy
+	if !bucketBy.IsDefined() {
+		bucketBy = ldattr.NewNameRef(ldattr.KeyAttr)
 	}
 
 	// Check whether the user buckets into the segment

@@ -3,11 +3,13 @@ package evaluation
 import (
 	"fmt"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldlog"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
+
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
 type evaluator struct {
@@ -45,7 +47,7 @@ func NewEvaluatorWithOptions(dataProvider DataProvider, options ...EvaluatorOpti
 type evaluationScope struct {
 	owner                         *evaluator
 	flag                          *ldmodel.FeatureFlag
-	user                          lduser.User
+	context                       ldcontext.Context
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder
 	// These bigSegments properties start out unset, and will be set only once during an
 	// evaluation the first time we query a big segment, if any.
@@ -57,13 +59,13 @@ type evaluationScope struct {
 // Implementation of the Evaluator interface.
 func (e *evaluator) Evaluate(
 	flag *ldmodel.FeatureFlag,
-	user lduser.User,
+	context ldcontext.Context,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 ) ldreason.EvaluationDetail {
 	es := evaluationScope{
 		owner:                         e,
 		flag:                          flag,
-		user:                          user,
+		context:                       context,
 		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
 	}
 
@@ -105,7 +107,7 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 		return es.getOffValue(prereqErrorReason), true
 	}
 
-	key := es.user.GetKey()
+	key := es.context.Key()
 
 	// Check to see if targets match
 	for _, target := range es.flag.Targets {
@@ -189,7 +191,7 @@ func (es *evaluationScope) checkPrerequisites(prerequisiteChain []string) (ldrea
 		}
 
 		if es.prerequisiteFlagEventRecorder != nil {
-			event := PrerequisiteFlagEvent{es.flag.Key, es.user, prereqFeatureFlag, prereqResult}
+			event := PrerequisiteFlagEvent{es.flag.Key, es.context, prereqFeatureFlag, prereqResult}
 			es.prerequisiteFlagEventRecorder(event)
 		}
 
@@ -258,7 +260,7 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
 		return clause.Negate // non-match - false unless negated
 	}
 
-	return ldmodel.ClauseMatchesUser(clause, &es.user)
+	return ldmodel.ClauseMatchesContext(clause, &es.context)
 }
 
 func (es *evaluationScope) variationIndexForUser(
@@ -271,9 +273,9 @@ func (es *evaluationScope) variationIndexForUser(
 		return ldvalue.OptionalInt{}, false
 	}
 
-	bucketBy := lduser.KeyAttribute
-	if r.Rollout.BucketBy != "" {
-		bucketBy = r.Rollout.BucketBy
+	bucketBy := r.Rollout.BucketBy
+	if !bucketBy.IsDefined() {
+		bucketBy = ldattr.NewNameRef(ldattr.KeyAttr)
 	}
 
 	var bucketVal = es.bucketUser(r.Rollout.Seed, key, bucketBy, salt)

@@ -6,9 +6,9 @@ import (
 
 	"gopkg.in/launchdarkly/go-jsonstream.v1/jreader"
 	"gopkg.in/launchdarkly/go-jsonstream.v1/jwriter"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,24 +18,24 @@ var flagWithAllProperties = FeatureFlag{
 	Key: "flag-key",
 	On:  true,
 	Prerequisites: []Prerequisite{
-		Prerequisite{
+		{
 			Key:       "prereq-key",
 			Variation: 1,
 		},
 	},
 	Targets: []Target{
-		Target{
+		{
 			Values:       []string{"user-key"},
 			Variation:    2,
 			preprocessed: targetPreprocessedData{valuesMap: map[string]bool{"user-key": true}}, // this is set by PreprocessFlag()
 		},
 	},
 	Rules: []FlagRule{
-		FlagRule{
+		{
 			ID: "rule-id1",
 			Clauses: []Clause{
-				Clause{
-					Attribute: lduser.NameAttribute,
+				{
+					Attribute: ldattr.NewNameRef("name"),
 					Op:        OperatorIn,
 					Values:    []ldvalue.Value{ldvalue.String("clause-value")},
 					Negate:    true,
@@ -46,44 +46,44 @@ var flagWithAllProperties = FeatureFlag{
 			},
 			TrackEvents: true,
 		},
-		FlagRule{
+		{
 			ID:      "rule-id2",
 			Clauses: []Clause{},
 			VariationOrRollout: VariationOrRollout{
 				Rollout: Rollout{
 					Kind: RolloutKindRollout,
 					Variations: []WeightedVariation{
-						WeightedVariation{
+						{
 							Weight:    100000,
 							Variation: 3,
 						},
 					},
-					BucketBy: lduser.NameAttribute,
+					BucketBy: ldattr.NewNameRef("name"),
 				},
 			},
 		},
-		FlagRule{
+		{
 			ID:      "rule-id3",
 			Clauses: []Clause{},
 			VariationOrRollout: VariationOrRollout{
 				Rollout: Rollout{
 					Kind: RolloutKindExperiment,
 					Variations: []WeightedVariation{
-						WeightedVariation{
+						{
 							Weight:    10000,
 							Variation: 1,
 						},
-						WeightedVariation{
+						{
 							Weight:    10000,
 							Variation: 2,
 						},
-						WeightedVariation{
+						{
 							Weight:    80000,
 							Variation: 3,
 							Untracked: true,
 						},
 					},
-					BucketBy: lduser.NameAttribute,
+					BucketBy: ldattr.NewNameRef("name"),
 					Seed:     ldvalue.NewOptionalInt(42),
 				},
 			},
@@ -93,7 +93,7 @@ var flagWithAllProperties = FeatureFlag{
 	Fallthrough: VariationOrRollout{
 		Rollout: Rollout{
 			Variations: []WeightedVariation{
-				WeightedVariation{
+				{
 					Weight:    100000,
 					Variation: 3,
 				},
@@ -251,20 +251,20 @@ var segmentWithAllProperties = Segment{
 		excludeMap: map[string]bool{"user2": true},
 	},
 	Rules: []SegmentRule{
-		SegmentRule{
+		{
 			ID: "rule-id",
 			Clauses: []Clause{
-				Clause{
-					Attribute: lduser.NameAttribute,
+				{
+					Attribute: ldattr.NewNameRef("name"),
 					Op:        OperatorIn,
 					Values:    []ldvalue.Value{ldvalue.String("clause-value")},
 					Negate:    true,
 				},
 			},
 		},
-		SegmentRule{
+		{
 			Weight:   ldvalue.NewOptionalInt(50000),
-			BucketBy: lduser.NameAttribute,
+			BucketBy: ldattr.NewNameRef("name"),
 		},
 	},
 	Salt:       "segment-salt",

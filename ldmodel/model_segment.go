@@ -1,8 +1,8 @@
 package ldmodel
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
 // Segment describes a group of users based on user keys and/or matching rules.
@@ -78,10 +78,10 @@ type SegmentRule struct {
 	Weight ldvalue.OptionalInt
 	// BucketBy specifies which user attribute should be used to distinguish between users in a rollout.
 	//
-	// The default (when BucketBy is empty) is lduser.KeyAttribute, the user's primary key. If you wish to
+	// The default (when BucketBy is empty) is ldattr.KeyAttr, the user's primary key. If you wish to
 	// treat users with different keys as the same for rollout purposes as long as they have the same
 	// "country" attribute, you would set this to "country" (lduser.CountryAttribute).
 	//
 	// Rollouts always take the user's "secondary key" attribute into account as well if the user has one.
-	BucketBy lduser.UserAttribute
+	BucketBy ldattr.Ref
 }

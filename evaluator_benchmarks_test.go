@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"testing"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
@@ -38,12 +40,12 @@ func discardPrerequisiteEvents(params PrerequisiteFlagEvent) {}
 
 type evalBenchmarkEnv struct {
 	evaluator        Evaluator
-	user             lduser.User
+	user             ldcontext.Context
 	targetFlag       *ldmodel.FeatureFlag
 	otherFlags       map[string]*ldmodel.FeatureFlag
 	targetSegment    *ldmodel.Segment
 	targetFeatureKey string
-	targetUsers      []lduser.User
+	targetUsers      []ldcontext.Context
 }
 
 type evalBenchmarkCase struct {
@@ -82,13 +84,13 @@ func (env *evalBenchmarkEnv) setUp(bc evalBenchmarkCase) {
 	}
 	env.evaluator = NewEvaluator(dataProvider)
 
-	env.targetUsers = make([]lduser.User, bc.numTargets)
+	env.targetUsers = make([]ldcontext.Context, bc.numTargets)
 	for i := 0; i < bc.numTargets; i++ {
 		env.targetUsers[i] = lduser.NewUser(makeEvalBenchmarkTargetUserKey(i))
 	}
 }
 
-func makeEvalBenchmarkUser(bc evalBenchmarkCase) lduser.User {
+func makeEvalBenchmarkUser(bc evalBenchmarkCase) ldcontext.Context {
 	if bc.shouldMatchClause {
 		builder := lduser.NewUserBuilder("user-match")
 		switch bc.operator {
@@ -283,28 +285,32 @@ func makeEvalBenchmarkClauses(numClauses int, extraClauseValues int, op ldmodel.
 	for i := 0; i < numClauses; i++ {
 		clause := ldmodel.Clause{Op: op}
 		var value ldvalue.Value
+		var name string
 		switch op {
 		case ldmodel.OperatorGreaterThan:
-			clause.Attribute = "numAttr"
+			name = "numAttr"
 			value = ldvalue.Int(i)
 		case ldmodel.OperatorContains:
-			clause.Attribute = "name"
+			name = "name"
 			value = ldvalue.String("name-0")
 		case ldmodel.OperatorMatches:
-			clause.Attribute = "stringAttr"
+			name = "stringAttr"
 			value = ldvalue.String("stringAttr-0")
 		case ldmodel.OperatorAfter:
-			clause.Attribute = "dateAttr"
+			name = "dateAttr"
 			value = ldvalue.String("2000-01-01T00:00:00.000-00:00")
 		case ldmodel.OperatorSemVerEqual:
-			clause.Attribute = "semVerAttr"
+			name = "semVerAttr"
 			value = ldvalue.String("1.0.0")
 		case ldmodel.OperatorSegmentMatch:
 			value = ldvalue.String(evalBenchmarkSegmentKey)
 		default:
 			clause.Op = ldmodel.OperatorIn
-			clause.Attribute = "stringAttr"
+			name = "stringAttr"
 			value = ldvalue.String("stringAttr-0")
+		}
+		if name != "" {
+			clause.Attribute = ldattr.NewNameRef(name)
 		}
 		if extraClauseValues == 0 {
 			clause.Values = []ldvalue.Value{value}

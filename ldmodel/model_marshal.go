@@ -122,7 +122,7 @@ func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
 		ruleObj.Name("id").String(r.ID)
 		writeClauses(w, &ruleObj, r.Clauses)
 		ruleObj.Maybe("weight", r.Weight.IsDefined()).Int(r.Weight.IntValue())
-		ruleObj.Maybe("bucketBy", r.BucketBy != "").String(string(r.BucketBy))
+		ruleObj.Maybe("bucketBy", r.BucketBy.String() != "").String(r.BucketBy.String())
 		ruleObj.End()
 	}
 	rulesArr.End()
@@ -159,7 +159,7 @@ func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrR
 		}
 		variationsArr.End()
 		rolloutObj.Maybe("seed", vr.Rollout.Seed.IsDefined()).Int(vr.Rollout.Seed.IntValue())
-		rolloutObj.Maybe("bucketBy", vr.Rollout.BucketBy != "").String(string(vr.Rollout.BucketBy))
+		rolloutObj.Maybe("bucketBy", vr.Rollout.BucketBy.String() != "").String(vr.Rollout.BucketBy.String())
 		rolloutObj.End()
 	}
 }
@@ -168,7 +168,7 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 	clausesArr := obj.Name("clauses").Array()
 	for _, c := range clauses {
 		clauseObj := clausesArr.Object()
-		clauseObj.Name("attribute").String(string(c.Attribute))
+		clauseObj.Name("attribute").String(c.Attribute.String())
 		clauseObj.Name("op").String(string(c.Op))
 		valuesArr := clauseObj.Name("values").Array()
 		for _, v := range c.Values {

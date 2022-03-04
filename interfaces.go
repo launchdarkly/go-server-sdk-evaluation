@@ -1,15 +1,16 @@
 package evaluation
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
+
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
 // Evaluator is the engine for evaluating feature flags.
 type Evaluator interface {
-	// Evaluate evaluates a feature flag for the specified user.
+	// Evaluate evaluates a feature flag for the specified context.
 	//
 	// The flag is passed by reference only for efficiency; the evaluator will never modify any flag
 	// properties. Passing a nil flag will result in a panic.
@@ -20,7 +21,7 @@ type Evaluator interface {
 	// parameter can be nil if you do not need to track prerequisite evaluations.
 	Evaluate(
 		flag *ldmodel.FeatureFlag,
-		user lduser.User,
+		context ldcontext.Context,
 		prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 	) ldreason.EvaluationDetail
 }
@@ -33,10 +34,10 @@ type PrerequisiteFlagEventRecorder func(PrerequisiteFlagEvent)
 type PrerequisiteFlagEvent struct {
 	// TargetFlagKey is the key of the feature flag that had a prerequisite.
 	TargetFlagKey string
-	// User is the user that the flag was evaluated for. We pass this back to the caller, even though the caller
+	// Context is the context that the flag was evaluated for. We pass this back to the caller, even though the caller
 	// already passed it to us in the Evaluate parameters, so that the caller can provide a stateless function for
 	// PrerequisiteFlagEventRecorder rather than a closure (since closures are less efficient).
-	User lduser.User
+	Context ldcontext.Context
 	// PrerequisiteFlag is the full configuration of the prerequisite flag. We need to pass the full flag here rather
 	// than just the key because the flag's properties (such as TrackEvents) can affect how events are generated.
 	// This is passed by reference for efficiency only, and will never be nil; the PrerequisiteFlagEventRecorder
