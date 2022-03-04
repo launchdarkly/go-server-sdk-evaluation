@@ -281,9 +281,17 @@ func readValueList(r *jreader.Reader, out *[]ldvalue.Value) {
 func readAttrRef(r *jreader.Reader, out *ldattr.Ref) {
 	if s, _ := r.StringOrNull(); s != "" {
 		*out = ldattr.NewRef(s)
+		// NewRef takes care of parsing and validating a string that could either be a simple attribute
+		// name ("email") or a slash-delimited path reference ("/addresses/0/street"). Storing the
+		// ldattr.Ref in the Clause, rather than just a string, saves us the work of having to do the
+		// parsing and validation again each time we evaluate a flag.
+		// If the string was invalid as an attribute reference (e.g. "///"), the result is that *out
+		// retains the original string (so if we re-serialize it, we get what we started with), but
+		// also retains state saying it is invalid (see ldattr.Ref.Err())-- so any attempt to use it
+		// to look up a context value results in an immediate "not found".
 	} else {
+		*out = ldattr.Ref{}
 		// "" is not a valid parameter to NewRef, but that has historically been a value LD may send
 		// for these fields so we are treating "" as equivalent to null to mean "undefined".
-		*out = ldattr.Ref{}
 	}
 }

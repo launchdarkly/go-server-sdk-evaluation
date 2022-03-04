@@ -240,7 +240,8 @@ func (r Rollout) IsExperiment() bool {
 type Clause struct {
 	// Attribute specifies the context attribute that is being tested.
 	//
-	// This is required for all Operator types except SegmentMatch.
+	// This is required for all Operator types except SegmentMatch. If Op is SegmentMatch then Attribute
+	// is ignored (and will normally be an empty ldattr.Ref{}).
 	//
 	// If the context's value for this attribute is a JSON array, then the test specified in the Clause is
 	// repeated for each value in the array until a match is found or there are no more values.
