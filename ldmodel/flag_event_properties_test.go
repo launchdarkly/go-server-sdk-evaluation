@@ -3,11 +3,11 @@ package ldmodel
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
+	ldevents "gopkg.in/launchdarkly/go-sdk-events.v2"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
-	ldevents "gopkg.in/launchdarkly/go-sdk-events.v1"
+	"github.com/stretchr/testify/assert"
 )
 
 func asFlagEventProperties(f FeatureFlag) ldevents.FlagEventProperties {

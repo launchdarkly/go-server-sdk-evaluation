@@ -1,8 +1,8 @@
 package ldbuilders
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
 
@@ -81,8 +81,15 @@ func (b *SegmentRuleBuilder) Build() ldmodel.SegmentRule {
 	return b.rule
 }
 
-// BucketBy sets the rule's BucketBy property.
-func (b *SegmentRuleBuilder) BucketBy(attr lduser.UserAttribute) *SegmentRuleBuilder {
+// BucketBy sets the rule's BucketBy property. The attr parameter is assumed to be a simple attribute name,
+// rather than a path reference.
+func (b *SegmentRuleBuilder) BucketBy(attr string) *SegmentRuleBuilder {
+	b.rule.BucketBy = ldattr.NewNameRef(attr)
+	return b
+}
+
+// BucketByRef sets the rule's BucketBy property using the ldattr.Ref type.
+func (b *SegmentRuleBuilder) BucketByRef(attr ldattr.Ref) *SegmentRuleBuilder {
 	b.rule.BucketBy = attr
 	return b
 }

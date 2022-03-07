@@ -1,10 +1,10 @@
 package ldmodel
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
 // FeatureFlag describes an individual feature flag.
@@ -219,12 +219,12 @@ type Rollout struct {
 	Variations []WeightedVariation
 	// BucketBy specifies which user attribute should be used to distinguish between users in a rollout.
 	//
-	// The default (when BucketBy is empty) is lduser.KeyAttribute, the user's primary key. If you wish to
+	// The default (when BucketBy is empty) is ldattr.KeyAttr, the user's primary key. If you wish to
 	// treat users with different keys as the same for rollout purposes as long as they have the same
 	// "country" attribute, you would set this to "country" (lduser.CountryAttribute).
 	//
 	// Rollouts always take the user's "secondary key" attribute into account as well if the user has one.
-	BucketBy lduser.UserAttribute
+	BucketBy ldattr.Ref
 	// Seed, if present, specifies the seed for the hashing algorithm this rollout will use to bucket users, so that
 	// rollouts with the same Seed will assign the same users to the same buckets.
 	// If unspecified, the seed will default to a combination of the flag key and flag-level Salt.
@@ -238,13 +238,14 @@ func (r Rollout) IsExperiment() bool {
 
 // Clause describes an individual clause within a FlagRule or SegmentRule.
 type Clause struct {
-	// Attribute specifies the user attribute that is being tested.
+	// Attribute specifies the context attribute that is being tested.
 	//
-	// This is required for all Operator types except SegmentMatch.
+	// This is required for all Operator types except SegmentMatch. If Op is SegmentMatch then Attribute
+	// is ignored (and will normally be an empty ldattr.Ref{}).
 	//
-	// If the user's value for this attribute is a JSON array, then the test specified in the Clause is
+	// If the context's value for this attribute is a JSON array, then the test specified in the Clause is
 	// repeated for each value in the array until a match is found or there are no more values.
-	Attribute lduser.UserAttribute
+	Attribute ldattr.Ref
 	// Op specifies the type of test to perform.
 	Op Operator
 	// Values is a list of values to be compared to the user attribute.

@@ -6,7 +6,7 @@ import (
 
 	"github.com/launchdarkly/go-semver"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
 func parseDateTime(value ldvalue.Value) (time.Time, bool) {

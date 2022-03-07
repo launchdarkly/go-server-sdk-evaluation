@@ -6,8 +6,8 @@ import (
 	"io"
 	"strconv"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 )
 
 func (es *evaluationScope) bucketUser(
-	seed ldvalue.OptionalInt, key string, attr lduser.UserAttribute, salt string) float32 {
+	seed ldvalue.OptionalInt, key string, attr ldattr.Ref, salt string) float32 {
 	var prefix string
 	if seed.IsDefined() {
 		prefix = strconv.Itoa(seed.IntValue())
@@ -23,13 +23,16 @@ func (es *evaluationScope) bucketUser(
 		prefix = key + "." + salt
 	}
 
-	uValue := es.user.GetAttribute(attr)
+	uValue, ok := es.context.GetValueForRef(attr)
+	if !ok {
+		return 0
+	}
 	idHash, ok := bucketableStringValue(uValue)
 	if !ok {
 		return 0
 	}
 
-	if secondary := es.user.GetSecondaryKey(); secondary.IsDefined() {
+	if secondary := es.context.Secondary(); secondary.IsDefined() {
 		idHash = idHash + "." + secondary.StringValue()
 	}
 

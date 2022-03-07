@@ -3,11 +3,12 @@ package evaluation
 import (
 	"testing"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldlog"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldlogtest"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
@@ -80,8 +81,8 @@ func TestMalformedFlagErrorForEmptyRolloutIsLogged(t *testing.T) {
 }
 
 func TestClauseWithUnknownOperatorDoesNotStopSubsequentRuleFromMatching(t *testing.T) {
-	badClause := ldbuilders.Clause(lduser.NameAttribute, "doesSomethingUnsupported", ldvalue.String("Bob"))
-	goodClause := ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Bob"))
+	badClause := ldbuilders.Clause(ldattr.NameAttr, "doesSomethingUnsupported", ldvalue.String("Bob"))
+	goodClause := ldbuilders.Clause(ldattr.NameAttr, ldmodel.OperatorIn, ldvalue.String("Bob"))
 	f := ldbuilders.NewFlagBuilder("feature").
 		On(true).
 		AddRule(ldbuilders.NewRuleBuilder().ID("bad").Variation(1).Clauses(badClause)).

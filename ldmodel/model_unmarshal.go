@@ -1,9 +1,9 @@
 package ldmodel
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
 	"gopkg.in/launchdarkly/go-jsonstream.v1/jreader"
 )
@@ -152,7 +152,7 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "attribute":
-				clause.Attribute = lduser.UserAttribute(r.String())
+				readAttrRef(r, &clause.Attribute)
 			case "op":
 				clause.Op = Operator(r.String())
 			case "values":
@@ -202,7 +202,7 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 				out.Variations = append(out.Variations, wv)
 			}
 		case "bucketBy":
-			out.BucketBy = lduser.UserAttribute(r.String())
+			readAttrRef(r, &out.BucketBy)
 		case "seed":
 			out.Seed = ldvalue.NewOptionalInt(r.Int())
 		}
@@ -251,7 +251,7 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 							rule.Weight = ldvalue.NewOptionalInt(v)
 						}
 					case "bucketBy":
-						rule.BucketBy = lduser.UserAttribute(r.String())
+						readAttrRef(r, &rule.BucketBy)
 					}
 				}
 				segment.Rules = append(segment.Rules, rule)
@@ -275,5 +275,23 @@ func readValueList(r *jreader.Reader, out *[]ldvalue.Value) {
 		var v ldvalue.Value
 		v.ReadFromJSONReader(r)
 		*out = append(*out, v)
+	}
+}
+
+func readAttrRef(r *jreader.Reader, out *ldattr.Ref) {
+	if s, _ := r.StringOrNull(); s != "" {
+		*out = ldattr.NewRef(s)
+		// NewRef takes care of parsing and validating a string that could either be a simple attribute
+		// name ("email") or a slash-delimited path reference ("/addresses/0/street"). Storing the
+		// ldattr.Ref in the Clause, rather than just a string, saves us the work of having to do the
+		// parsing and validation again each time we evaluate a flag.
+		// If the string was invalid as an attribute reference (e.g. "///"), the result is that *out
+		// retains the original string (so if we re-serialize it, we get what we started with), but
+		// also retains state saying it is invalid (see ldattr.Ref.Err())-- so any attempt to use it
+		// to look up a context value results in an immediate "not found".
+	} else {
+		*out = ldattr.Ref{}
+		// "" is not a valid parameter to NewRef, but that has historically been a value LD may send
+		// for these fields so we are treating "" as equivalent to null to mean "undefined".
 	}
 }

@@ -7,12 +7,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
-var flagUser = lduser.NewUser("x")
+var flagTestContext = lduser.NewUser("x")
 
 var fallthroughValue = ldvalue.String("fall")
 var offValue = ldvalue.String("off")
@@ -27,7 +27,7 @@ func TestFlagReturnsOffVariationIfFlagIsOff(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
 	assert.Equal(t, offValue, result.Value)
 	assert.Equal(t, ldvalue.NewOptionalInt(1), result.VariationIndex)
 	assert.Equal(t, ldreason.NewEvalReasonOff(), result.Reason)
@@ -42,7 +42,7 @@ func TestFlagReturnsNilIfFlagIsOffAndOffVariationIsUnspecified(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
 	assert.Equal(t, ldreason.EvaluationDetail{Reason: ldreason.NewEvalReasonOff()}, result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -55,7 +55,7 @@ func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthrough()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -68,7 +68,7 @@ func TestFlagReturnsErrorIfFallthroughHasTooHighVariation(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -81,7 +81,7 @@ func TestFlagReturnsErrorIfFallthroughHasNegativeVariation(t *testing.T) {
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -93,7 +93,7 @@ func TestFlagReturnsErrorIfFallthroughHasNeitherVariationNorRollout(t *testing.T
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
@@ -106,7 +106,7 @@ func TestFlagReturnsErrorIfFallthroughHasEmptyRolloutVariationList(t *testing.T)
 		Build()
 
 	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagUser, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }

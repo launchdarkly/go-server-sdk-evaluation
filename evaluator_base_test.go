@@ -3,8 +3,9 @@ package evaluation
 import (
 	"fmt"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
@@ -99,15 +100,15 @@ func (p *prereqEventSink) record(event PrerequisiteFlagEvent) {
 	p.events = append(p.events, event)
 }
 
-func makeClauseToMatchUser(user lduser.User) ldmodel.Clause {
-	return ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorIn, ldvalue.String(user.GetKey()))
+func makeClauseToMatchUser(user ldcontext.Context) ldmodel.Clause {
+	return ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(user.Key()))
 }
 
-func makeClauseToNotMatchUser(user lduser.User) ldmodel.Clause {
-	return ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorIn, ldvalue.String("not-"+user.GetKey()))
+func makeClauseToNotMatchUser(user ldcontext.Context) ldmodel.Clause {
+	return ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String("not-"+user.Key()))
 }
 
-func makeFlagToMatchUser(user lduser.User, variationOrRollout ldmodel.VariationOrRollout) ldmodel.FeatureFlag {
+func makeFlagToMatchUser(user ldcontext.Context, variationOrRollout ldmodel.VariationOrRollout) ldmodel.FeatureFlag {
 	return ldbuilders.NewFlagBuilder("feature").
 		On(true).
 		OffVariation(1).
@@ -120,7 +121,7 @@ func makeFlagToMatchUser(user lduser.User, variationOrRollout ldmodel.VariationO
 func makeRuleToMatchUserKeyPrefix(prefix string, variationOrRollout ldmodel.VariationOrRollout) *ldbuilders.RuleBuilder {
 	return ldbuilders.NewRuleBuilder().ID("rule-id").
 		VariationOrRollout(variationOrRollout).
-		Clauses(ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorStartsWith, ldvalue.String(prefix)))
+		Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorStartsWith, ldvalue.String(prefix)))
 }
 
 func booleanFlagWithClause(clause ldmodel.Clause) ldmodel.FeatureFlag {

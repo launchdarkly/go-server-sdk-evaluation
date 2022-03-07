@@ -3,19 +3,20 @@ package evaluation
 import (
 	"testing"
 
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
 	"github.com/stretchr/testify/assert"
-
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 )
 
-func assertSegmentMatch(t *testing.T, segment ldmodel.Segment, user lduser.User, expected bool) {
+func assertSegmentMatch(t *testing.T, segment ldmodel.Segment, context ldcontext.Context, expected bool) {
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
-	result := evaluator.Evaluate(&f, user, nil)
+	result := evaluator.Evaluate(&f, context, nil)
 	assert.Equal(t, expected, result.Value.BoolValue())
 }
 
@@ -53,7 +54,7 @@ func TestUserIsExplicitlyIncludedInSegment(t *testing.T) {
 func TestUserIsMatchedBySegmentRule(t *testing.T) {
 	segment := ldbuilders.NewSegmentBuilder("segkey").
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane")))).
+			Clauses(ldbuilders.Clause(ldattr.NameAttr, ldmodel.OperatorIn, ldvalue.String("Jane")))).
 		Build()
 	user := lduser.NewUserBuilder("key").Name("Jane").Build()
 	assertSegmentMatch(t, segment, user, true)
@@ -63,7 +64,7 @@ func TestUserIsExplicitlyExcludedFromSegment(t *testing.T) {
 	segment := ldbuilders.NewSegmentBuilder("segkey").
 		Excluded("foo", "bar").
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane")))).
+			Clauses(ldbuilders.Clause(ldattr.NameAttr, ldmodel.OperatorIn, ldvalue.String("Jane")))).
 		Build()
 	user := lduser.NewUserBuilder("foo").Name("Jane").Build()
 	assertSegmentMatch(t, segment, user, false)
@@ -82,7 +83,7 @@ func TestSegmentDoesNotMatchUserIfNoIncludesOrRulesMatch(t *testing.T) {
 	segment := ldbuilders.NewSegmentBuilder("segkey").
 		Included("other-key").
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane")))).
+			Clauses(ldbuilders.Clause(ldattr.NameAttr, ldmodel.OperatorIn, ldvalue.String("Jane")))).
 		Build()
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 	assertSegmentMatch(t, segment, user, false)
@@ -91,7 +92,7 @@ func TestSegmentDoesNotMatchUserIfNoIncludesOrRulesMatch(t *testing.T) {
 func TestSegmentRuleCanMatchUserWithPercentageRollout(t *testing.T) {
 	segment := ldbuilders.NewSegmentBuilder("segkey").
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane"))).
+			Clauses(ldbuilders.Clause(ldattr.NameAttr, ldmodel.OperatorIn, ldvalue.String("Jane"))).
 			Weight(99999)).
 		Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
@@ -105,7 +106,7 @@ func TestSegmentRuleCanMatchUserWithPercentageRollout(t *testing.T) {
 func TestSegmentRuleCanNotMatchUserWithPercentageRollout(t *testing.T) {
 	segment := ldbuilders.NewSegmentBuilder("segkey").
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.NameAttribute, ldmodel.OperatorIn, ldvalue.String("Jane"))).
+			Clauses(ldbuilders.Clause(ldattr.NameAttr, ldmodel.OperatorIn, ldvalue.String("Jane"))).
 			Weight(1)).
 		Build()
 	f := booleanFlagWithSegmentMatch(segment.Key)
@@ -119,7 +120,7 @@ func TestSegmentRuleCanNotMatchUserWithPercentageRollout(t *testing.T) {
 func TestSegmentRuleCanHavePercentageRollout(t *testing.T) {
 	segment := ldbuilders.NewSegmentBuilder("segkey").
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorContains, ldvalue.String("user"))).
+			Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorContains, ldvalue.String("user"))).
 			Weight(30000)).
 		Salt("salty").
 		Build()
@@ -135,8 +136,8 @@ func TestSegmentRuleCanHavePercentageRollout(t *testing.T) {
 func TestSegmentRuleCanHavePercentageRolloutByAnyAttribute(t *testing.T) {
 	segment := ldbuilders.NewSegmentBuilder("segkey").
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorContains, ldvalue.String("x"))).
-			BucketBy(lduser.NameAttribute).
+			Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorContains, ldvalue.String("x"))).
+			BucketBy(ldattr.NameAttr).
 			Weight(30000)).
 		Salt("salty").
 		Build()

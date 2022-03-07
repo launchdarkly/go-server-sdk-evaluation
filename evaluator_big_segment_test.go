@@ -3,12 +3,12 @@ package evaluation
 import (
 	"testing"
 
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
-
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -144,7 +144,7 @@ func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserShowsNoMatch(t *testin
 		Unbounded(true).
 		Generation(2).
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorIn, ldvalue.String(basicUserKey)))).
+			Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(basicUserKey)))).
 		Build()
 	evaluator := NewEvaluatorWithOptions(
 		basicDataProvider().withStoredSegments(segment),
@@ -163,7 +163,7 @@ func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserDoesNotExist(t *testin
 		Unbounded(true).
 		Generation(2).
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorIn, ldvalue.String(basicUserKey)))).
+			Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(basicUserKey)))).
 		Build()
 	evaluator := NewEvaluatorWithOptions(
 		basicDataProvider().withStoredSegments(segment),
@@ -181,7 +181,7 @@ func TestBigSegmentIsUnmatchedByExcludeRegardlessOfRule(t *testing.T) {
 		Unbounded(true).
 		Generation(2).
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorIn, ldvalue.String(basicUserKey)))).
+			Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(basicUserKey)))).
 		Build()
 	evaluator := NewEvaluatorWithOptions(
 		basicDataProvider().withStoredSegments(segment),

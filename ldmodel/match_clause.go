@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
-// ClauseMatchesUser return true if the user matches the conditions in this clause.
+// ClauseMatchesContext return true if the context matches the conditions in this clause.
 //
 // This method cannot be used if the clause's Operation is OperatorSegmentMatch, since that involves
 // pulling data from outside of the clause. In that case it will simply return false.
@@ -21,8 +21,8 @@ import (
 //
 // The clause and user are passed by reference for efficiency only; the function will not modify
 // them. Passing a nil value will cause a panic.
-func ClauseMatchesUser(c *Clause, user *lduser.User) bool {
-	uValue := user.GetAttribute(c.Attribute)
+func ClauseMatchesContext(c *Clause, context *ldcontext.Context) bool {
+	uValue, _ := context.GetValueForRef(c.Attribute)
 	if uValue.IsNull() {
 		// if the user attribute is null/missing, it's an automatic non-match - regardless of c.Negate
 		return false

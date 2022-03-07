@@ -1,9 +1,9 @@
 package ldbuilders
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
 
@@ -209,9 +209,15 @@ func (b *RuleBuilder) VariationOrRollout(vr ldmodel.VariationOrRollout) *RuleBui
 	return b
 }
 
-// Clause constructs a basic Clause.
-func Clause(attr lduser.UserAttribute, op ldmodel.Operator, values ...ldvalue.Value) ldmodel.Clause {
-	return ldmodel.Clause{Attribute: attr, Op: op, Values: values}
+// Clause constructs a basic Clause. The attr parameter is assumed to be a simple attribute name
+// rather than a path reference.
+func Clause(attr string, op ldmodel.Operator, values ...ldvalue.Value) ldmodel.Clause {
+	return ldmodel.Clause{Attribute: ldattr.NewNameRef(attr), Op: op, Values: values}
+}
+
+// ClauseRef constructs a basic Clause, using the ldattr.Ref type for the attribute reference.
+func ClauseRef(attrRef ldattr.Ref, op ldmodel.Operator, values ...ldvalue.Value) ldmodel.Clause {
+	return ldmodel.Clause{Attribute: attrRef, Op: op, Values: values}
 }
 
 // Negate returns the same Clause with the Negated property set to true.
