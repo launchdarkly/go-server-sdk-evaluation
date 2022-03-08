@@ -1,3 +1,4 @@
+//go:build launchdarkly_easyjson
 // +build launchdarkly_easyjson
 
 package ldmodel
@@ -7,44 +8,44 @@ import (
 
 	"github.com/mailru/easyjson/jlexer"
 	ej_jwriter "github.com/mailru/easyjson/jwriter"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMarshalFlagEasyJSON(t *testing.T) {
-	var writer ej_jwriter.Writer
-	flagWithAllProperties.MarshalEasyJSON(&writer)
-	require.NoError(t, writer.Error)
-	bytes, err := writer.BuildBytes(nil)
-	require.NoError(t, err)
-	json := parseJsonMap(t, bytes)
-	assert.Equal(t, flagWithAllPropertiesJSON, json)
+	doMarshalFlagTest(t, func(flag FeatureFlag) ([]byte, error) {
+		var writer ej_jwriter.Writer
+		flag.MarshalEasyJSON(&writer)
+		if writer.Error != nil {
+			return nil, writer.Error
+		}
+		return writer.BuildBytes(nil)
+	})
 }
 
 func TestMarshalSegmentEasyJSON(t *testing.T) {
-	var writer ej_jwriter.Writer
-	segmentWithAllProperties.MarshalEasyJSON(&writer)
-	require.NoError(t, writer.Error)
-	bytes, err := writer.BuildBytes(nil)
-	require.NoError(t, err)
-	json := parseJsonMap(t, bytes)
-	assert.Equal(t, segmentWithAllPropertiesJSON, json)
+	doMarshalSegmentTest(t, func(segment Segment) ([]byte, error) {
+		var writer ej_jwriter.Writer
+		segment.MarshalEasyJSON(&writer)
+		if writer.Error != nil {
+			return nil, writer.Error
+		}
+		return writer.BuildBytes(nil)
+	})
 }
 
 func TestUnmarshalFlagEasyJSON(t *testing.T) {
-	bytes := toJSON(flagWithAllPropertiesJSON)
-	lexer := jlexer.Lexer{Data: bytes}
-	var flag FeatureFlag
-	flag.UnmarshalEasyJSON(&lexer)
-	require.NoError(t, lexer.Error())
-	assert.Equal(t, flagWithAllProperties, flag)
+	doUnmarshalFlagTest(t, func(data []byte) (FeatureFlag, error) {
+		lexer := jlexer.Lexer{Data: data}
+		var flag FeatureFlag
+		flag.UnmarshalEasyJSON(&lexer)
+		return flag, lexer.Error()
+	})
 }
 
 func TestUnmarshalSegmentEasyJSON(t *testing.T) {
-	bytes := toJSON(segmentWithAllPropertiesJSON)
-	lexer := jlexer.Lexer{Data: bytes}
-	var segment Segment
-	segment.UnmarshalEasyJSON(&lexer)
-	require.NoError(t, lexer.Error())
-	assert.Equal(t, segmentWithAllProperties, segment)
+	doUnmarshalSegmentTest(t, func(data []byte) (Segment, error) {
+		lexer := jlexer.Lexer{Data: data}
+		var segment Segment
+		segment.UnmarshalEasyJSON(&lexer)
+		return segment, lexer.Error()
+	})
 }
