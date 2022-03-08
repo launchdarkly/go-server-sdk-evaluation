@@ -3,12 +3,15 @@ package evaluation
 import (
 	"testing"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
+
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -148,4 +151,93 @@ func TestSegmentRuleCanHavePercentageRolloutByAnyAttribute(t *testing.T) {
 
 	user2 := lduser.NewUserBuilder("x").Name("userKeyZ").Build() // bucket value = 0.45679215
 	assertSegmentMatch(t, segment, user2, false)
+}
+
+func TestSegmentRuleIsNonMatchForInvalidBucketByReference(t *testing.T) {
+	segment := ldbuilders.NewSegmentBuilder("segkey").
+		AddRule(ldbuilders.NewSegmentRuleBuilder().
+			Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorContains, ldvalue.String("x"))).
+			BucketByRef(ldattr.NewRef("///")).
+			Weight(30000)).
+		Salt("salty").
+		Build()
+
+	user1 := lduser.NewUserBuilder("x").Name("userKeyA").Build() // bucket value = 0.14574753
+	assertSegmentMatch(t, segment, user1, false)
+}
+
+func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
+	basicContext := ldcontext.New("userkey")
+
+	type testCaseParams struct {
+		name    string
+		context ldcontext.Context
+		segment ldmodel.Segment
+		message string
+	}
+
+	for _, p := range []testCaseParams{
+		{
+			name:    "bucketBy with invalid attribute",
+			context: basicContext,
+			segment: ldbuilders.NewSegmentBuilder("segkey").
+				AddRule(ldbuilders.NewSegmentRuleBuilder().
+					Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(basicContext.Key()))).
+					BucketByRef(ldattr.NewRef("///")).
+					Weight(30000)).
+				Salt("salty").
+				Build(),
+			message: "attribute reference",
+		},
+		{
+			name:    "clause with undefined attribute",
+			context: basicContext,
+			segment: ldbuilders.NewSegmentBuilder("segkey").
+				AddRule(ldbuilders.NewSegmentRuleBuilder().
+					Clauses(ldmodel.Clause{Op: ldmodel.OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}}).
+					BucketByRef(ldattr.NewRef("///")).
+					Weight(30000)).
+				Salt("salty").
+				Build(),
+			message: "rule clause did not specify an attribute",
+		},
+		{
+			name:    "clause with invalid attribute reference",
+			context: basicContext,
+			segment: ldbuilders.NewSegmentBuilder("segkey").
+				AddRule(ldbuilders.NewSegmentRuleBuilder().
+					Clauses(ldmodel.Clause{Attribute: ldattr.NewRef("///"),
+						Op: ldmodel.OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}}).
+					BucketByRef(ldattr.NewRef("///")).
+					Weight(30000)).
+				Build(),
+			message: "invalid context attribute reference",
+		},
+	} {
+		t.Run(p.name, func(t *testing.T) {
+			flag := booleanFlagWithSegmentMatch(p.segment.Key)
+
+			t.Run("is non-match", func(t *testing.T) {
+				eventSink := prereqEventSink{}
+				e := NewEvaluator(basicDataProvider().withStoredSegments(p.segment))
+				result := e.Evaluate(&flag, p.context, eventSink.record)
+
+				assert.Equal(t, ldvalue.Bool(false), result.Value)
+				assert.Equal(t, 0, len(eventSink.events))
+			})
+
+			t.Run("logs error", func(t *testing.T) {
+				logCapture := ldlogtest.NewMockLog()
+				eventSink := prereqEventSink{}
+				e := NewEvaluatorWithOptions(basicDataProvider().withStoredSegments(p.segment),
+					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
+				_ = e.Evaluate(&flag, p.context, eventSink.record)
+
+				errorLines := logCapture.GetOutput(ldlog.Error)
+				if assert.Len(t, errorLines, 1) {
+					assert.Regexp(t, p.message, errorLines[0])
+				}
+			})
+		})
+	}
 }

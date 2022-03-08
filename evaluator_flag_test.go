@@ -4,12 +4,16 @@ import (
 	"testing"
 
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
-	"github.com/stretchr/testify/assert"
-
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var flagTestContext = lduser.NewUser("x")
@@ -57,57 +61,6 @@ func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
 	eventSink := prereqEventSink{}
 	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
 	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthrough()), result)
-	assert.Equal(t, 0, len(eventSink.events))
-}
-
-func TestFlagReturnsErrorIfFallthroughHasTooHighVariation(t *testing.T) {
-	f := ldbuilders.NewFlagBuilder("feature").
-		On(true).
-		FallthroughVariation(999).
-		Variations(fallthroughValue, offValue, onValue).
-		Build()
-
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-	assert.Equal(t, 0, len(eventSink.events))
-}
-
-func TestFlagReturnsErrorIfFallthroughHasNegativeVariation(t *testing.T) {
-	f := ldbuilders.NewFlagBuilder("feature").
-		On(true).
-		FallthroughVariation(-1).
-		Variations(fallthroughValue, offValue, onValue).
-		Build()
-
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-	assert.Equal(t, 0, len(eventSink.events))
-}
-
-func TestFlagReturnsErrorIfFallthroughHasNeitherVariationNorRollout(t *testing.T) {
-	f := ldbuilders.NewFlagBuilder("feature").
-		On(true).
-		Variations(fallthroughValue, offValue, onValue).
-		Build()
-
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-	assert.Equal(t, 0, len(eventSink.events))
-}
-
-func TestFlagReturnsErrorIfFallthroughHasEmptyRolloutVariationList(t *testing.T) {
-	f := ldbuilders.NewFlagBuilder("feature").
-		On(true).
-		Fallthrough(ldbuilders.Rollout()).
-		Variations(fallthroughValue, offValue, onValue).
-		Build()
-
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 	assert.Equal(t, 0, len(eventSink.events))
 }
 
@@ -195,4 +148,80 @@ func TestFlagReturnsWhetherUserWasInRuleExperiment(t *testing.T) {
 	result = basicEvaluator().Evaluate(&f, user3, nil)
 	// bucketVal = 0.9242641
 	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonRuleMatchExperiment(0, "rule-id", false)), result)
+}
+
+func TestMalformedFlagErrorForBadFlagProperties(t *testing.T) {
+	basicContext := ldcontext.New("userkey")
+
+	type testCaseParams struct {
+		name    string
+		context ldcontext.Context
+		flag    ldmodel.FeatureFlag
+		message string
+	}
+
+	for _, p := range []testCaseParams{
+		{
+			name:    "fallthrough with variation index too high",
+			context: basicContext,
+			flag: ldbuilders.NewFlagBuilder("feature").
+				On(true).
+				FallthroughVariation(999).
+				Variations(fallthroughValue, offValue, onValue).
+				Build(),
+			message: "nonexistent variation index 999",
+		},
+		{
+			name:    "fallthrough with negative variation index",
+			context: basicContext,
+			flag: ldbuilders.NewFlagBuilder("feature").
+				On(true).
+				FallthroughVariation(-1).
+				Variations(fallthroughValue, offValue, onValue).
+				Build(),
+			message: "nonexistent variation index -1",
+		},
+		{
+			name:    "fallthrough with neither variation nor rollout",
+			context: basicContext,
+			flag: ldbuilders.NewFlagBuilder("feature").
+				On(true).
+				Variations(fallthroughValue, offValue, onValue).
+				Build(),
+			message: "rollout or experiment with no variations",
+		},
+		{
+			name:    "fallthrough with empty rollout",
+			context: basicContext,
+			flag: ldbuilders.NewFlagBuilder("feature").
+				On(true).
+				Fallthrough(ldbuilders.Rollout()).
+				Variations(fallthroughValue, offValue, onValue).
+				Build(),
+			message: "rollout or experiment with no variations",
+		},
+	} {
+		t.Run(p.name, func(t *testing.T) {
+			t.Run("returns error", func(t *testing.T) {
+				eventSink := prereqEventSink{}
+				result := basicEvaluator().Evaluate(&p.flag, p.context, eventSink.record)
+
+				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+				assert.Equal(t, 0, len(eventSink.events))
+			})
+
+			t.Run("logs error", func(t *testing.T) {
+				logCapture := ldlogtest.NewMockLog()
+				eventSink := prereqEventSink{}
+				e := NewEvaluatorWithOptions(basicDataProvider(),
+					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
+				_ = e.Evaluate(&p.flag, p.context, eventSink.record)
+
+				errorLines := logCapture.GetOutput(ldlog.Error)
+				if assert.Len(t, errorLines, 1) {
+					assert.Regexp(t, p.message, errorLines[0])
+				}
+			})
+		})
+	}
 }

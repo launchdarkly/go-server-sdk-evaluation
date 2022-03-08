@@ -1,11 +1,9 @@
 package evaluation
 
 import (
-	"fmt"
-
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/internal"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
@@ -120,7 +118,12 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 	// Now walk through the rules and see if any match
 	for ruleIndex, rule := range es.flag.Rules {
 		// Note, taking address of range variable here is OK because it's not used outside the loop
-		if es.ruleMatchesUser(&rule) { //nolint:gosec // see comment above
+		match, err := es.ruleMatchesUser(&rule) //nolint:gosec // see comment above
+		if err != nil {
+			es.logEvaluationError(err)
+			return ldreason.NewEvaluationDetailForError(internal.ErrorKindForError(err), ldvalue.Null()), false
+		}
+		if match {
 			reason := ldreason.NewEvalReasonRuleMatch(ruleIndex, rule.ID)
 			return es.getValueForVariationOrRollout(rule.VariationOrRollout, reason), true
 		}
@@ -138,10 +141,8 @@ func (es *evaluationScope) evaluatePrerequisite(
 ) (ldreason.EvaluationDetail, bool) {
 	for _, p := range prerequisiteChain {
 		if prereqFlag.Key == p {
-			es.logMalformedFlagError(
-				"has a prerequisite of %q, causing a circular reference;"+
-					" this is probably a temporary condition due to an incomplete update",
-				prereqFlag.Key)
+			err := internal.CircularPrereqReferenceError(prereqFlag.Key)
+			es.logEvaluationError(err)
 			return ldreason.EvaluationDetail{}, false
 		}
 	}
@@ -204,8 +205,9 @@ func (es *evaluationScope) checkPrerequisites(prerequisiteChain []string) (ldrea
 
 func (es *evaluationScope) getVariation(index int, reason ldreason.EvaluationReason) ldreason.EvaluationDetail {
 	if index < 0 || index >= len(es.flag.Variations) {
-		es.logMalformedFlagError("referenced nonexistent variation index %d", index)
-		return ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null())
+		err := internal.BadVariationError(index)
+		es.logEvaluationError(err)
+		return ldreason.NewEvaluationDetailForError(err.ErrorKind(), ldvalue.Null())
 	}
 	return ldreason.NewEvaluationDetail(es.flag.Variations[index], index, reason)
 }
@@ -221,29 +223,30 @@ func (es *evaluationScope) getValueForVariationOrRollout(
 	vr ldmodel.VariationOrRollout,
 	reason ldreason.EvaluationReason,
 ) ldreason.EvaluationDetail {
-	index, inExperiment := es.variationIndexForUser(vr, es.flag.Key, es.flag.Salt)
-	if !index.IsDefined() {
-		es.logMalformedFlagError("had a rollout or experiment with no variations")
-		return ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null())
+	index, inExperiment, err := es.variationIndexForUser(vr, es.flag.Key, es.flag.Salt)
+	if err != nil {
+		es.logEvaluationError(err)
+		return ldreason.NewEvaluationDetailForError(internal.ErrorKindForError(err), ldvalue.Null())
 	}
 	if inExperiment {
 		reason = reasonToExperimentReason(reason)
 	}
-	return es.getVariation(index.IntValue(), reason)
+	return es.getVariation(index, reason)
 }
 
-func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) bool {
+func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) (bool, error) {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
 	for _, clause := range rule.Clauses {
 		// Note, taking address of range variable here is OK because it's not used outside the loop
-		if !es.clauseMatchesUser(&clause) { //nolint:gosec // see comment above
-			return false
+		match, err := es.clauseMatchesUser(&clause) //nolint:gosec // see comment above
+		if !match || err != nil {
+			return match, err
 		}
 	}
-	return true
+	return true, nil
 }
 
-func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
+func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) (bool, error) {
 	// Note that clause is passed by reference only for efficiency; we do not modify it
 	// In the case of a segment match operator, we check if the user is in any of the segments,
 	// and possibly negate
@@ -252,33 +255,31 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) bool {
 			if value.Type() == ldvalue.StringType {
 				if segment := es.owner.dataProvider.GetSegment(value.StringValue()); segment != nil {
 					if es.segmentContainsUser(segment) {
-						return !clause.Negate // match - true unless negated
+						return !clause.Negate, nil // match - true unless negated
 					}
 				}
 			}
 		}
-		return clause.Negate // non-match - false unless negated
+		return clause.Negate, nil // non-match - false unless negated
 	}
 
 	return ldmodel.ClauseMatchesContext(clause, &es.context)
 }
 
 func (es *evaluationScope) variationIndexForUser(
-	r ldmodel.VariationOrRollout, key, salt string) (variationIndex ldvalue.OptionalInt, inExperiment bool) {
+	r ldmodel.VariationOrRollout, key, salt string) (variationIndex int, inExperiment bool, err error) {
 	if r.Variation.IsDefined() {
-		return r.Variation, false
+		return r.Variation.IntValue(), false, nil
 	}
 	if len(r.Rollout.Variations) == 0 {
 		// This is an error (malformed flag); either Variation or Rollout must be non-nil.
-		return ldvalue.OptionalInt{}, false
+		return -1, false, internal.EmptyRolloutError{}
 	}
 
-	bucketBy := r.Rollout.BucketBy
-	if !bucketBy.IsDefined() {
-		bucketBy = ldattr.NewNameRef(ldattr.KeyAttr)
+	bucketVal, err := es.bucketUser(r.Rollout.Seed, key, r.Rollout.BucketBy, salt)
+	if err != nil {
+		return -1, false, err
 	}
-
-	var bucketVal = es.bucketUser(r.Rollout.Seed, key, bucketBy, salt)
 	var sum float32
 
 	isExperiment := r.Rollout.IsExperiment()
@@ -286,7 +287,7 @@ func (es *evaluationScope) variationIndexForUser(
 	for _, bucket := range r.Rollout.Variations {
 		sum += float32(bucket.Weight) / 100000.0
 		if bucketVal < sum {
-			return ldvalue.NewOptionalInt(bucket.Variation), isExperiment && !bucket.Untracked
+			return bucket.Variation, isExperiment && !bucket.Untracked, nil
 		}
 	}
 
@@ -296,17 +297,24 @@ func (es *evaluationScope) variationIndexForUser(
 	// this case (or changing the scaling, which would potentially change the results for *all* users), we
 	// will simply put the user in the last bucket.
 	lastBucket := r.Rollout.Variations[len(r.Rollout.Variations)-1]
-	return ldvalue.NewOptionalInt(lastBucket.Variation), isExperiment && !lastBucket.Untracked
+	return lastBucket.Variation, isExperiment && !lastBucket.Untracked, nil
 }
 
-func (es *evaluationScope) logMalformedFlagError(format string, args ...interface{}) {
-	if es.owner.errorLogger == nil {
+func (es *evaluationScope) logEvaluationError(err error) {
+	if err == nil || es.owner.errorLogger == nil {
 		return
 	}
-	es.owner.errorLogger.Printf("Invalid flag configuration detected: flag %q %s",
-		es.flag.Key,
-		fmt.Sprintf(format, args...),
-	)
+	if internal.ErrorKindForError(err) == ldreason.EvalErrorMalformedFlag {
+		es.owner.errorLogger.Printf("Invalid flag configuration detected in flag %q: %s",
+			es.flag.Key,
+			err,
+		)
+	} else { // COVERAGE: currently no way to cause this in unit tests
+		es.owner.errorLogger.Printf("Error in evaluating flag %q: %s",
+			es.flag.Key,
+			err,
+		)
+	}
 }
 
 func reasonToExperimentReason(reason ldreason.EvaluationReason) ldreason.EvaluationReason {

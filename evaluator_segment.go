@@ -3,7 +3,6 @@ package evaluation
 import (
 	"fmt"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
@@ -57,7 +56,14 @@ func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
 	// Check if any of the segment rules match
 	for _, rule := range s.Rules {
 		// Note, taking address of range variable here is OK because it's not used outside the loop
-		if es.segmentRuleMatchesUser(&rule, s.Key, s.Salt) { //nolint:gosec // see comment above
+		match, err := es.segmentRuleMatchesUser(&rule, s.Key, s.Salt) //nolint:gosec // see comment above
+		if err != nil {
+			if es.owner.errorLogger != nil {
+				es.owner.errorLogger.Printf("Error in evaluating segment %q: %s", s.Key, err)
+			}
+			return false
+		}
+		if match {
 			return true
 		}
 	}
@@ -65,29 +71,27 @@ func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
 	return false
 }
 
-func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, salt string) bool {
+func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, salt string) (bool, error) {
 	// Note that r is passed by reference only for efficiency; we do not modify it
 	for _, clause := range r.Clauses {
 		c := clause
-		if !ldmodel.ClauseMatchesContext(&c, &es.context) {
-			return false
+		match, err := ldmodel.ClauseMatchesContext(&c, &es.context)
+		if !match || err != nil {
+			return false, err
 		}
 	}
 
 	// If the Weight is absent, this rule matches
 	if !r.Weight.IsDefined() {
-		return true
+		return true, nil
 	}
 
 	// All of the clauses are met. Check to see if the user buckets in
-	bucketBy := r.BucketBy
-	if !bucketBy.IsDefined() {
-		bucketBy = ldattr.NewNameRef(ldattr.KeyAttr)
+	bucket, err := es.bucketUser(ldvalue.OptionalInt{}, key, r.BucketBy, salt)
+	if err != nil {
+		return false, err
 	}
-
-	// Check whether the user buckets into the segment
-	bucket := es.bucketUser(ldvalue.OptionalInt{}, key, bucketBy, salt)
 	weight := float32(r.Weight.IntValue()) / 100000.0
 
-	return bucket < weight
+	return bucket < weight, nil
 }

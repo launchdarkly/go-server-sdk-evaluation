@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"testing"
 
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
+
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
 
 func BenchmarkEvaluationTempDebuggingTest(b *testing.B) {
@@ -33,6 +34,7 @@ func BenchmarkEvaluationTempDebuggingTest(b *testing.B) {
 }
 
 var evalBenchmarkResult ldreason.EvaluationDetail
+var evalBenchmarkErr error
 
 const evalBenchmarkSegmentKey = "segment-key"
 

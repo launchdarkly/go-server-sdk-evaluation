@@ -3,81 +3,131 @@ package evaluation
 import (
 	"testing"
 
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
+
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRuleWithTooHighVariationIndexReturnsMalformedFlagError(t *testing.T) {
-	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, ldbuilders.Variation(999))
+func TestMalformedFlagErrorForBadRuleProperties(t *testing.T) {
+	basicContext := ldcontext.New("userkey")
 
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-	assert.Equal(t, 0, len(eventSink.events))
+	type testCaseParams struct {
+		name    string
+		context ldcontext.Context
+		flag    ldmodel.FeatureFlag
+		message string
+	}
+
+	for _, p := range []testCaseParams{
+		{
+			name:    "variation index too high",
+			context: basicContext,
+			flag:    makeFlagToMatchUser(basicContext, ldbuilders.Variation(999)),
+			message: "nonexistent variation index 999",
+		},
+		{
+			name:    "negative variation index",
+			context: basicContext,
+			flag:    makeFlagToMatchUser(basicContext, ldbuilders.Variation(-1)),
+			message: "nonexistent variation index -1",
+		},
+		{
+			name:    "no variation or rollout",
+			context: basicContext,
+			flag:    makeFlagToMatchUser(basicContext, ldbuilders.Rollout()),
+			message: "rollout or experiment with no variations",
+		},
+	} {
+		t.Run(p.name, func(t *testing.T) {
+			t.Run("returns error", func(t *testing.T) {
+				eventSink := prereqEventSink{}
+				result := basicEvaluator().Evaluate(&p.flag, p.context, eventSink.record)
+
+				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+				assert.Equal(t, 0, len(eventSink.events))
+			})
+
+			t.Run("logs error", func(t *testing.T) {
+				logCapture := ldlogtest.NewMockLog()
+				eventSink := prereqEventSink{}
+				e := NewEvaluatorWithOptions(basicDataProvider(),
+					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
+				_ = e.Evaluate(&p.flag, p.context, eventSink.record)
+
+				errorLines := logCapture.GetOutput(ldlog.Error)
+				if assert.Len(t, errorLines, 1) {
+					assert.Regexp(t, p.message, errorLines[0])
+				}
+			})
+		})
+	}
 }
 
-func TestRuleWithNegativeVariationIndexReturnsMalformedFlagError(t *testing.T) {
-	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, ldbuilders.Variation(-1))
+func TestMalformedFlagErrorForBadClauseProperties(t *testing.T) {
+	basicContext := ldcontext.New("userkey")
 
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-	assert.Equal(t, 0, len(eventSink.events))
-}
+	type testCaseParams struct {
+		name    string
+		context ldcontext.Context
+		clause  ldmodel.Clause
+		message string
+	}
 
-func TestRuleWithNoVariationOrRolloutReturnsMalformedFlagError(t *testing.T) {
-	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, ldbuilders.Rollout())
+	for _, p := range []testCaseParams{
+		{
+			name:    "undefined attribute",
+			context: basicContext,
+			clause:  ldmodel.Clause{Op: ldmodel.OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}},
+			message: "rule clause did not specify an attribute",
+		},
+		{
+			name:    "invalid attribute reference",
+			context: basicContext,
+			clause: ldmodel.Clause{Attribute: ldattr.NewRef("///"),
+				Op: ldmodel.OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}},
+			message: "invalid context attribute reference",
+		},
+	} {
+		t.Run(p.name, func(t *testing.T) {
+			goodClause := makeClauseToMatchUser(p.context)
+			flag := ldbuilders.NewFlagBuilder("feature").
+				On(true).
+				AddRule(ldbuilders.NewRuleBuilder().ID("bad").Variation(1).Clauses(p.clause)).
+				AddRule(ldbuilders.NewRuleBuilder().ID("good").Variation(1).Clauses(goodClause)).
+				Variations(ldvalue.Bool(false), ldvalue.Bool(true)).
+				Build()
 
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-	assert.Equal(t, 0, len(eventSink.events))
-}
+			t.Run("returns error", func(t *testing.T) {
+				eventSink := prereqEventSink{}
+				result := basicEvaluator().Evaluate(&flag, p.context, eventSink.record)
 
-func TestMalformedFlagErrorForBadVariationIndexIsLogged(t *testing.T) {
-	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, ldbuilders.Variation(999))
+				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+				assert.Equal(t, 0, len(eventSink.events))
+			})
 
-	logCapture := ldlogtest.NewMockLog()
-	eventSink := prereqEventSink{}
-	e := NewEvaluatorWithOptions(basicDataProvider(), EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
+			t.Run("logs error", func(t *testing.T) {
+				logCapture := ldlogtest.NewMockLog()
+				eventSink := prereqEventSink{}
+				e := NewEvaluatorWithOptions(basicDataProvider(),
+					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
+				_ = e.Evaluate(&flag, p.context, eventSink.record)
 
-	result := e.Evaluate(&f, user, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-	assert.Equal(t, 0, len(eventSink.events))
-
-	errorLines := logCapture.GetOutput(ldlog.Error)
-	require.Len(t, errorLines, 1)
-	assert.Regexp(t, `referenced nonexistent variation index 999`, errorLines[0])
-}
-
-func TestMalformedFlagErrorForEmptyRolloutIsLogged(t *testing.T) {
-	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, ldbuilders.Rollout())
-
-	logCapture := ldlogtest.NewMockLog()
-	eventSink := prereqEventSink{}
-	e := NewEvaluatorWithOptions(basicDataProvider(), EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
-
-	result := e.Evaluate(&f, user, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-	assert.Equal(t, 0, len(eventSink.events))
-
-	errorLines := logCapture.GetOutput(ldlog.Error)
-	require.Len(t, errorLines, 1)
-	assert.Regexp(t, `had a rollout or experiment with no variations`, errorLines[0])
+				errorLines := logCapture.GetOutput(ldlog.Error)
+				if assert.Len(t, errorLines, 1) {
+					assert.Regexp(t, p.message, errorLines[0])
+				}
+			})
+		})
+	}
 }
 
 func TestClauseWithUnknownOperatorDoesNotStopSubsequentRuleFromMatching(t *testing.T) {

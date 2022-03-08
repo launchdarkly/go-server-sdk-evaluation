@@ -15,7 +15,7 @@ const (
 )
 
 func (es *evaluationScope) bucketUser(
-	seed ldvalue.OptionalInt, key string, attr ldattr.Ref, salt string) float32 {
+	seed ldvalue.OptionalInt, key string, attr ldattr.Ref, salt string) (float32, error) {
 	var prefix string
 	if seed.IsDefined() {
 		prefix = strconv.Itoa(seed.IntValue())
@@ -23,13 +23,18 @@ func (es *evaluationScope) bucketUser(
 		prefix = key + "." + salt
 	}
 
+	if !attr.IsDefined() {
+		attr = ldattr.NewNameRef(ldattr.KeyAttr)
+	} else if attr.Err() != nil {
+		return 0, attr.Err()
+	}
 	uValue, ok := es.context.GetValueForRef(attr)
 	if !ok {
-		return 0
+		return 0, nil
 	}
 	idHash, ok := bucketableStringValue(uValue)
 	if !ok {
-		return 0
+		return 0, nil
 	}
 
 	if secondary := es.context.Secondary(); secondary.IsDefined() {
@@ -44,7 +49,7 @@ func (es *evaluationScope) bucketUser(
 
 	bucket := float32(intVal) / longScale
 
-	return bucket
+	return bucket, nil
 }
 
 func bucketableStringValue(uValue ldvalue.Value) (string, bool) {
