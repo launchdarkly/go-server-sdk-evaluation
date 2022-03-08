@@ -304,17 +304,10 @@ func (es *evaluationScope) logEvaluationError(err error) {
 	if err == nil || es.owner.errorLogger == nil {
 		return
 	}
-	if internal.ErrorKindForError(err) == ldreason.EvalErrorMalformedFlag {
-		es.owner.errorLogger.Printf("Invalid flag configuration detected in flag %q: %s",
-			es.flag.Key,
-			err,
-		)
-	} else { // COVERAGE: currently no way to cause this in unit tests
-		es.owner.errorLogger.Printf("Error in evaluating flag %q: %s",
-			es.flag.Key,
-			err,
-		)
-	}
+	es.owner.errorLogger.Printf("Invalid flag configuration detected in flag %q: %s",
+		es.flag.Key,
+		err,
+	)
 }
 
 func reasonToExperimentReason(reason ldreason.EvaluationReason) ldreason.EvaluationReason {
