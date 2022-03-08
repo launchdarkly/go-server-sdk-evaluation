@@ -84,3 +84,18 @@ func (e CircularPrereqReferenceError) Error() string {
 func (e CircularPrereqReferenceError) ErrorKind() ldreason.EvalErrorKind { //nolint:revive
 	return ldreason.EvalErrorMalformedFlag
 }
+
+// MalformedSegmentError means invalid properties were found while trying to match a segment.
+type MalformedSegmentError struct {
+	SegmentKey string
+	Err        error
+}
+
+func (e MalformedSegmentError) Error() string {
+	return fmt.Sprintf("segment %q had an invalid configuration: %s", e.SegmentKey, e.Err)
+}
+
+func (e MalformedSegmentError) ErrorKind() ldreason.EvalErrorKind { //nolint:revive
+	return ldreason.EvalErrorMalformedFlag
+	// Technically it's not a malformed *flag*, but we don't have a better error code for this.
+}

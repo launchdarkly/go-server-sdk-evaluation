@@ -10,6 +10,7 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
@@ -217,12 +218,12 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			flag := booleanFlagWithSegmentMatch(p.segment.Key)
 
-			t.Run("is non-match", func(t *testing.T) {
+			t.Run("returns error", func(t *testing.T) {
 				eventSink := prereqEventSink{}
 				e := NewEvaluator(basicDataProvider().withStoredSegments(p.segment))
 				result := e.Evaluate(&flag, p.context, eventSink.record)
 
-				assert.Equal(t, ldvalue.Bool(false), result.Value)
+				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
 				assert.Equal(t, 0, len(eventSink.events))
 			})
 
@@ -235,7 +236,7 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 
 				errorLines := logCapture.GetOutput(ldlog.Error)
 				if assert.Len(t, errorLines, 1) {
-					assert.Regexp(t, p.message, errorLines[0])
+					assert.Regexp(t, `segment "segkey".*`+p.message, errorLines[0])
 				}
 			})
 		})
