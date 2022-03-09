@@ -49,19 +49,16 @@ func TestMalformedFlagErrorForBadRuleProperties(t *testing.T) {
 	} {
 		t.Run(p.name, func(t *testing.T) {
 			t.Run("returns error", func(t *testing.T) {
-				eventSink := prereqEventSink{}
-				result := basicEvaluator().Evaluate(&p.flag, p.context, eventSink.record)
+				result := basicEvaluator().Evaluate(&p.flag, p.context, FailOnAnyPrereqEvent(t))
 
 				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-				assert.Equal(t, 0, len(eventSink.events))
 			})
 
 			t.Run("logs error", func(t *testing.T) {
 				logCapture := ldlogtest.NewMockLog()
-				eventSink := prereqEventSink{}
 				e := NewEvaluatorWithOptions(basicDataProvider(),
 					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
-				_ = e.Evaluate(&p.flag, p.context, eventSink.record)
+				_ = e.Evaluate(&p.flag, p.context, FailOnAnyPrereqEvent(t))
 
 				errorLines := logCapture.GetOutput(ldlog.Error)
 				if assert.Len(t, errorLines, 1) {
@@ -107,19 +104,16 @@ func TestMalformedFlagErrorForBadClauseProperties(t *testing.T) {
 				Build()
 
 			t.Run("returns error", func(t *testing.T) {
-				eventSink := prereqEventSink{}
-				result := basicEvaluator().Evaluate(&flag, p.context, eventSink.record)
+				result := basicEvaluator().Evaluate(&flag, p.context, FailOnAnyPrereqEvent(t))
 
 				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-				assert.Equal(t, 0, len(eventSink.events))
 			})
 
 			t.Run("logs error", func(t *testing.T) {
 				logCapture := ldlogtest.NewMockLog()
-				eventSink := prereqEventSink{}
 				e := NewEvaluatorWithOptions(basicDataProvider(),
 					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
-				_ = e.Evaluate(&flag, p.context, eventSink.record)
+				_ = e.Evaluate(&flag, p.context, FailOnAnyPrereqEvent(t))
 
 				errorLines := logCapture.GetOutput(ldlog.Error)
 				if assert.Len(t, errorLines, 1) {

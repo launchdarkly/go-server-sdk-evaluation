@@ -92,14 +92,6 @@ func basicEvaluator() Evaluator {
 	return NewEvaluator(basicDataProvider())
 }
 
-type prereqEventSink struct {
-	events []PrerequisiteFlagEvent
-}
-
-func (p *prereqEventSink) record(event PrerequisiteFlagEvent) {
-	p.events = append(p.events, event)
-}
-
 func makeClauseToMatchUser(user ldcontext.Context) ldmodel.Clause {
 	return ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(user.Key()))
 }

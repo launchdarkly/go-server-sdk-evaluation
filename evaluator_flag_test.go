@@ -30,12 +30,10 @@ func TestFlagReturnsOffVariationIfFlagIsOff(t *testing.T) {
 		Variations(fallthroughValue, offValue, onValue).
 		Build()
 
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, FailOnAnyPrereqEvent(t))
 	assert.Equal(t, offValue, result.Value)
 	assert.Equal(t, ldvalue.NewOptionalInt(1), result.VariationIndex)
 	assert.Equal(t, ldreason.NewEvalReasonOff(), result.Reason)
-	assert.Equal(t, 0, len(eventSink.events))
 }
 
 func TestFlagReturnsNilIfFlagIsOffAndOffVariationIsUnspecified(t *testing.T) {
@@ -45,10 +43,8 @@ func TestFlagReturnsNilIfFlagIsOffAndOffVariationIsUnspecified(t *testing.T) {
 		Variations(fallthroughValue, offValue, onValue).
 		Build()
 
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, FailOnAnyPrereqEvent(t))
 	assert.Equal(t, ldreason.EvaluationDetail{Reason: ldreason.NewEvalReasonOff()}, result)
-	assert.Equal(t, 0, len(eventSink.events))
 }
 
 func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
@@ -183,19 +179,16 @@ func TestMalformedFlagErrorForBadFlagProperties(t *testing.T) {
 	} {
 		t.Run(p.name, func(t *testing.T) {
 			t.Run("returns error", func(t *testing.T) {
-				eventSink := prereqEventSink{}
-				result := basicEvaluator().Evaluate(&p.flag, p.context, eventSink.record)
+				result := basicEvaluator().Evaluate(&p.flag, p.context, FailOnAnyPrereqEvent(t))
 
 				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-				assert.Equal(t, 0, len(eventSink.events))
 			})
 
 			t.Run("logs error", func(t *testing.T) {
 				logCapture := ldlogtest.NewMockLog()
-				eventSink := prereqEventSink{}
 				e := NewEvaluatorWithOptions(basicDataProvider(),
 					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
-				_ = e.Evaluate(&p.flag, p.context, eventSink.record)
+				_ = e.Evaluate(&p.flag, p.context, FailOnAnyPrereqEvent(t))
 
 				errorLines := logCapture.GetOutput(ldlog.Error)
 				if assert.Len(t, errorLines, 1) {
