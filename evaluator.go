@@ -10,6 +10,21 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
+// Notes on some implementation details in this file:
+//
+// - We are often passing structs by address rather than by value, even if the usual reasons for using
+// a pointer (allowing mutation of the value, or using nil to represent "no value") do not apply. This
+// is an optimization to avoid the small but nonzero overhead of copying a struct by value across many
+// nested function/method calls; passing a pointer instead is faster. It is safe for us to do this
+// as long as the pointer value is not being retained outside the scope of this call.
+//
+// - In some for loops, we are deliberately taking the address of the range variable and using a
+// "//nolint:gosec" directive to turn off the usual linter warning about this:
+//       for _, x := range someThings {
+//           doSomething(&x) //nolint:gosec
+//       }
+// The rationale is the same as above, and is safe as long as the same conditions apply.
+
 type evaluator struct {
 	dataProvider       DataProvider
 	bigSegmentProvider BigSegmentProvider
@@ -112,8 +127,7 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 
 	// Now walk through the rules and see if any match
 	for ruleIndex, rule := range es.flag.Rules {
-		// Note, taking address of range variable here is OK because it's not used outside the loop
-		match, err := es.ruleMatchesUser(&rule) //nolint:gosec // see comment above
+		match, err := es.ruleMatchesUser(&rule) //nolint:gosec // see comments at top of file
 		if err != nil {
 			es.logEvaluationError(err)
 			return ldreason.NewEvaluationDetailForError(internal.ErrorKindForError(err), ldvalue.Null()), false
@@ -234,7 +248,7 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 		// If ContextTargets is empty but Targets is not empty, then this is flag data that originally
 		// came from a non-context-aware LD endpoint or SDK. In that case, just look at Targets.
 		for _, t := range es.flag.Targets {
-			if variation := es.targetMatchVariation(&t); variation.IsDefined() {
+			if variation := es.targetMatchVariation(&t); variation.IsDefined() { //nolint:gosec // see comments at top of file
 				return variation
 			}
 		}
@@ -246,12 +260,12 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 			if (t.Kind == "" || t.Kind == ldcontext.DefaultKind) && len(t.Values) == 0 {
 				for _, t1 := range es.flag.Targets {
 					if t1.Variation == t.Variation {
-						variation = es.targetMatchVariation(&t1)
+						variation = es.targetMatchVariation(&t1) //nolint:gosec // see comments at top of file
 						break
 					}
 				}
 			} else {
-				variation = es.targetMatchVariation(&t)
+				variation = es.targetMatchVariation(&t) //nolint:gosec // see comments at top of file
 			}
 			if variation.IsDefined() {
 				return variation
@@ -285,8 +299,7 @@ func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.Optio
 func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) (bool, error) {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
 	for _, clause := range rule.Clauses {
-		// Note, taking address of range variable here is OK because it's not used outside the loop
-		match, err := es.clauseMatchesUser(&clause) //nolint:gosec // see comment above
+		match, err := es.clauseMatchesUser(&clause) //nolint:gosec // see comments at top of file
 		if !match || err != nil {
 			return match, err
 		}

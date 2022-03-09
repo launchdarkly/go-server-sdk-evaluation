@@ -83,9 +83,10 @@ func (b *FlagBuilder) AddTarget(variationIndex int, keys ...string) *FlagBuilder
 	return b
 }
 
-// AddTarget adds a target set for any context kind.
+// AddContextTarget adds a target set for any context kind.
 func (b *FlagBuilder) AddContextTarget(kind ldcontext.Kind, variationIndex int, keys ...string) *FlagBuilder {
-	b.flag.ContextTargets = append(b.flag.ContextTargets, ldmodel.Target{Kind: kind, Values: keys, Variation: variationIndex})
+	b.flag.ContextTargets = append(b.flag.ContextTargets,
+		ldmodel.Target{Kind: kind, Values: keys, Variation: variationIndex})
 	return b
 }
 

@@ -116,10 +116,9 @@ func clauseMatchByKind(c *Clause, context *ldcontext.Context) bool {
 			}
 		}
 		return false
-	} else {
-		uValue := ldvalue.String(string(context.Kind()))
-		return matchAny(c.Op, matchFn, uValue, c.Values, c.preprocessed)
 	}
+	uValue := ldvalue.String(string(context.Kind()))
+	return matchAny(c.Op, matchFn, uValue, c.Values, c.preprocessed)
 }
 
 type opFn (func(userValue ldvalue.Value, clauseValue ldvalue.Value, preprocessed clausePreprocessedValue) bool)
