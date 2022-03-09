@@ -58,36 +58,16 @@ func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
 		Variations(fallthroughValue, offValue, onValue).
 		Build()
 
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, flagTestContext, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, flagTestContext, FailOnAnyPrereqEvent(t))
 	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthrough()), result)
-	assert.Equal(t, 0, len(eventSink.events))
-}
-
-func TestFlagMatchesUserFromTargets(t *testing.T) {
-	f := ldbuilders.NewFlagBuilder("feature").
-		On(true).
-		OffVariation(1).
-		AddTarget(2, "whoever", "userkey").
-		FallthroughVariation(0).
-		Variations(fallthroughValue, offValue, onValue).
-		Build()
-	user := lduser.NewUser("userkey")
-
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonTargetMatch()), result)
-	assert.Equal(t, 0, len(eventSink.events))
 }
 
 func TestFlagMatchesUserFromRules(t *testing.T) {
 	user := lduser.NewUser("userkey")
 	f := makeFlagToMatchUser(user, ldbuilders.Variation(2))
 
-	eventSink := prereqEventSink{}
-	result := basicEvaluator().Evaluate(&f, user, eventSink.record)
+	result := basicEvaluator().Evaluate(&f, user, FailOnAnyPrereqEvent(t))
 	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonRuleMatch(0, "rule-id")), result)
-	assert.Equal(t, 0, len(eventSink.events))
 }
 
 func TestFlagReturnsWhetherUserWasInFallthroughExperiment(t *testing.T) {

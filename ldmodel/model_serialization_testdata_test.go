@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
@@ -32,6 +33,7 @@ var flagTopLevelDefaultProperties = map[string]interface{}{
 	"offVariation":           nil,
 	"fallthrough":            map[string]interface{}{},
 	"targets":                []interface{}{},
+	"contextTargets":         []interface{}{},
 	"prerequisites":          []interface{}{},
 	"rules":                  []interface{}{},
 	"clientSide":             false,
@@ -101,6 +103,15 @@ var simpleClause = Clause{
 
 const simpleClauseJSON = `{"attribute": "key", "op": "in", "values": ["a"], "negate": false}`
 const simpleClauseMinimalJSON = `{"attribute": "key", "op": "in", "values": ["a"]}`
+
+var clauseWithKind = Clause{
+	Kind:      ldcontext.Kind("org"),
+	Attribute: ldattr.NewNameRef("key"),
+	Op:        OperatorIn,
+	Values:    []ldvalue.Value{ldvalue.String("a")},
+}
+
+const clauseWithKindJSON = `{"kind": "org", "attribute": "key", "op": "in", "values": ["a"], "negate": false}`
 
 var negatedClause = Clause{
 	Attribute: ldattr.NewNameRef("key"),
@@ -226,6 +237,15 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			jsonString: `{"targets": [ {"variation": 1, "values": ["a", "b"]} ]}`,
 		},
 		{
+			name: "contextTargets",
+			flag: FeatureFlag{
+				ContextTargets: []Target{
+					{Kind: "org", Variation: 1, Values: []string{"a", "b"}},
+				},
+			},
+			jsonString: `{"contextTargets": [ {"kind": "org", "variation": 1, "values": ["a", "b"]} ]}`,
+		},
+		{
 			name: "minimal rule with variation",
 			flag: FeatureFlag{
 				Rules: []FlagRule{
@@ -275,6 +295,18 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			},
 			jsonString:    `{"rules": [ {"variation": 1, "clauses": [` + simpleClauseJSON + `], "trackEvents": false }]}`,
 			jsonAltInputs: []string{`{"rules": [ {"variation": 1, "clauses": [` + simpleClauseMinimalJSON + `] }]}`},
+		},
+		{
+			name: "rule clause with kind",
+			flag: FeatureFlag{
+				Rules: []FlagRule{
+					{
+						VariationOrRollout: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)},
+						Clauses:            []Clause{clauseWithKind},
+					},
+				},
+			},
+			jsonString: `{"rules": [ {"variation": 1, "clauses": [` + clauseWithKindJSON + `], "trackEvents": false }]}`,
 		},
 		{
 			name: "rule clause negate",
@@ -508,6 +540,15 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			},
 			jsonString:    `{"rules": [ {"id": "", "clauses": [` + simpleClauseJSON + `]} ]}`,
 			jsonAltInputs: []string{`{"rules": [ {"id": "", "clauses": [` + simpleClauseMinimalJSON + `]} ]}`},
+		},
+		{
+			name: "rule clause with kind",
+			segment: Segment{
+				Rules: []SegmentRule{
+					{Clauses: []Clause{clauseWithKind}},
+				},
+			},
+			jsonString: `{"rules": [ {"id": "", "clauses": [` + clauseWithKindJSON + `]} ]}`,
 		},
 		{
 			name: "rule clause negated",

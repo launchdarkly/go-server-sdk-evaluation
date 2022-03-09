@@ -38,14 +38,8 @@ func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
 	}
 	prereqsArr.End()
 
-	targetsArr := obj.Name("targets").Array()
-	for _, t := range flag.Targets {
-		targetObj := targetsArr.Object()
-		targetObj.Name("variation").Int(t.Variation)
-		writeStringArray(&targetObj, "values", t.Values)
-		targetObj.End()
-	}
-	targetsArr.End()
+	writeTargets(&obj, flag.Targets, "targets")
+	writeTargets(&obj, flag.ContextTargets, "contextTargets")
 
 	rulesArr := obj.Name("rules").Array()
 	for _, r := range flag.Rules {
@@ -100,6 +94,20 @@ func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
 	obj.Name("deleted").Bool(flag.Deleted)
 
 	obj.End()
+}
+
+func writeTargets(obj *jwriter.ObjectState, targets []Target, name string) {
+	targetsArr := obj.Name(name).Array()
+	for _, t := range targets {
+		targetObj := targetsArr.Object()
+		if t.Kind != "" {
+			targetObj.Name("kind").String(string(t.Kind))
+		}
+		targetObj.Name("variation").Int(t.Variation)
+		writeStringArray(&targetObj, "values", t.Values)
+		targetObj.End()
+	}
+	targetsArr.End()
 }
 
 func marshalSegment(segment Segment) ([]byte, error) {
@@ -168,6 +176,9 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 	clausesArr := obj.Name("clauses").Array()
 	for _, c := range clauses {
 		clauseObj := clausesArr.Object()
+		if c.Kind != "" {
+			clauseObj.Name("kind").String(string(c.Kind))
+		}
 		clauseObj.Name("attribute").String(c.Attribute.String())
 		clauseObj.Name("op").String(string(c.Op))
 		valuesArr := clauseObj.Name("values").Array()

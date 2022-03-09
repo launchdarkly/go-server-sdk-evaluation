@@ -2,6 +2,7 @@ package ldmodel
 
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
@@ -23,11 +24,16 @@ type FeatureFlag struct {
 	//
 	// If any prerequisite is not met, the flag behaves as if targeting is turned off.
 	Prerequisites []Prerequisite
-	// Targets contains sets of individually targeted users.
+	// Targets contains sets of individually targeted users for the default context kind (user).
 	//
 	// Targets take precedence over Rules: if a user is matched by any Target, the Rules are ignored.
 	// Targets are ignored if targeting is turned off.
 	Targets []Target
+	// ContextTargets contains sets of individually targeted users for specific context kinds.
+	//
+	// Targets take precedence over Rules: if a user is matched by any Target, the Rules are ignored.
+	// Targets are ignored if targeting is turned off.
+	ContextTargets []Target
 	// Rules is a list of rules that may match a user.
 	//
 	// If a user is matched by a Rule, all subsequent Rules in the list are skipped. Rules are ignored
@@ -238,6 +244,14 @@ func (r Rollout) IsExperiment() bool {
 
 // Clause describes an individual clause within a FlagRule or SegmentRule.
 type Clause struct {
+	// Kind is the context kind that this clause applies to.
+	//
+	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
+	// treated as ldcontext.DefaultKind.
+	//
+	// If the value of Attribute is "kind", then Kind is ignored because the nature of the context kind
+	// test is described in a richer way by Operator and Values.
+	Kind ldcontext.Kind
 	// Attribute specifies the context attribute that is being tested.
 	//
 	// This is required for all Operator types except SegmentMatch. If Op is SegmentMatch then Attribute
@@ -283,6 +297,11 @@ type WeightedVariation struct {
 
 // Target describes a set of users who will receive a specific variation.
 type Target struct {
+	// Kind is the context kind that this target list applies to.
+	//
+	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
+	// treated as ldcontext.DefaultKind.
+	Kind ldcontext.Kind
 	// Values is the set of user keys included in this Target.
 	Values []string
 	// Variation is the index of the variation to be returned if the user matches one of these keys. This

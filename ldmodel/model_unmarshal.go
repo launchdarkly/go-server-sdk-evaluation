@@ -2,6 +2,7 @@ package ldmodel
 
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
@@ -58,6 +59,8 @@ func readFeatureFlag(r *jreader.Reader, flag *FeatureFlag) {
 			readPrerequisites(r, &flag.Prerequisites)
 		case "targets":
 			readTargets(r, &flag.Targets)
+		case "contextTargets":
+			readTargets(r, &flag.ContextTargets)
 		case "rules":
 			readFlagRules(r, &flag.Rules)
 		case "fallthrough":
@@ -115,6 +118,8 @@ func readTargets(r *jreader.Reader, out *[]Target) {
 		var t Target
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
+			case "kind":
+				t.Kind = ldcontext.Kind(r.String())
 			case "values":
 				readStringList(r, &t.Values)
 			case "variation":
@@ -151,6 +156,8 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 		var clause Clause
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
+			case "kind":
+				clause.Kind = ldcontext.Kind(r.String())
 			case "attribute":
 				readAttrRef(r, &clause.Attribute)
 			case "op":

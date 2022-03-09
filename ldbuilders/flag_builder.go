@@ -2,6 +2,7 @@ package ldbuilders
 
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
@@ -79,6 +80,12 @@ func (b *FlagBuilder) AddRule(r *RuleBuilder) *FlagBuilder {
 // AddTarget adds a user target set.
 func (b *FlagBuilder) AddTarget(variationIndex int, keys ...string) *FlagBuilder {
 	b.flag.Targets = append(b.flag.Targets, ldmodel.Target{Values: keys, Variation: variationIndex})
+	return b
+}
+
+// AddTarget adds a target set for any context kind.
+func (b *FlagBuilder) AddContextTarget(kind ldcontext.Kind, variationIndex int, keys ...string) *FlagBuilder {
+	b.flag.ContextTargets = append(b.flag.ContextTargets, ldmodel.Target{Kind: kind, Values: keys, Variation: variationIndex})
 	return b
 }
 

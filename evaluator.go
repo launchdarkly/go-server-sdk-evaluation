@@ -105,14 +105,9 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 		return es.getOffValue(prereqErrorReason), true
 	}
 
-	key := es.context.Key()
-
 	// Check to see if targets match
-	for _, target := range es.flag.Targets {
-		// Note, taking address of range variable here is OK because it's not used outside the loop
-		if ldmodel.TargetContainsKey(&target, key) { //nolint:gosec // see comment above
-			return es.getVariation(target.Variation, ldreason.NewEvalReasonTargetMatch()), true
-		}
+	if variation := es.anyTargetMatchVariation(); variation.IsDefined() {
+		return es.getVariation(variation.IntValue(), ldreason.NewEvalReasonTargetMatch()), true
 	}
 
 	// Now walk through the rules and see if any match
@@ -232,6 +227,59 @@ func (es *evaluationScope) getValueForVariationOrRollout(
 		reason = reasonToExperimentReason(reason)
 	}
 	return es.getVariation(index, reason)
+}
+
+func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
+	if len(es.flag.ContextTargets) == 0 {
+		// If ContextTargets is empty but Targets is not empty, then this is flag data that originally
+		// came from a non-context-aware LD endpoint or SDK. In that case, just look at Targets.
+		for _, t := range es.flag.Targets {
+			if variation := es.targetMatchVariation(&t); variation.IsDefined() {
+				return variation
+			}
+		}
+	} else {
+		// If ContextTargets is provided, we iterate through it-- but, for any target of the default
+		// kind (user), if there are no Values, we check for a corresponding target in Targets.
+		for _, t := range es.flag.ContextTargets {
+			var variation ldvalue.OptionalInt
+			if (t.Kind == "" || t.Kind == ldcontext.DefaultKind) && len(t.Values) == 0 {
+				for _, t1 := range es.flag.Targets {
+					if t1.Variation == t.Variation {
+						variation = es.targetMatchVariation(&t1)
+						break
+					}
+				}
+			} else {
+				variation = es.targetMatchVariation(&t)
+			}
+			if variation.IsDefined() {
+				return variation
+			}
+		}
+	}
+	return ldvalue.OptionalInt{}
+}
+
+func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.OptionalInt {
+	kind := t.Kind
+	if kind == "" {
+		kind = ldcontext.DefaultKind
+	}
+	if es.context.Multiple() {
+		if individualContext, ok := es.context.MultiKindByName(kind); ok {
+			if ldmodel.TargetContainsKey(t, individualContext.Key()) {
+				return ldvalue.NewOptionalInt(t.Variation)
+			}
+		}
+	} else {
+		if es.context.Kind() == kind {
+			if ldmodel.TargetContainsKey(t, es.context.Key()) {
+				return ldvalue.NewOptionalInt(t.Variation)
+			}
+		}
+	}
+	return ldvalue.OptionalInt{}
 }
 
 func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) (bool, error) {
