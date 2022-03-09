@@ -127,7 +127,7 @@ func readTargets(r *jreader.Reader, out *[]Target) {
 
 func readFlagRules(r *jreader.Reader, out *[]FlagRule) {
 	for arr := r.ArrayOrNull(); arr.Next(); {
-		rule := FlagRule{Clauses: []Clause{}}
+		rule := FlagRule{}
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "id":
@@ -204,7 +204,9 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 		case "bucketBy":
 			readAttrRef(r, &out.BucketBy)
 		case "seed":
-			out.Seed = ldvalue.NewOptionalInt(r.Int())
+			if n, ok := r.IntOrNull(); ok {
+				out.Seed = ldvalue.NewOptionalInt(n)
+			}
 		}
 	}
 }

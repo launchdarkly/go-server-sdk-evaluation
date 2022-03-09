@@ -137,13 +137,19 @@ func TestBucketUserByIntAttr(t *testing.T) {
 func TestBucketUserByFloatAttrNotAllowed(t *testing.T) {
 	user := lduser.NewUserBuilder("userKeyE").Custom("floatAttr", ldvalue.Float64(999.999)).Build()
 	bucket := userEvalScope(user).bucketUser(noSeed, "hashKey", ldattr.NewNameRef("floatAttr"), "saltyA")
-	assert.InDelta(t, 0.0, bucket, 0.0000001)
+	assert.Equal(t, float32(0), bucket)
 }
 
 func TestBucketUserByFloatAttrThatIsReallyAnIntIsAllowed(t *testing.T) {
 	user := lduser.NewUserBuilder("userKeyE").Custom("floatAttr", ldvalue.Float64(33333)).Build()
 	bucket := userEvalScope(user).bucketUser(noSeed, "hashKey", ldattr.NewNameRef("floatAttr"), "saltyA")
 	assert.InEpsilon(t, 0.54771423, bucket, 0.0000001)
+}
+
+func TestBucketUserByUnknownAttr(t *testing.T) {
+	user := lduser.NewUserBuilder("userKeyE").Build()
+	bucket := userEvalScope(user).bucketUser(noSeed, "hashKey", ldattr.NewNameRef("unknownAttr"), "saltyA")
+	assert.Equal(t, float32(0), bucket)
 }
 
 func TestBucketValueBeyondLastBucketIsPinnedToLastBucket(t *testing.T) {
