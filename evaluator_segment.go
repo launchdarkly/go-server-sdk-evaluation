@@ -6,7 +6,6 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/internal"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
 
@@ -51,8 +50,13 @@ func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) (bool, error)
 				return included.BoolValue(), nil
 			}
 		}
-	} else if included, found := ldmodel.SegmentIncludesOrExcludesKey(s, userKey); found {
-		return included, nil
+	} else {
+		if ldmodel.EvaluatorAccessors.SegmentFindKeyInIncludes(s, userKey) {
+			return true, nil
+		}
+		if ldmodel.EvaluatorAccessors.SegmentFindKeyInExcludes(s, userKey) {
+			return false, nil
+		}
 	}
 
 	// Check if any of the segment rules match
@@ -60,7 +64,7 @@ func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) (bool, error)
 		// Note, taking address of range variable here is OK because it's not used outside the loop
 		match, err := es.segmentRuleMatchesUser(&rule, s.Key, s.Salt) //nolint:gosec // see comment above
 		if err != nil {
-			return false, internal.MalformedSegmentError{SegmentKey: s.Key, Err: err}
+			return false, malformedSegmentError{SegmentKey: s.Key, Err: err}
 		}
 		if match {
 			return true, nil
@@ -74,7 +78,7 @@ func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, s
 	// Note that r is passed by reference only for efficiency; we do not modify it
 	for _, clause := range r.Clauses {
 		c := clause
-		match, err := ldmodel.ClauseMatchesContext(&c, &es.context)
+		match, err := clauseMatchesContext(&c, &es.context)
 		if !match || err != nil {
 			return false, err
 		}

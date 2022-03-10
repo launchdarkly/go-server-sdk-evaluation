@@ -1,4 +1,4 @@
-package internal
+package evaluation
 
 import (
 	"fmt"
@@ -14,88 +14,88 @@ import (
 // an interface does not need to be allocated on the heap.
 
 // EvalError is an internal interface for an error that should cause evaluation to fail.
-type EvalError interface {
+type evalError interface {
 	error
-	ErrorKind() ldreason.EvalErrorKind
+	errorKind() ldreason.EvalErrorKind
 }
 
 // ErrorKindForError returns the appropriate ldreason.EvalErrorKind value for an error.
-func ErrorKindForError(err error) ldreason.EvalErrorKind {
-	if e, ok := err.(EvalError); ok {
-		return e.ErrorKind()
+func errorKindForError(err error) ldreason.EvalErrorKind {
+	if e, ok := err.(evalError); ok {
+		return e.errorKind()
 	}
 	return ldreason.EvalErrorException
 }
 
 // BadVariationError means a variation index was out of range. The integer value is the index.
-type BadVariationError int
+type badVariationError int
 
-func (e BadVariationError) Error() string {
+func (e badVariationError) Error() string {
 	return fmt.Sprintf("rule, fallthrough, or target referenced a nonexistent variation index %d", int(e))
 }
 
-func (e BadVariationError) ErrorKind() ldreason.EvalErrorKind { //nolint:revive
+func (e badVariationError) errorKind() ldreason.EvalErrorKind {
 	return ldreason.EvalErrorMalformedFlag
 }
 
 // EmptyAttrRefError means an attribute reference in a clause was undefined
-type EmptyAttrRefError struct{}
+type emptyAttrRefError struct{}
 
-func (e EmptyAttrRefError) Error() string {
+func (e emptyAttrRefError) Error() string {
 	return "rule clause did not specify an attribute"
 }
 
-func (e EmptyAttrRefError) ErrorKind() ldreason.EvalErrorKind { //nolint:revive
+func (e emptyAttrRefError) errorKind() ldreason.EvalErrorKind {
 	return ldreason.EvalErrorMalformedFlag
 }
 
 // BadAttrRefError means an attribute reference in a clause was syntactically invalid. The string value is the
 // attribute reference.
-type BadAttrRefError string
+type badAttrRefError string
 
-func (e BadAttrRefError) Error() string {
+func (e badAttrRefError) Error() string {
 	return fmt.Sprintf("invalid context attribute reference %q", string(e))
 }
 
-func (e BadAttrRefError) ErrorKind() ldreason.EvalErrorKind { //nolint:revive
+func (e badAttrRefError) errorKind() ldreason.EvalErrorKind {
 	return ldreason.EvalErrorMalformedFlag
 }
 
 // EmptyRolloutError means a rollout or experiment had no variations.
-type EmptyRolloutError struct{}
+type emptyRolloutError struct{}
 
-func (e EmptyRolloutError) Error() string {
+func (e emptyRolloutError) Error() string {
 	return "rollout or experiment with no variations"
 }
 
-func (e EmptyRolloutError) ErrorKind() ldreason.EvalErrorKind { //nolint:revive
+func (e emptyRolloutError) errorKind() ldreason.EvalErrorKind {
 	return ldreason.EvalErrorMalformedFlag
 }
 
 // CircularPrereqReferenceError means there was a cycle in prerequisites. The string value is the key of the
 // prerequisite.
-type CircularPrereqReferenceError string
+type circularPrereqReferenceError string
 
-func (e CircularPrereqReferenceError) Error() string {
+func (e circularPrereqReferenceError) Error() string {
 	return fmt.Sprintf("prerequisite relationship to %q caused a circular reference;"+
 		" this is probably a temporary condition due to an incomplete update", string(e))
 }
 
-func (e CircularPrereqReferenceError) ErrorKind() ldreason.EvalErrorKind { //nolint:revive
+func (e circularPrereqReferenceError) errorKind() ldreason.EvalErrorKind {
 	return ldreason.EvalErrorMalformedFlag
 }
 
 // MalformedSegmentError means invalid properties were found while trying to match a segment.
-type MalformedSegmentError struct {
+type malformedSegmentError struct {
 	SegmentKey string
 	Err        error
 }
 
-func (e MalformedSegmentError) Error() string {
+func (e malformedSegmentError) Error() string {
 	return fmt.Sprintf("segment %q had an invalid configuration: %s", e.SegmentKey, e.Err)
 }
 
-func (e MalformedSegmentError) ErrorKind() ldreason.EvalErrorKind { //nolint:revive
+func (e malformedSegmentError) errorKind() ldreason.EvalErrorKind {
 	return ldreason.EvalErrorMalformedFlag
 	// Technically it's not a malformed *flag*, but we don't have a better error code for this.
 }
