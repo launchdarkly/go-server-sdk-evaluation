@@ -33,7 +33,9 @@ type EvaluatorAccessorMethods struct{}
 var EvaluatorAccessors EvaluatorAccessorMethods //nolint:gochecknoglobals
 
 // ClauseFindValue returns true if the specified value is deeply equal to any of the Clause's
-// Values, or false otherwise. It also returns nil if the clause parameter is nil.
+// Values, or false otherwise. It also returns false if the value is a JSON array, a JSON
+// object, or a JSON null (since equality tests are not valid for these in the LaunchDarkly
+// model), or if the clause parameter is nil.
 //
 // If preprocessing has been done, this is a fast map lookup (as long as the Clause's operator
 // is "in", which is the only case where it makes sense to create a map). Otherwise it iterates
@@ -48,10 +50,15 @@ func (e EvaluatorAccessorMethods) ClauseFindValue(clause *Clause, contextValue l
 			return found
 		}
 	}
-	for _, clauseValue := range clause.Values {
-		if contextValue.Equal(clauseValue) {
-			return true
+	switch contextValue.Type() {
+	case ldvalue.BoolType, ldvalue.NumberType, ldvalue.StringType:
+		for _, clauseValue := range clause.Values {
+			if contextValue.Equal(clauseValue) {
+				return true
+			}
 		}
+	default:
+		break
 	}
 	return false
 }

@@ -70,16 +70,6 @@ var operatorTests = []opTestInfo{
 	{"in", false, true, nil, false},
 	{"in", true, false, []interface{}{true}, true},
 
-	// equality of JSON array values - note that the user value must be an array *of arrays*, because a single-level
-	// array is interpreted as "any of these values"
-	{"in", []interface{}{[]interface{}{"x"}}, []interface{}{"x"}, nil, true},
-	{"in", []interface{}{[]interface{}{"x"}}, []interface{}{"x"}, []interface{}{[]interface{}{"a"}, []interface{}{"b"}}, true},
-
-	// equality of JSON object values
-	{"in", map[string]interface{}{"x": "1"}, map[string]interface{}{"x": "1"}, nil, true},
-	{"in", map[string]interface{}{"x": "1"}, map[string]interface{}{"x": "1"},
-		[]interface{}{map[string]interface{}{"a": "2"}, map[string]interface{}{"b": "3"}}, true},
-
 	// regex
 	{"matches", "hello world", "hello.*rld", nil, true},
 	{"matches", "hello world", "hello.*orl", nil, true},

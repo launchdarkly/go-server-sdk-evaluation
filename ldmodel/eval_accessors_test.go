@@ -28,6 +28,21 @@ func TestClauseFindValue(t *testing.T) {
 		})
 	}
 
+	t.Run("unsupported value types return false", func(t *testing.T) {
+		badValues := []ldvalue.Value{ldvalue.Null(), ldvalue.ArrayOf(), ldvalue.ObjectBuild().Build()}
+		for _, withPreprocessing := range []bool{false, true} {
+			t.Run(fmt.Sprintf("preprocessed: %t", withPreprocessing), func(t *testing.T) {
+				clause := Clause{Op: OperatorIn, Values: badValues}
+				if withPreprocessing {
+					clause.preprocessed = preprocessClause(clause)
+				}
+				for _, value := range badValues {
+					assert.False(t, EvaluatorAccessors.ClauseFindValue(&clause, value), "value: %s", value)
+				}
+			})
+		}
+	})
+
 	t.Run("nil pointer", func(t *testing.T) {
 		assert.False(t, EvaluatorAccessors.ClauseFindValue(nil, ldvalue.String("")))
 	})

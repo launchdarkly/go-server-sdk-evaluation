@@ -13,7 +13,7 @@ import (
 type opFn (func(clause *ldmodel.Clause, contextValue, clauseValue ldvalue.Value, clauseValueIndex int) bool)
 
 var allOps = map[ldmodel.Operator]opFn{ //nolint:gochecknoglobals
-	ldmodel.OperatorIn:                 operatorInFn,
+	// OperatorIn is special-cased in matchAny
 	ldmodel.OperatorEndsWith:           operatorEndsWithFn,
 	ldmodel.OperatorStartsWith:         operatorStartsWithFn,
 	ldmodel.OperatorMatches:            operatorMatchesFn,
@@ -123,14 +123,6 @@ func operatorFn(operator ldmodel.Operator) opFn {
 		return op
 	}
 	return operatorNoneFn
-}
-
-func operatorInFn(
-	clause *ldmodel.Clause,
-	ctxValue, clValue ldvalue.Value,
-	clValueIndex int,
-) bool {
-	return ctxValue.Equal(clValue)
 }
 
 func stringOperator(
