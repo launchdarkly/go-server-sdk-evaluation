@@ -157,6 +157,7 @@ func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrR
 	if len(vr.Rollout.Variations) > 0 {
 		rolloutObj := obj.Name("rollout").Object()
 		rolloutObj.Maybe("kind", vr.Rollout.Kind != "").String(string(vr.Rollout.Kind))
+		rolloutObj.Maybe("contextKind", vr.Rollout.ContextKind != "").String(string(vr.Rollout.ContextKind))
 		variationsArr := rolloutObj.Name("variations").Array()
 		for _, wv := range vr.Rollout.Variations {
 			variationObj := variationsArr.Object()

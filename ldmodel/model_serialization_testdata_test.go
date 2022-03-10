@@ -61,6 +61,13 @@ var simpleRollout = Rollout{
 
 const simpleRolloutJSON = `{"variations": [{"variation": 0, "weight": 100000}]}`
 
+var rolloutWithContextKind = Rollout{
+	ContextKind: ldcontext.Kind("org"),
+	Variations:  []WeightedVariation{{Variation: 0, Weight: 100000}},
+}
+
+const rolloutWithContextKindJSON = `{"contextKind": "org", "variations": [{"variation": 0, "weight": 100000}]}`
+
 var rolloutWithBucketBy = Rollout{
 	BucketBy:   ldattr.NewNameRef("name"),
 	Variations: []WeightedVariation{{Variation: 0, Weight: 100000}},
@@ -203,6 +210,11 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			name:       "fallthrough experiment with untracked",
 			flag:       FeatureFlag{Fallthrough: VariationOrRollout{Rollout: experimentWithUntracked}},
 			jsonString: `{"fallthrough": {"rollout": ` + experimentWithUntrackedJSON + `}}`,
+		},
+		{
+			name:       "fallthrough rollout contextKind",
+			flag:       FeatureFlag{Fallthrough: VariationOrRollout{Rollout: rolloutWithContextKind}},
+			jsonString: `{"fallthrough": {"rollout": ` + rolloutWithContextKindJSON + `}}`,
 		},
 		{
 			name:       "fallthrough rollout bucketBy",

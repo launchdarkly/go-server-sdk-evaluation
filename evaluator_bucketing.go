@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
@@ -14,8 +15,8 @@ const (
 	longScale = float32(0xFFFFFFFFFFFFFFF)
 )
 
-func (es *evaluationScope) bucketUser(
-	seed ldvalue.OptionalInt, key string, attr ldattr.Ref, salt string) (float32, error) {
+func (es *evaluationScope) computeBucketValue(
+	seed ldvalue.OptionalInt, contextKind ldcontext.Kind, key string, attr ldattr.Ref, salt string) (float32, error) {
 	var prefix string
 	if seed.IsDefined() {
 		prefix = strconv.Itoa(seed.IntValue())
@@ -28,7 +29,11 @@ func (es *evaluationScope) bucketUser(
 	} else if attr.Err() != nil {
 		return 0, attr.Err()
 	}
-	uValue, ok := es.context.GetValueForRef(attr)
+	context, ok := es.getApplicableContextByKind(contextKind)
+	if !ok {
+		return 0, nil
+	}
+	uValue, ok := context.GetValueForRef(attr)
 	if !ok {
 		return 0, nil
 	}
