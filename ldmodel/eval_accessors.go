@@ -129,22 +129,22 @@ func (e EvaluatorAccessorMethods) ClauseGetValueAsTimestamp(clause *Clause, inde
 	return time.Time{}, false
 }
 
-// SegmentFindKeyInExcludes returns true if the specified key is in this Segment's
+// SegmentFindKeyInExcluded returns true if the specified key is in this Segment's
 // Excluded list, or false otherwise. It also returns false if the segment parameter is nil.
 //
 // If preprocessing has been done, this is a fast map lookup. Otherwise it iterates the list.
-func (e EvaluatorAccessorMethods) SegmentFindKeyInExcludes(segment *Segment, key string) bool {
+func (e EvaluatorAccessorMethods) SegmentFindKeyInExcluded(segment *Segment, key string) bool {
 	if segment == nil {
 		return false
 	}
 	return findValueInMapOrStrings(key, segment.Excluded, segment.preprocessed.excludeMap)
 }
 
-// SegmentFindKeyInIncludes returns true if the specified key is in this Segment's
+// SegmentFindKeyInIncluded returns true if the specified key is in this Segment's
 // Included list, or false otherwise. It also returns false if the segment parameter is nil.
 //
 // If preprocessing has been done, this is a fast map lookup. Otherwise it iterates the list.
-func (e EvaluatorAccessorMethods) SegmentFindKeyInIncludes(segment *Segment, key string) bool {
+func (e EvaluatorAccessorMethods) SegmentFindKeyInIncluded(segment *Segment, key string) bool {
 	if segment == nil {
 		return false
 	}

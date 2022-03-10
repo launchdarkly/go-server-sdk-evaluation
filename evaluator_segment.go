@@ -51,10 +51,10 @@ func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) (bool, error)
 			}
 		}
 	} else {
-		if ldmodel.EvaluatorAccessors.SegmentFindKeyInIncludes(s, userKey) {
+		if ldmodel.EvaluatorAccessors.SegmentFindKeyInIncluded(s, userKey) {
 			return true, nil
 		}
-		if ldmodel.EvaluatorAccessors.SegmentFindKeyInExcludes(s, userKey) {
+		if ldmodel.EvaluatorAccessors.SegmentFindKeyInExcluded(s, userKey) {
 			return false, nil
 		}
 	}
