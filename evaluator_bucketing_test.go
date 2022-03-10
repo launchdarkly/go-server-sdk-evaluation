@@ -184,6 +184,17 @@ func TestComputeBucketValueWithSecondaryKey(t *testing.T) {
 	assert.NotEqual(t, bucket1, bucket2)
 }
 
+func TestComputeBucketValueWithSecondaryKeyForSpecificKind(t *testing.T) {
+	other := ldcontext.NewWithKind("other", "someKey")
+	org := ldcontext.NewBuilder("someKey").Kind("org").Secondary("mySecondaryKey").Build()
+	multi := ldcontext.NewMulti(other, org)
+	bucket1, err := userEvalScope(org).computeBucketValue(noSeed, "org", "hashKey", ldattr.NewNameRef("key"), "salt")
+	assert.NoError(t, err)
+	bucket2, err := userEvalScope(multi).computeBucketValue(noSeed, "org", "hashKey", ldattr.NewNameRef("key"), "salt")
+	assert.NoError(t, err)
+	assert.Equal(t, bucket1, bucket2)
+}
+
 func TestComputeBucketValueByIntAttr(t *testing.T) {
 	user := ldcontext.NewBuilder("userKeyD").SetInt("intAttr", 33333).Build()
 	bucket, err := userEvalScope(user).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("intAttr"), "saltyA")

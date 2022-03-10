@@ -29,11 +29,11 @@ func (es *evaluationScope) computeBucketValue(
 	} else if attr.Err() != nil {
 		return 0, attr.Err()
 	}
-	context, ok := es.getApplicableContextByKind(contextKind)
+	selectedContext, ok := es.getApplicableContextByKind(contextKind)
 	if !ok {
 		return 0, nil
 	}
-	uValue, ok := context.GetValueForRef(attr)
+	uValue, ok := selectedContext.GetValueForRef(attr)
 	if !ok {
 		return 0, nil
 	}
@@ -42,7 +42,7 @@ func (es *evaluationScope) computeBucketValue(
 		return 0, nil
 	}
 
-	if secondary := es.context.Secondary(); secondary.IsDefined() {
+	if secondary := selectedContext.Secondary(); secondary.IsDefined() {
 		idHash = idHash + "." + secondary.StringValue()
 	}
 
