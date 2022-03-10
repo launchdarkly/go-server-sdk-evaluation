@@ -276,24 +276,25 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 }
 
 func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.OptionalInt {
-	kind := t.Kind
+	if context, ok := es.getApplicableContextByKind(t.Kind); ok {
+		if ldmodel.TargetContainsKey(t, context.Key()) {
+			return ldvalue.NewOptionalInt(t.Variation)
+		}
+	}
+	return ldvalue.OptionalInt{}
+}
+
+func (es *evaluationScope) getApplicableContextByKind(kind ldcontext.Kind) (ldcontext.Context, bool) {
 	if kind == "" {
 		kind = ldcontext.DefaultKind
 	}
 	if es.context.Multiple() {
-		if individualContext, ok := es.context.MultiKindByName(kind); ok {
-			if ldmodel.TargetContainsKey(t, individualContext.Key()) {
-				return ldvalue.NewOptionalInt(t.Variation)
-			}
-		}
-	} else {
-		if es.context.Kind() == kind {
-			if ldmodel.TargetContainsKey(t, es.context.Key()) {
-				return ldvalue.NewOptionalInt(t.Variation)
-			}
-		}
+		return es.context.MultiKindByName(kind)
 	}
-	return ldvalue.OptionalInt{}
+	if es.context.Kind() == kind {
+		return es.context, true
+	}
+	return ldcontext.Context{}, false
 }
 
 func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) (bool, error) {
