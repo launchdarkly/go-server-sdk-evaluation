@@ -7,6 +7,7 @@ import (
 
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/internal"
 )
 
 // ClauseMatchesContext return true if the context matches the conditions in this clause.
@@ -21,11 +22,17 @@ import (
 //
 // The clause and user are passed by reference for efficiency only; the function will not modify
 // them. Passing a nil value will cause a panic.
-func ClauseMatchesContext(c *Clause, context *ldcontext.Context) bool {
+func ClauseMatchesContext(c *Clause, context *ldcontext.Context) (bool, error) {
+	if !c.Attribute.IsDefined() {
+		return false, internal.EmptyAttrRefError{}
+	}
+	if c.Attribute.Err() != nil {
+		return false, internal.BadAttrRefError(c.Attribute.String())
+	}
 	uValue, _ := context.GetValueForRef(c.Attribute)
 	if uValue.IsNull() {
 		// if the user attribute is null/missing, it's an automatic non-match - regardless of c.Negate
-		return false
+		return false, nil
 	}
 	matchFn := operatorFn(c.Op)
 
@@ -33,13 +40,13 @@ func ClauseMatchesContext(c *Clause, context *ldcontext.Context) bool {
 	if uValue.Type() == ldvalue.ArrayType {
 		for i := 0; i < uValue.Count(); i++ {
 			if matchAny(c.Op, matchFn, uValue.GetByIndex(i), c.Values, c.preprocessed) {
-				return maybeNegate(c.Negate, true)
+				return maybeNegate(c.Negate, true), nil
 			}
 		}
-		return maybeNegate(c.Negate, false)
+		return maybeNegate(c.Negate, false), nil
 	}
 
-	return maybeNegate(c.Negate, matchAny(c.Op, matchFn, uValue, c.Values, c.preprocessed))
+	return maybeNegate(c.Negate, matchAny(c.Op, matchFn, uValue, c.Values, c.preprocessed)), nil
 }
 
 func maybeNegate(negate, result bool) bool {

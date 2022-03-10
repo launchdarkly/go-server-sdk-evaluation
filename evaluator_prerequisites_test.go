@@ -5,13 +5,13 @@ import (
 
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFlagReturnsOffVariationIfPrerequisiteIsNotFound(t *testing.T) {
@@ -269,5 +269,5 @@ func TestPrerequisiteCycleCausesErrorToBeLogged(t *testing.T) {
 
 	errorLines := logCapture.GetOutput(ldlog.Error)
 	require.Len(t, errorLines, 1)
-	assert.Regexp(t, `flag "feature1" has a prerequisite of "feature0".*circular reference`, errorLines[0])
+	assert.Regexp(t, `"feature1".*prerequisite.*"feature0".*circular reference`, errorLines[0])
 }

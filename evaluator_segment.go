@@ -3,9 +3,9 @@ package evaluation
 import (
 	"fmt"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/internal"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
 
@@ -16,7 +16,7 @@ func makeBigSegmentRef(s *ldmodel.Segment) string {
 	return fmt.Sprintf("%s.g%d", s.Key, s.Generation.IntValue())
 }
 
-func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
+func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) (bool, error) {
 	userKey := es.context.Key()
 
 	// Check if the user is specifically included in or excluded from the segment by key
@@ -28,7 +28,7 @@ func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
 			// that as a "not configured" condition.
 			es.bigSegmentsReferenced = true
 			es.bigSegmentsStatus = ldreason.BigSegmentsNotConfigured
-			return false
+			return false, nil
 		}
 		// Even if multiple big segments are referenced within a single flag evaluation,
 		// we only need to do this query once, since it returns *all* of the user's segment
@@ -47,47 +47,49 @@ func (es *evaluationScope) segmentContainsUser(s *ldmodel.Segment) bool {
 		if es.bigSegmentsMembership != nil {
 			included := es.bigSegmentsMembership.CheckMembership(makeBigSegmentRef(s))
 			if included.IsDefined() {
-				return included.BoolValue()
+				return included.BoolValue(), nil
 			}
 		}
 	} else if included, found := ldmodel.SegmentIncludesOrExcludesKey(s, userKey); found {
-		return included
+		return included, nil
 	}
 
 	// Check if any of the segment rules match
 	for _, rule := range s.Rules {
 		// Note, taking address of range variable here is OK because it's not used outside the loop
-		if es.segmentRuleMatchesUser(&rule, s.Key, s.Salt) { //nolint:gosec // see comment above
-			return true
+		match, err := es.segmentRuleMatchesUser(&rule, s.Key, s.Salt) //nolint:gosec // see comment above
+		if err != nil {
+			return false, internal.MalformedSegmentError{SegmentKey: s.Key, Err: err}
+		}
+		if match {
+			return true, nil
 		}
 	}
 
-	return false
+	return false, nil
 }
 
-func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, salt string) bool {
+func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, salt string) (bool, error) {
 	// Note that r is passed by reference only for efficiency; we do not modify it
 	for _, clause := range r.Clauses {
 		c := clause
-		if !ldmodel.ClauseMatchesContext(&c, &es.context) {
-			return false
+		match, err := ldmodel.ClauseMatchesContext(&c, &es.context)
+		if !match || err != nil {
+			return false, err
 		}
 	}
 
 	// If the Weight is absent, this rule matches
 	if !r.Weight.IsDefined() {
-		return true
+		return true, nil
 	}
 
 	// All of the clauses are met. Check to see if the user buckets in
-	bucketBy := r.BucketBy
-	if !bucketBy.IsDefined() {
-		bucketBy = ldattr.NewNameRef(ldattr.KeyAttr)
+	bucket, err := es.bucketUser(ldvalue.OptionalInt{}, key, r.BucketBy, salt)
+	if err != nil {
+		return false, err
 	}
-
-	// Check whether the user buckets into the segment
-	bucket := es.bucketUser(ldvalue.OptionalInt{}, key, bucketBy, salt)
 	weight := float32(r.Weight.IntValue()) / 100000.0
 
-	return bucket < weight
+	return bucket < weight, nil
 }
