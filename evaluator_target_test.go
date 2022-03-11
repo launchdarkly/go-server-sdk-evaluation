@@ -31,7 +31,7 @@ func TestFlagMatchesContextFromTargets(t *testing.T) {
 		if expectedVariation == nonMatchVar {
 			expectedReason = ldreason.NewEvalReasonFallthrough()
 		}
-		m.In(t).Assert(result, EvalDetailProps(expectedVariation, variations[expectedVariation], expectedReason))
+		m.In(t).Assert(result, ResultDetailProps(expectedVariation, variations[expectedVariation], expectedReason))
 	}
 
 	t.Run("flag has Targets only", func(t *testing.T) {

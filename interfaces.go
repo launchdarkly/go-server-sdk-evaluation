@@ -23,7 +23,7 @@ type Evaluator interface {
 		flag *ldmodel.FeatureFlag,
 		context ldcontext.Context,
 		prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
-	) ldreason.EvaluationDetail
+	) Result
 }
 
 // PrerequisiteFlagEventRecorder is a function that Evaluator.Evaluate() will call to record the
@@ -44,7 +44,7 @@ type PrerequisiteFlagEvent struct {
 	// must not modify the flag's properties.
 	PrerequisiteFlag *ldmodel.FeatureFlag
 	// PrerequisiteResult is the result of evaluating the prerequisite flag.
-	PrerequisiteResult ldreason.EvaluationDetail
+	PrerequisiteResult Result
 }
 
 // DataProvider is an abstraction for querying feature flags and user segments from a data store.

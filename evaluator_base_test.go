@@ -2,13 +2,20 @@ package evaluation
 
 import (
 	"fmt"
+	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
+
+func assertResultDetail(t *testing.T, expected ldreason.EvaluationDetail, result Result) {
+	assert.Equal(t, expected, result.Detail)
+}
 
 type simpleDataProvider struct {
 	getFlag    func(string) *ldmodel.FeatureFlag

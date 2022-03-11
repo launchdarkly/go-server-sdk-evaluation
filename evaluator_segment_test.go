@@ -6,6 +6,7 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
+	m "github.com/launchdarkly/go-test-helpers/v2/matchers"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
@@ -21,7 +22,7 @@ func assertSegmentMatch(t *testing.T, segment ldmodel.Segment, context ldcontext
 	f := booleanFlagWithSegmentMatch(segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
 	result := evaluator.Evaluate(&f, context, nil)
-	assert.Equal(t, expected, result.Value.BoolValue())
+	assert.Equal(t, expected, result.Detail.Value.BoolValue())
 }
 
 func TestSegmentMatchClauseRetrievesSegmentFromStore(t *testing.T) {
@@ -36,7 +37,7 @@ func TestSegmentMatchClauseFallsThroughIfSegmentNotFound(t *testing.T) {
 	user := lduser.NewUser("foo")
 
 	result := evaluator.Evaluate(&f, user, nil)
-	assert.False(t, result.Value.BoolValue())
+	assert.False(t, result.Detail.Value.BoolValue())
 }
 
 func TestCanMatchJustOneSegmentFromList(t *testing.T) {
@@ -46,7 +47,7 @@ func TestCanMatchJustOneSegmentFromList(t *testing.T) {
 	user := lduser.NewUser("foo")
 
 	result := evaluator.Evaluate(&f, user, nil)
-	assert.True(t, result.Value.BoolValue())
+	assert.True(t, result.Detail.Value.BoolValue())
 }
 
 func TestUserIsExplicitlyIncludedInSegment(t *testing.T) {
@@ -104,7 +105,7 @@ func TestSegmentRuleCanMatchUserWithPercentageRollout(t *testing.T) {
 	user := lduser.NewUserBuilder("key").Name("Jane").Build()
 
 	result := evaluator.Evaluate(&f, user, nil)
-	assert.True(t, result.Value.BoolValue())
+	assert.True(t, result.Detail.Value.BoolValue())
 }
 
 func TestSegmentRuleCanNotMatchUserWithPercentageRollout(t *testing.T) {
@@ -118,7 +119,7 @@ func TestSegmentRuleCanNotMatchUserWithPercentageRollout(t *testing.T) {
 	user := lduser.NewUserBuilder("key").Name("Jane").Build()
 
 	result := evaluator.Evaluate(&f, user, nil)
-	assert.False(t, result.Value.BoolValue())
+	assert.False(t, result.Detail.Value.BoolValue())
 }
 
 func TestSegmentRuleCanHavePercentageRollout(t *testing.T) {
@@ -221,7 +222,7 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 				e := NewEvaluator(basicDataProvider().withStoredSegments(p.segment))
 				result := e.Evaluate(&flag, p.context, FailOnAnyPrereqEvent(t))
 
-				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+				m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
 			})
 
 			t.Run("logs error", func(t *testing.T) {

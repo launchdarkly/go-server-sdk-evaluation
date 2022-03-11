@@ -5,6 +5,7 @@ import (
 
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 
+	m "github.com/launchdarkly/go-test-helpers/v2/matchers"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
@@ -34,7 +35,7 @@ func TestFlagReturnsOffVariationIfPrerequisiteIsNotFound(t *testing.T) {
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetail(offValue, 1, ldreason.NewEvalReasonPrerequisiteFailed("feature1")), result)
+	m.In(t).Assert(result, ResultDetailProps(1, offValue, ldreason.NewEvalReasonPrerequisiteFailed("feature1")))
 	assert.Equal(t, 0, len(eventSink.events))
 }
 
@@ -57,14 +58,14 @@ func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsOff(t *testing.T) {
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetail(offValue, 1, ldreason.NewEvalReasonPrerequisiteFailed("feature1")), result)
+	m.In(t).Assert(result, ResultDetailProps(1, offValue, ldreason.NewEvalReasonPrerequisiteFailed("feature1")))
 
 	assert.Equal(t, 1, len(eventSink.events))
 	e := eventSink.events[0]
 	assert.Equal(t, f0.Key, e.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e.Context)
 	assert.Equal(t, &f1, e.PrerequisiteFlag)
-	assert.Equal(t, ldreason.NewEvaluationDetail(ldvalue.String("go"), 1, ldreason.NewEvalReasonOff()), e.PrerequisiteResult)
+	m.In(t).Assert(e.PrerequisiteResult, ResultDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonOff()))
 }
 
 func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsNotMet(t *testing.T) {
@@ -84,14 +85,14 @@ func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsNotMet(t *testing.T) {
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetail(offValue, 1, ldreason.NewEvalReasonPrerequisiteFailed("feature1")), result)
+	m.In(t).Assert(result, ResultDetailProps(1, offValue, ldreason.NewEvalReasonPrerequisiteFailed("feature1")))
 
 	assert.Equal(t, 1, len(eventSink.events))
 	e := eventSink.events[0]
 	assert.Equal(t, f0.Key, e.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e.Context)
 	assert.Equal(t, &f1, e.PrerequisiteFlag)
-	assert.Equal(t, ldreason.NewEvaluationDetail(ldvalue.String("nogo"), 0, ldreason.NewEvalReasonFallthrough()), e.PrerequisiteResult)
+	m.In(t).Assert(e.PrerequisiteResult, ResultDetailProps(0, ldvalue.String("nogo"), ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestFlagReturnsFallthroughVariationAndEventIfPrerequisiteIsMetAndThereAreNoRules(t *testing.T) {
@@ -111,14 +112,14 @@ func TestFlagReturnsFallthroughVariationAndEventIfPrerequisiteIsMetAndThereAreNo
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthrough()), result)
+	m.In(t).Assert(result, ResultDetailProps(0, fallthroughValue, ldreason.NewEvalReasonFallthrough()))
 
 	assert.Equal(t, 1, len(eventSink.events))
 	e := eventSink.events[0]
 	assert.Equal(t, f0.Key, e.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e.Context)
 	assert.Equal(t, &f1, e.PrerequisiteFlag)
-	assert.Equal(t, ldreason.NewEvaluationDetail(ldvalue.String("go"), 1, ldreason.NewEvalReasonFallthrough()), e.PrerequisiteResult)
+	m.In(t).Assert(e.PrerequisiteResult, ResultDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestPrerequisiteCanMatchWithNonScalarValue(t *testing.T) {
@@ -140,14 +141,14 @@ func TestPrerequisiteCanMatchWithNonScalarValue(t *testing.T) {
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthrough()), result)
+	m.In(t).Assert(result, ResultDetailProps(0, fallthroughValue, ldreason.NewEvalReasonFallthrough()))
 
 	assert.Equal(t, 1, len(eventSink.events))
 	e := eventSink.events[0]
 	assert.Equal(t, f0.Key, e.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e.Context)
 	assert.Equal(t, &f1, e.PrerequisiteFlag)
-	assert.Equal(t, ldreason.NewEvaluationDetail(prereqVar1, 1, ldreason.NewEvalReasonFallthrough()), e.PrerequisiteResult)
+	m.In(t).Assert(e.PrerequisiteResult, ResultDetailProps(1, prereqVar1, ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestMultipleLevelsOfPrerequisiteProduceMultipleEvents(t *testing.T) {
@@ -173,7 +174,7 @@ func TestMultipleLevelsOfPrerequisiteProduceMultipleEvents(t *testing.T) {
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthrough()), result)
+	m.In(t).Assert(result, ResultDetailProps(0, fallthroughValue, ldreason.NewEvalReasonFallthrough()))
 
 	assert.Equal(t, 2, len(eventSink.events))
 	// events are generated recursively, so the deepest level of prerequisite appears first
@@ -182,13 +183,13 @@ func TestMultipleLevelsOfPrerequisiteProduceMultipleEvents(t *testing.T) {
 	assert.Equal(t, f1.Key, e0.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e0.Context)
 	assert.Equal(t, &f2, e0.PrerequisiteFlag)
-	assert.Equal(t, ldreason.NewEvaluationDetail(ldvalue.String("go"), 1, ldreason.NewEvalReasonFallthrough()), e0.PrerequisiteResult)
+	m.In(t).Assert(e0.PrerequisiteResult, ResultDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
 
 	e1 := eventSink.events[1]
 	assert.Equal(t, f0.Key, e1.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e1.Context)
 	assert.Equal(t, &f1, e1.PrerequisiteFlag)
-	assert.Equal(t, ldreason.NewEvaluationDetail(ldvalue.String("go"), 1, ldreason.NewEvalReasonFallthrough()), e1.PrerequisiteResult)
+	m.In(t).Assert(e1.PrerequisiteResult, ResultDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestPrerequisiteCycleLeadingBackToOriginalFlagReturnsErrorAndDoesNotOverflow(t *testing.T) {
@@ -215,7 +216,7 @@ func TestPrerequisiteCycleLeadingBackToOriginalFlagReturnsErrorAndDoesNotOverflo
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+	m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
 
 	assert.Len(t, eventSink.events, 0)
 }
@@ -244,7 +245,7 @@ func TestPrerequisiteCycleNotInvolvingOriginalFlagReturnsErrorAndDoesNotOverflow
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+	m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
 
 	assert.Len(t, eventSink.events, 0)
 }
@@ -271,7 +272,7 @@ func TestPrerequisiteCycleCausesErrorToBeLogged(t *testing.T) {
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+	m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
 
 	assert.Len(t, eventSink.events, 0)
 

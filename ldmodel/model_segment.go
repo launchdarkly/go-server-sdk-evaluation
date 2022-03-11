@@ -45,27 +45,6 @@ type Segment struct {
 	preprocessed segmentPreprocessedData
 }
 
-// GetKey returns the string key for the segment.
-//
-// This method exists in order to conform to interfaces used internally by the SDK.
-func (s *Segment) GetKey() string {
-	return s.Key
-}
-
-// GetVersion returns the version of the segment.
-//
-// This method exists in order to conform to interfaces used internally by the SDK.
-func (s *Segment) GetVersion() int {
-	return s.Version
-}
-
-// IsDeleted returns whether this is a deleted segment placeholder.
-//
-// This method exists in order to conform to interfaces used internally by the SDK.
-func (s *Segment) IsDeleted() bool {
-	return s.Deleted
-}
-
 // SegmentRule describes a single rule within a user segment.
 type SegmentRule struct {
 	// ID is a randomized identifier assigned to each rule when it is created.

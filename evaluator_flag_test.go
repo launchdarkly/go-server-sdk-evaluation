@@ -6,6 +6,7 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
+	m "github.com/launchdarkly/go-test-helpers/v2/matchers"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
@@ -32,9 +33,8 @@ func TestFlagReturnsOffVariationIfFlagIsOff(t *testing.T) {
 		Build()
 
 	result := basicEvaluator().Evaluate(&f, flagTestContext, FailOnAnyPrereqEvent(t))
-	assert.Equal(t, offValue, result.Value)
-	assert.Equal(t, ldvalue.NewOptionalInt(1), result.VariationIndex)
-	assert.Equal(t, ldreason.NewEvalReasonOff(), result.Reason)
+	m.In(t).Assert(result, ResultDetailProps(1, offValue, ldreason.NewEvalReasonOff()))
+	assert.False(t, result.IsExperiment)
 }
 
 func TestFlagReturnsNilIfFlagIsOffAndOffVariationIsUnspecified(t *testing.T) {
@@ -45,7 +45,8 @@ func TestFlagReturnsNilIfFlagIsOffAndOffVariationIsUnspecified(t *testing.T) {
 		Build()
 
 	result := basicEvaluator().Evaluate(&f, flagTestContext, FailOnAnyPrereqEvent(t))
-	assert.Equal(t, ldreason.EvaluationDetail{Reason: ldreason.NewEvalReasonOff()}, result)
+	m.In(t).Assert(result.Detail, EvalDetailEquals(ldreason.EvaluationDetail{Reason: ldreason.NewEvalReasonOff()}))
+	assert.False(t, result.IsExperiment)
 }
 
 func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
@@ -56,7 +57,8 @@ func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
 		Build()
 
 	result := basicEvaluator().Evaluate(&f, flagTestContext, FailOnAnyPrereqEvent(t))
-	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthrough()), result)
+	m.In(t).Assert(result, ResultDetailProps(0, fallthroughValue, ldreason.NewEvalReasonFallthrough()))
+	assert.False(t, result.IsExperiment)
 }
 
 func TestFlagMatchesUserFromRules(t *testing.T) {
@@ -64,7 +66,8 @@ func TestFlagMatchesUserFromRules(t *testing.T) {
 	f := makeFlagToMatchUser(user, ldbuilders.Variation(2))
 
 	result := basicEvaluator().Evaluate(&f, user, FailOnAnyPrereqEvent(t))
-	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonRuleMatch(0, "rule-id")), result)
+	m.In(t).Assert(result, ResultDetailProps(2, onValue, ldreason.NewEvalReasonRuleMatch(0, "rule-id")))
+	assert.False(t, result.IsExperiment)
 }
 
 func TestFlagReturnsWhetherUserWasInFallthroughExperiment(t *testing.T) {
@@ -86,15 +89,18 @@ func TestFlagReturnsWhetherUserWasInFallthroughExperiment(t *testing.T) {
 
 	result := basicEvaluator().Evaluate(&f, user1, nil)
 	// bucketVal = 0.09801207
-	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthroughExperiment(true)), result)
+	m.In(t).Assert(result, ResultDetailProps(0, fallthroughValue, ldreason.NewEvalReasonFallthroughExperiment(true)))
+	assert.True(t, result.IsExperiment)
 
 	result = basicEvaluator().Evaluate(&f, user2, nil)
 	// bucketVal = 0.14483777
-	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonFallthroughExperiment(true)), result)
+	m.In(t).Assert(result, ResultDetailProps(2, onValue, ldreason.NewEvalReasonFallthroughExperiment(true)))
+	assert.True(t, result.IsExperiment)
 
 	result = basicEvaluator().Evaluate(&f, user3, nil)
 	// bucketVal = 0.9242641
-	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonFallthroughExperiment(false)), result)
+	m.In(t).Assert(result, ResultDetailProps(0, fallthroughValue, ldreason.NewEvalReasonFallthrough()))
+	assert.False(t, result.IsExperiment)
 }
 
 func TestFlagReturnsWhetherUserWasInRuleExperiment(t *testing.T) {
@@ -116,15 +122,18 @@ func TestFlagReturnsWhetherUserWasInRuleExperiment(t *testing.T) {
 
 	result := basicEvaluator().Evaluate(&f, user1, nil)
 	// bucketVal = 0.09801207
-	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonRuleMatchExperiment(0, "rule-id", true)), result)
+	m.In(t).Assert(result, ResultDetailProps(0, fallthroughValue, ldreason.NewEvalReasonRuleMatchExperiment(0, "rule-id", true)))
+	assert.True(t, result.IsExperiment)
 
 	result = basicEvaluator().Evaluate(&f, user2, nil)
 	// bucketVal = 0.14483777
-	assert.Equal(t, ldreason.NewEvaluationDetail(onValue, 2, ldreason.NewEvalReasonRuleMatchExperiment(0, "rule-id", true)), result)
+	m.In(t).Assert(result, ResultDetailProps(2, onValue, ldreason.NewEvalReasonRuleMatchExperiment(0, "rule-id", true)))
+	assert.True(t, result.IsExperiment)
 
 	result = basicEvaluator().Evaluate(&f, user3, nil)
 	// bucketVal = 0.9242641
-	assert.Equal(t, ldreason.NewEvaluationDetail(fallthroughValue, 0, ldreason.NewEvalReasonRuleMatchExperiment(0, "rule-id", false)), result)
+	m.In(t).Assert(result, ResultDetailProps(0, fallthroughValue, ldreason.NewEvalReasonRuleMatch(0, "rule-id")))
+	assert.False(t, result.IsExperiment)
 }
 
 func TestMalformedFlagErrorForBadFlagProperties(t *testing.T) {
@@ -181,8 +190,7 @@ func TestMalformedFlagErrorForBadFlagProperties(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			t.Run("returns error", func(t *testing.T) {
 				result := basicEvaluator().Evaluate(&p.flag, p.context, FailOnAnyPrereqEvent(t))
-
-				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+				m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
 			})
 
 			t.Run("logs error", func(t *testing.T) {
@@ -212,5 +220,5 @@ func TestUserNotSpecifiedErrorForInvalidContext(t *testing.T) {
 		Build()
 
 	result := basicEvaluator().Evaluate(&f, badContext, FailOnAnyPrereqEvent(t))
-	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null()), result)
+	assertResultDetail(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null()), result)
 }

@@ -24,6 +24,19 @@ import (
 //       }
 // The rationale is the same as above, and is safe as long as the same conditions apply.
 
+// Result encapsulates all information returned by Evaluator.Evaluate.
+type Result struct {
+	// Detail contains the evaluation detail fields.
+	Detail ldreason.EvaluationDetail
+
+	// IsExperiment is true if this evaluation result was determined by an experiment. Normally if
+	// this is true, then Detail.Reason will also communicate that fact, but there are some cases
+	// related to the older experimentation model where this field may be true even if Detail.Reason
+	// does not say anything special. When the SDK submits evaluation information to the event
+	// processor, it should set the RequireReason field in ldevents.FlagEventProperties to this value.
+	IsExperiment bool
+}
+
 type evaluator struct {
 	dataProvider       DataProvider
 	bigSegmentProvider BigSegmentProvider
@@ -73,9 +86,9 @@ func (e *evaluator) Evaluate(
 	flag *ldmodel.FeatureFlag,
 	context ldcontext.Context,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
-) ldreason.EvaluationDetail {
+) Result {
 	if context.Err() != nil {
-		return ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null())
+		return Result{Detail: ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null())}
 	}
 
 	es := evaluationScope{
@@ -89,12 +102,12 @@ func (e *evaluator) Evaluate(
 	// of nested prerequisites before appending to the slice will cause a heap allocation.
 	prerequisiteChain := make([]string, 0, 20)
 
-	result, _ := es.evaluate(prerequisiteChain)
+	detail, _ := es.evaluate(prerequisiteChain)
 	if es.bigSegmentsReferenced {
-		result.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(result.Reason,
+		detail.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(detail.Reason,
 			es.bigSegmentsStatus)
 	}
-	return result
+	return Result{Detail: detail, IsExperiment: isExperiment(flag, detail.Reason)}
 }
 
 // Entry point for evaluating a flag which could be either the original flag or a prerequisite.
@@ -191,20 +204,23 @@ func (es *evaluationScope) checkPrerequisites(prerequisiteChain []string) (ldrea
 		}
 		prereqOK := true
 
-		prereqResult, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, prerequisiteChain)
+		prereqResultDetail, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, prerequisiteChain)
 		if !prereqValid {
 			// In this case we want to immediately exit with an error and not check any more prereqs
 			return ldreason.NewEvalReasonError(ldreason.EvalErrorMalformedFlag), false
 		}
-		if !prereqFeatureFlag.On || prereqResult.IsDefaultValue() ||
-			prereqResult.VariationIndex.IntValue() != prereq.Variation {
+		if !prereqFeatureFlag.On || prereqResultDetail.IsDefaultValue() ||
+			prereqResultDetail.VariationIndex.IntValue() != prereq.Variation {
 			// Note that if the prerequisite flag is off, we don't consider it a match no matter what its
 			// off variation was. But we still need to evaluate it in order to generate an event.
 			prereqOK = false
 		}
 
 		if es.prerequisiteFlagEventRecorder != nil {
-			event := PrerequisiteFlagEvent{es.flag.Key, es.context, prereqFeatureFlag, prereqResult}
+			event := PrerequisiteFlagEvent{es.flag.Key, es.context, prereqFeatureFlag, Result{
+				Detail:       prereqResultDetail,
+				IsExperiment: isExperiment(prereqFeatureFlag, prereqResultDetail.Reason),
+			}}
 			es.prerequisiteFlagEventRecorder(event)
 		}
 
@@ -388,4 +404,23 @@ func reasonToExperimentReason(reason ldreason.EvaluationReason) ldreason.Evaluat
 	default:
 		return reason // COVERAGE: unreachable
 	}
+}
+
+func isExperiment(flag *ldmodel.FeatureFlag, reason ldreason.EvaluationReason) bool {
+	// If the reason says we're in an experiment, we are. Otherwise, apply
+	// the legacy rule exclusion logic.
+	if reason.IsInExperiment() {
+		return true
+	}
+
+	switch reason.GetKind() {
+	case ldreason.EvalReasonFallthrough:
+		return flag.TrackEventsFallthrough
+	case ldreason.EvalReasonRuleMatch:
+		i := reason.GetRuleIndex()
+		if i >= 0 && i < len(flag.Rules) {
+			return flag.Rules[i].TrackEvents
+		}
+	}
+	return false
 }
