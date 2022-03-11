@@ -83,14 +83,13 @@ func TestMalformedFlagErrorForBadClauseProperties(t *testing.T) {
 		{
 			name:    "undefined attribute",
 			context: basicContext,
-			clause:  ldmodel.Clause{Op: ldmodel.OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}},
+			clause:  ldbuilders.ClauseRef(ldattr.Ref{}, ldmodel.OperatorIn, ldvalue.String("a")),
 			message: "rule clause did not specify an attribute",
 		},
 		{
 			name:    "invalid attribute reference",
 			context: basicContext,
-			clause: ldmodel.Clause{Attribute: ldattr.NewRef("///"),
-				Op: ldmodel.OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}},
+			clause:  ldbuilders.ClauseRef(ldattr.NewRef("///"), ldmodel.OperatorIn, ldvalue.String("a")),
 			message: "invalid context attribute reference",
 		},
 	} {

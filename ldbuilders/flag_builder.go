@@ -223,9 +223,34 @@ func Clause(attr string, op ldmodel.Operator, values ...ldvalue.Value) ldmodel.C
 	return ldmodel.Clause{Attribute: ldattr.NewNameRef(attr), Op: op, Values: values}
 }
 
+// ClauseWithKind is like Clause, but also specifies a context kind.
+func ClauseWithKind(
+	contextKind ldcontext.Kind,
+	attr string,
+	op ldmodel.Operator,
+	values ...ldvalue.Value,
+) ldmodel.Clause {
+	return ldmodel.Clause{
+		ContextKind: contextKind,
+		Attribute:   ldattr.NewNameRef(attr),
+		Op:          op,
+		Values:      values,
+	}
+}
+
 // ClauseRef constructs a basic Clause, using the ldattr.Ref type for the attribute reference.
 func ClauseRef(attrRef ldattr.Ref, op ldmodel.Operator, values ...ldvalue.Value) ldmodel.Clause {
 	return ldmodel.Clause{Attribute: attrRef, Op: op, Values: values}
+}
+
+// ClauseRefWithKind is like ClauseRef, but also specifies a context kind.
+func ClauseRefWithKind(
+	contextKind ldcontext.Kind,
+	attrRef ldattr.Ref,
+	op ldmodel.Operator,
+	values ...ldvalue.Value,
+) ldmodel.Clause {
+	return ldmodel.Clause{ContextKind: contextKind, Attribute: attrRef, Op: op, Values: values}
 }
 
 // Negate returns the same Clause with the Negated property set to true.

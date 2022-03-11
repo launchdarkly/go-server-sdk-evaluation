@@ -195,7 +195,7 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 			context: basicContext,
 			segment: ldbuilders.NewSegmentBuilder("segkey").
 				AddRule(ldbuilders.NewSegmentRuleBuilder().
-					Clauses(ldmodel.Clause{Op: ldmodel.OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}}).
+					Clauses(ldbuilders.ClauseRef(ldattr.Ref{}, ldmodel.OperatorIn, ldvalue.String("a"))).
 					BucketByRef(ldattr.NewRef("///")).
 					Weight(30000)).
 				Salt("salty").
@@ -207,8 +207,7 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 			context: basicContext,
 			segment: ldbuilders.NewSegmentBuilder("segkey").
 				AddRule(ldbuilders.NewSegmentRuleBuilder().
-					Clauses(ldmodel.Clause{Attribute: ldattr.NewRef("///"),
-						Op: ldmodel.OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}}).
+					Clauses(ldbuilders.ClauseRef(ldattr.NewRef("///"), ldmodel.OperatorIn, ldvalue.String("a"))).
 					BucketByRef(ldattr.NewRef("///")).
 					Weight(30000)).
 				Build(),

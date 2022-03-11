@@ -50,6 +50,8 @@ It is important to keep unit test coverage as close to 100% as possible in this 
 
 The build will fail if there are any uncovered blocks of code, unless you explicitly add an override by placing a comment that starts with `// COVERAGE` somewhere within that block. Sometimes a gap in coverage is unavoidable, usually because the compiler requires us to provide a code path for some condition that in practice can't happen and can't be tested. Exclude these paths with a `// COVERAGE` comment.
 
+Many of the parameterized tests in this project are redundant with contract test cases in `sdk-test-harness`. This is deliberate. The contract tests cover a thorough set of permutations of evaluation inputs for the server-side SDKs in general, including the Go SDK-- but, since the `go-server-sdk-evaluation` code is also used outside of the SDK, it's desirable to have equally thorough test coverage within this project.
+
 ### Avoid heap allocations
 
 The Go SDK can be used in high-traffic application/service code where performance is critical. There are a number of coding principles to keep in mind for maximizing performance. The benchmarks that are run in CI are helpful in measuring the impact of code changes in this regard.

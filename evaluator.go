@@ -74,6 +74,10 @@ func (e *evaluator) Evaluate(
 	context ldcontext.Context,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 ) ldreason.EvaluationDetail {
+	if context.Err() != nil {
+		return ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null())
+	}
+
 	es := evaluationScope{
 		owner:                         e,
 		flag:                          flag,
@@ -283,19 +287,6 @@ func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.Optio
 	return ldvalue.OptionalInt{}
 }
 
-func getApplicableContextByKind(baseContext *ldcontext.Context, kind ldcontext.Kind) (ldcontext.Context, bool) {
-	if kind == "" {
-		kind = ldcontext.DefaultKind
-	}
-	if baseContext.Multiple() {
-		return baseContext.MultiKindByName(kind)
-	}
-	if baseContext.Kind() == kind {
-		return *baseContext, true
-	}
-	return ldcontext.Context{}, false
-}
-
 func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) (bool, error) {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
 	for _, clause := range rule.Clauses {
@@ -373,6 +364,19 @@ func (es *evaluationScope) logEvaluationError(err error) {
 		es.flag.Key,
 		err,
 	)
+}
+
+func getApplicableContextByKind(baseContext *ldcontext.Context, kind ldcontext.Kind) (ldcontext.Context, bool) {
+	if kind == "" {
+		kind = ldcontext.DefaultKind
+	}
+	if baseContext.Multiple() {
+		return baseContext.MultiKindByName(kind)
+	}
+	if baseContext.Kind() == kind {
+		return *baseContext, true
+	}
+	return ldcontext.Context{}, false
 }
 
 func reasonToExperimentReason(reason ldreason.EvaluationReason) ldreason.EvaluationReason {
