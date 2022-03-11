@@ -29,7 +29,7 @@ func (es *evaluationScope) computeBucketValue(
 	} else if attr.Err() != nil {
 		return 0, attr.Err()
 	}
-	selectedContext, ok := es.getApplicableContextByKind(contextKind)
+	selectedContext, ok := getApplicableContextByKind(&es.context, contextKind)
 	if !ok {
 		return 0, nil
 	}

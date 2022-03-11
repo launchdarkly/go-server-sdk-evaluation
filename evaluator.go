@@ -1,7 +1,6 @@
 package evaluation
 
 import (
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/internal"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
@@ -130,7 +129,7 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 		match, err := es.ruleMatchesUser(&rule) //nolint:gosec // see comments at top of file
 		if err != nil {
 			es.logEvaluationError(err)
-			return ldreason.NewEvaluationDetailForError(internal.ErrorKindForError(err), ldvalue.Null()), false
+			return ldreason.NewEvaluationDetailForError(errorKindForError(err), ldvalue.Null()), false
 		}
 		if match {
 			reason := ldreason.NewEvalReasonRuleMatch(ruleIndex, rule.ID)
@@ -150,7 +149,7 @@ func (es *evaluationScope) evaluatePrerequisite(
 ) (ldreason.EvaluationDetail, bool) {
 	for _, p := range prerequisiteChain {
 		if prereqFlag.Key == p {
-			err := internal.CircularPrereqReferenceError(prereqFlag.Key)
+			err := circularPrereqReferenceError(prereqFlag.Key)
 			es.logEvaluationError(err)
 			return ldreason.EvaluationDetail{}, false
 		}
@@ -214,9 +213,9 @@ func (es *evaluationScope) checkPrerequisites(prerequisiteChain []string) (ldrea
 
 func (es *evaluationScope) getVariation(index int, reason ldreason.EvaluationReason) ldreason.EvaluationDetail {
 	if index < 0 || index >= len(es.flag.Variations) {
-		err := internal.BadVariationError(index)
+		err := badVariationError(index)
 		es.logEvaluationError(err)
-		return ldreason.NewEvaluationDetailForError(err.ErrorKind(), ldvalue.Null())
+		return ldreason.NewEvaluationDetailForError(err.errorKind(), ldvalue.Null())
 	}
 	return ldreason.NewEvaluationDetail(es.flag.Variations[index], index, reason)
 }
@@ -235,7 +234,7 @@ func (es *evaluationScope) getValueForVariationOrRollout(
 	index, inExperiment, err := es.variationOrRolloutResult(vr, es.flag.Key, es.flag.Salt)
 	if err != nil {
 		es.logEvaluationError(err)
-		return ldreason.NewEvaluationDetailForError(internal.ErrorKindForError(err), ldvalue.Null())
+		return ldreason.NewEvaluationDetailForError(errorKindForError(err), ldvalue.Null())
 	}
 	if inExperiment {
 		reason = reasonToExperimentReason(reason)
@@ -276,23 +275,23 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 }
 
 func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.OptionalInt {
-	if context, ok := es.getApplicableContextByKind(t.ContextKind); ok {
-		if ldmodel.TargetContainsKey(t, context.Key()) {
+	if context, ok := getApplicableContextByKind(&es.context, t.ContextKind); ok {
+		if ldmodel.EvaluatorAccessors.TargetFindKey(t, context.Key()) {
 			return ldvalue.NewOptionalInt(t.Variation)
 		}
 	}
 	return ldvalue.OptionalInt{}
 }
 
-func (es *evaluationScope) getApplicableContextByKind(kind ldcontext.Kind) (ldcontext.Context, bool) {
+func getApplicableContextByKind(baseContext *ldcontext.Context, kind ldcontext.Kind) (ldcontext.Context, bool) {
 	if kind == "" {
 		kind = ldcontext.DefaultKind
 	}
-	if es.context.Multiple() {
-		return es.context.MultiKindByName(kind)
+	if baseContext.Multiple() {
+		return baseContext.MultiKindByName(kind)
 	}
-	if es.context.Kind() == kind {
-		return es.context, true
+	if baseContext.Kind() == kind {
+		return *baseContext, true
 	}
 	return ldcontext.Context{}, false
 }
@@ -329,7 +328,7 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) (bool, erro
 		return clause.Negate, nil // non-match - false unless negated
 	}
 
-	return ldmodel.ClauseMatchesContext(clause, &es.context)
+	return clauseMatchesContext(clause, &es.context)
 }
 
 func (es *evaluationScope) variationOrRolloutResult(
@@ -339,7 +338,7 @@ func (es *evaluationScope) variationOrRolloutResult(
 	}
 	if len(r.Rollout.Variations) == 0 {
 		// This is an error (malformed flag); either Variation or Rollout must be non-nil.
-		return -1, false, internal.EmptyRolloutError{}
+		return -1, false, emptyRolloutError{}
 	}
 
 	bucketVal, err := es.computeBucketValue(r.Rollout.Seed, r.Rollout.ContextKind, key, r.Rollout.BucketBy, salt)

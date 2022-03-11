@@ -125,8 +125,8 @@ func preprocessClause(c Clause) clausePreprocessedData {
 		}
 	case OperatorMatches:
 		ret.values = preprocessValues(c.Values, func(v ldvalue.Value) clausePreprocessedValue {
-			r, ok := parseRegexp(v)
-			return clausePreprocessedValue{valid: ok, parsedRegexp: r}
+			r := parseRegexp(v)
+			return clausePreprocessedValue{valid: r != nil, parsedRegexp: r}
 		})
 	case OperatorBefore, OperatorAfter:
 		ret.values = preprocessValues(c.Values, func(v ldvalue.Value) clausePreprocessedValue {

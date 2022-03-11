@@ -1,13 +1,13 @@
-package ldmodel
+package evaluation
 
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -19,7 +19,7 @@ const dateMs2 = 10000001
 const invalidDate = "hey what's this?"
 
 type opTestInfo struct {
-	opName           Operator
+	opName           ldmodel.Operator
 	userValue        interface{}
 	clauseValue      interface{}
 	moreClauseValues []interface{}
@@ -69,16 +69,6 @@ var operatorTests = []opTestInfo{
 	{"in", true, false, nil, false},
 	{"in", false, true, nil, false},
 	{"in", true, false, []interface{}{true}, true},
-
-	// equality of JSON array values - note that the user value must be an array *of arrays*, because a single-level
-	// array is interpreted as "any of these values"
-	{"in", []interface{}{[]interface{}{"x"}}, []interface{}{"x"}, nil, true},
-	{"in", []interface{}{[]interface{}{"x"}}, []interface{}{"x"}, []interface{}{[]interface{}{"a"}, []interface{}{"b"}}, true},
-
-	// equality of JSON object values
-	{"in", map[string]interface{}{"x": "1"}, map[string]interface{}{"x": "1"}, nil, true},
-	{"in", map[string]interface{}{"x": "1"}, map[string]interface{}{"x": "1"},
-		[]interface{}{map[string]interface{}{"a": "2"}, map[string]interface{}{"b": "3"}}, true},
 
 	// regex
 	{"matches", "hello world", "hello.*rld", nil, true},
@@ -138,79 +128,26 @@ func TestAllOperators(t *testing.T) {
 				func(t *testing.T) {
 					uValue := ldvalue.CopyArbitraryValue(ti.userValue)
 					cValue := ldvalue.CopyArbitraryValue(ti.clauseValue)
-					c := Clause{Attribute: ldattr.NewNameRef(userAttr), Op: ti.opName}
+					c := ldmodel.Clause{Attribute: ldattr.NewNameRef(userAttr), Op: ti.opName}
 					for _, v := range ti.moreClauseValues {
 						c.Values = append(c.Values, ldvalue.CopyArbitraryValue(v))
 					}
 					c.Values = append(c.Values, cValue)
 					if withPreprocessing {
-						c.preprocessed = preprocessClause(c)
+						flag := ldmodel.FeatureFlag{
+							Rules: []ldmodel.FlagRule{
+								{Clauses: []ldmodel.Clause{c}},
+							},
+						}
+						ldmodel.PreprocessFlag(&flag)
+						c = flag.Rules[0].Clauses[0]
 					}
 					context := lduser.NewUserBuilder("key").Custom(userAttr, uValue).Build()
-					isMatch, err := ClauseMatchesContext(&c, &context)
+					isMatch, err := clauseMatchesContext(&c, &context)
 					assert.NoError(t, err)
 					assert.Equal(t, ti.expected, isMatch)
 				},
 			)
 		}
-	}
-}
-
-func TestParseDateZero(t *testing.T) {
-	expectedTimeStamp := "1970-01-01T00:00:00Z"
-	expected, _ := time.Parse(time.RFC3339Nano, expectedTimeStamp)
-	testParseTime(t, expected, expected)
-	testParseTime(t, 0, expected)
-	testParseTime(t, 0.0, expected)
-	testParseTime(t, expectedTimeStamp, expected)
-}
-
-func TestParseUtcTimestamp(t *testing.T) {
-	expectedTimeStamp := "2016-04-16T22:57:31.684Z"
-	expected, _ := time.Parse(time.RFC3339Nano, expectedTimeStamp)
-	testParseTime(t, expected, expected)
-	testParseTime(t, 1460847451684, expected)
-	testParseTime(t, 1460847451684.0, expected)
-	testParseTime(t, expectedTimeStamp, expected)
-}
-
-func TestParseTimezone(t *testing.T) {
-	expectedTimeStamp := "2016-04-16T17:09:12.759-07:00"
-	expected, _ := time.Parse(time.RFC3339Nano, expectedTimeStamp)
-	testParseTime(t, expected, expected)
-	testParseTime(t, 1460851752759, expected)
-	testParseTime(t, 1460851752759.0, expected)
-	testParseTime(t, expectedTimeStamp, expected)
-}
-
-func TestParseTimezoneNoMillis(t *testing.T) {
-	expectedTimeStamp := "2016-04-16T17:09:12-07:00"
-	expected, _ := time.Parse(time.RFC3339Nano, expectedTimeStamp)
-	testParseTime(t, expected, expected)
-	testParseTime(t, 1460851752000, expected)
-	testParseTime(t, 1460851752000.0, expected)
-	testParseTime(t, expectedTimeStamp, expected)
-}
-
-func TestParseTimestampBeforeEpoch(t *testing.T) {
-	expectedTimeStamp := "1969-12-31T23:57:56.544-00:00"
-	expected, _ := time.Parse(time.RFC3339Nano, expectedTimeStamp)
-	testParseTime(t, expected, expected)
-	testParseTime(t, -123456, expected)
-	testParseTime(t, -123456.0, expected)
-	testParseTime(t, expectedTimeStamp, expected)
-}
-
-func testParseTime(t *testing.T, input interface{}, expected time.Time) {
-	expectedUTC := expected.UTC()
-	value := ldvalue.CopyArbitraryValue(input)
-	actual, ok := parseDateTime(value)
-	if !ok {
-		t.Errorf("failed to parse: %s", value)
-		return
-	}
-
-	if !actual.Equal(expectedUTC) {
-		t.Errorf("Got unexpected result: %+v Expected: %+v when parsing: %s", actual, expectedUTC, value)
 	}
 }
