@@ -3,7 +3,6 @@ package ldmodel
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldtime"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
@@ -94,67 +93,6 @@ type FeatureFlag struct {
 	// deleted flag. This is only relevant in data store implementations. The SDK does not evaluate
 	// deleted flags.
 	Deleted bool
-}
-
-// GetKey returns the string key for the flag.
-//
-// This method exists in order to conform to interfaces used internally by the SDK.
-func (f *FeatureFlag) GetKey() string {
-	return f.Key
-}
-
-// GetVersion returns the version of the flag.
-//
-// This method exists in order to conform to interfaces used internally by the SDK.
-func (f *FeatureFlag) GetVersion() int {
-	return f.Version
-}
-
-// IsFullEventTrackingEnabled returns true if the flag has been configured to always generate detailed event data.
-//
-// This method exists in order to conform to interfaces used internally by the SDK
-// (go-sdk-events.v1/FlagEventProperties). It simply returns TrackEvents.
-func (f *FeatureFlag) IsFullEventTrackingEnabled() bool {
-	return f.TrackEvents
-}
-
-// GetDebugEventsUntilDate returns zero normally, but if event debugging has been temporarily enabled for the flag,
-// it returns the time at which debugging mode should expire.
-//
-// This method exists in order to conform to interfaces used internally by the SDK
-// (go-sdk-events.v1/FlagEventProperties). It simply returns DebugEventsUntilDate.
-func (f *FeatureFlag) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
-	return f.DebugEventsUntilDate
-}
-
-// IsExperimentationEnabled returns true if, based on the EvaluationReason returned by the flag evaluation, an event for
-// that evaluation should have full tracking enabled and always report the reason even if the application didn't
-// explicitly request this. For instance, this is true if a rule was matched that had tracking enabled for that specific
-// rule.
-//
-// This differs from IsFullEventTrackingEnabled() in that it is dependent on the result of a specific evaluation; also,
-// IsFullEventTrackingEnabled() being true does not imply that the event should always contain a reason, whereas
-// IsExperimentationEnabled() being true does force the reason to be included.
-//
-// This method exists in order to conform to interfaces used internally by the SDK
-// (go-sdk-events.v1/FlagEventProperties).
-func (f *FeatureFlag) IsExperimentationEnabled(reason ldreason.EvaluationReason) bool {
-	// If the reason says we're in an experiment, we are. Otherwise, apply
-	// the legacy rule exclusion logic.
-	if reason.IsInExperiment() {
-		return true
-	}
-
-	switch reason.GetKind() {
-	case ldreason.EvalReasonFallthrough:
-		return f.TrackEventsFallthrough
-	case ldreason.EvalReasonRuleMatch:
-		i := reason.GetRuleIndex()
-		if i >= 0 && i < len(f.Rules) {
-			return f.Rules[i].TrackEvents
-		}
-	}
-	return false
 }
 
 // FlagRule describes a single rule within a feature flag.

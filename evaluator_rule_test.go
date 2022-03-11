@@ -6,6 +6,7 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
+	m "github.com/launchdarkly/go-test-helpers/v2/matchers"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
@@ -50,8 +51,7 @@ func TestMalformedFlagErrorForBadRuleProperties(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			t.Run("returns error", func(t *testing.T) {
 				result := basicEvaluator().Evaluate(&p.flag, p.context, FailOnAnyPrereqEvent(t))
-
-				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+				m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
 			})
 
 			t.Run("logs error", func(t *testing.T) {
@@ -104,8 +104,7 @@ func TestMalformedFlagErrorForBadClauseProperties(t *testing.T) {
 
 			t.Run("returns error", func(t *testing.T) {
 				result := basicEvaluator().Evaluate(&flag, p.context, FailOnAnyPrereqEvent(t))
-
-				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
+				m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
 			})
 
 			t.Run("logs error", func(t *testing.T) {
@@ -135,6 +134,5 @@ func TestClauseWithUnknownOperatorDoesNotStopSubsequentRuleFromMatching(t *testi
 	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
 	result := basicEvaluator().Evaluate(&f, user, nil)
-	assert.True(t, result.Value.BoolValue())
-	assert.Equal(t, ldreason.NewEvalReasonRuleMatch(1, "good"), result.Reason)
+	m.In(t).Assert(result, ResultDetailProps(1, ldvalue.Bool(true), ldreason.NewEvalReasonRuleMatch(1, "good")))
 }

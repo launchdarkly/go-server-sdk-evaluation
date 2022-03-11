@@ -102,8 +102,8 @@ func TestBigSegmentWithNoProviderIsNotMatched(t *testing.T) {
 	f := booleanFlagWithSegmentMatch("segmentkey")
 
 	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
-	assert.Equal(t, ldvalue.Bool(false), result.Value)
-	assert.Equal(t, ldreason.BigSegmentsNotConfigured, result.Reason.GetBigSegmentsStatus())
+	assert.Equal(t, ldvalue.Bool(false), result.Detail.Value)
+	assert.Equal(t, ldreason.BigSegmentsNotConfigured, result.Detail.Reason.GetBigSegmentsStatus())
 }
 
 func TestBigSegmentWithNoGenerationIsNotMatched(t *testing.T) {
@@ -118,8 +118,8 @@ func TestBigSegmentWithNoGenerationIsNotMatched(t *testing.T) {
 	f := booleanFlagWithSegmentMatch(segment.Key)
 
 	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
-	assert.Equal(t, ldvalue.Bool(false), result.Value)
-	assert.Equal(t, ldreason.BigSegmentsNotConfigured, result.Reason.GetBigSegmentsStatus())
+	assert.Equal(t, ldvalue.Bool(false), result.Detail.Value)
+	assert.Equal(t, ldreason.BigSegmentsNotConfigured, result.Detail.Reason.GetBigSegmentsStatus())
 }
 
 func TestBigSegmentIsMatchedWithInclude(t *testing.T) {
@@ -135,8 +135,8 @@ func TestBigSegmentIsMatchedWithInclude(t *testing.T) {
 	f := booleanFlagWithSegmentMatch(segment.Key)
 
 	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
-	assert.Equal(t, ldvalue.Bool(true), result.Value)
-	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Reason.GetBigSegmentsStatus())
+	assert.Equal(t, ldvalue.Bool(true), result.Detail.Value)
+	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Detail.Reason.GetBigSegmentsStatus())
 }
 
 func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserShowsNoMatch(t *testing.T) {
@@ -154,8 +154,8 @@ func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserShowsNoMatch(t *testin
 	f := booleanFlagWithSegmentMatch(segment.Key)
 
 	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
-	assert.Equal(t, ldvalue.Bool(true), result.Value)
-	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Reason.GetBigSegmentsStatus())
+	assert.Equal(t, ldvalue.Bool(true), result.Detail.Value)
+	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Detail.Reason.GetBigSegmentsStatus())
 }
 
 func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserDoesNotExist(t *testing.T) {
@@ -172,8 +172,8 @@ func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserDoesNotExist(t *testin
 	f := booleanFlagWithSegmentMatch(segment.Key)
 
 	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
-	assert.Equal(t, ldvalue.Bool(true), result.Value)
-	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Reason.GetBigSegmentsStatus())
+	assert.Equal(t, ldvalue.Bool(true), result.Detail.Value)
+	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Detail.Reason.GetBigSegmentsStatus())
 }
 
 func TestBigSegmentIsUnmatchedByExcludeRegardlessOfRule(t *testing.T) {
@@ -191,8 +191,8 @@ func TestBigSegmentIsUnmatchedByExcludeRegardlessOfRule(t *testing.T) {
 	f := booleanFlagWithSegmentMatch(segment.Key)
 
 	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
-	assert.Equal(t, ldvalue.Bool(false), result.Value)
-	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Reason.GetBigSegmentsStatus())
+	assert.Equal(t, ldvalue.Bool(false), result.Detail.Value)
+	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Detail.Reason.GetBigSegmentsStatus())
 }
 
 func TestBigSegmentStatusIsReturnedFromProvider(t *testing.T) {
@@ -209,8 +209,8 @@ func TestBigSegmentStatusIsReturnedFromProvider(t *testing.T) {
 	f := booleanFlagWithSegmentMatch(segment.Key)
 
 	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
-	assert.Equal(t, ldvalue.Bool(true), result.Value)
-	assert.Equal(t, ldreason.BigSegmentsStale, result.Reason.GetBigSegmentsStatus())
+	assert.Equal(t, ldvalue.Bool(true), result.Detail.Value)
+	assert.Equal(t, ldreason.BigSegmentsStale, result.Detail.Reason.GetBigSegmentsStatus())
 }
 
 func TestBigSegmentStateIsQueriedOnlyOncePerUserEvenIfFlagReferencesMultipleSegments(t *testing.T) {
@@ -235,8 +235,8 @@ func TestBigSegmentStateIsQueriedOnlyOncePerUserEvenIfFlagReferencesMultipleSegm
 		Build()
 
 	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
-	assert.Equal(t, ldvalue.Bool(true), result.Value)
-	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Reason.GetBigSegmentsStatus())
+	assert.Equal(t, ldvalue.Bool(true), result.Detail.Value)
+	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Detail.Reason.GetBigSegmentsStatus())
 	assert.Equal(t, 1, bigSegmentsProvider.membershipUserQueryCount)
 	assert.Equal(t, []string{makeBigSegmentRef(&segment1), makeBigSegmentRef(&segment2)}, membership.segmentChecks)
 }
@@ -262,6 +262,6 @@ func TestBigSegmentStatusIsReturnedWhenBigSegmentWasReferencedFromPrerequisiteFl
 	)
 
 	result := evaluator.Evaluate(&f0, lduser.NewUser(basicUserKey), nil)
-	assert.Equal(t, ldvalue.Bool(true), result.Value)
-	assert.Equal(t, ldreason.BigSegmentsStale, result.Reason.GetBigSegmentsStatus())
+	assert.Equal(t, ldvalue.Bool(true), result.Detail.Value)
+	assert.Equal(t, ldreason.BigSegmentsStale, result.Detail.Reason.GetBigSegmentsStatus())
 }

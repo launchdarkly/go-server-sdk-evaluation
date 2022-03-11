@@ -23,7 +23,7 @@ type Evaluator interface {
 		flag *ldmodel.FeatureFlag,
 		context ldcontext.Context,
 		prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
-	) ldreason.EvaluationDetail
+	) Result
 }
 
 // PrerequisiteFlagEventRecorder is a function that Evaluator.Evaluate() will call to record the

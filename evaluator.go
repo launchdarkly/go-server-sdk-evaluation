@@ -24,6 +24,11 @@ import (
 //       }
 // The rationale is the same as above, and is safe as long as the same conditions apply.
 
+type Result struct {
+	Detail       ldreason.EvaluationDetail
+	IsExperiment bool
+}
+
 type evaluator struct {
 	dataProvider       DataProvider
 	bigSegmentProvider BigSegmentProvider
@@ -73,9 +78,9 @@ func (e *evaluator) Evaluate(
 	flag *ldmodel.FeatureFlag,
 	context ldcontext.Context,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
-) ldreason.EvaluationDetail {
+) Result {
 	if context.Err() != nil {
-		return ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null())
+		return Result{Detail: ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null())}
 	}
 
 	es := evaluationScope{
@@ -89,12 +94,12 @@ func (e *evaluator) Evaluate(
 	// of nested prerequisites before appending to the slice will cause a heap allocation.
 	prerequisiteChain := make([]string, 0, 20)
 
-	result, _ := es.evaluate(prerequisiteChain)
+	detail, _ := es.evaluate(prerequisiteChain)
 	if es.bigSegmentsReferenced {
-		result.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(result.Reason,
+		detail.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(detail.Reason,
 			es.bigSegmentsStatus)
 	}
-	return result
+	return Result{Detail: detail, IsExperiment: isExperiment(flag, detail.Reason)}
 }
 
 // Entry point for evaluating a flag which could be either the original flag or a prerequisite.
@@ -388,4 +393,23 @@ func reasonToExperimentReason(reason ldreason.EvaluationReason) ldreason.Evaluat
 	default:
 		return reason // COVERAGE: unreachable
 	}
+}
+
+func isExperiment(flag *ldmodel.FeatureFlag, reason ldreason.EvaluationReason) bool {
+	// If the reason says we're in an experiment, we are. Otherwise, apply
+	// the legacy rule exclusion logic.
+	if reason.IsInExperiment() {
+		return true
+	}
+
+	switch reason.GetKind() {
+	case ldreason.EvalReasonFallthrough:
+		return flag.TrackEventsFallthrough
+	case ldreason.EvalReasonRuleMatch:
+		i := reason.GetRuleIndex()
+		if i >= 0 && i < len(flag.Rules) {
+			return flag.Rules[i].TrackEvents
+		}
+	}
+	return false
 }
