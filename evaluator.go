@@ -204,20 +204,23 @@ func (es *evaluationScope) checkPrerequisites(prerequisiteChain []string) (ldrea
 		}
 		prereqOK := true
 
-		prereqResult, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, prerequisiteChain)
+		prereqResultDetail, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, prerequisiteChain)
 		if !prereqValid {
 			// In this case we want to immediately exit with an error and not check any more prereqs
 			return ldreason.NewEvalReasonError(ldreason.EvalErrorMalformedFlag), false
 		}
-		if !prereqFeatureFlag.On || prereqResult.IsDefaultValue() ||
-			prereqResult.VariationIndex.IntValue() != prereq.Variation {
+		if !prereqFeatureFlag.On || prereqResultDetail.IsDefaultValue() ||
+			prereqResultDetail.VariationIndex.IntValue() != prereq.Variation {
 			// Note that if the prerequisite flag is off, we don't consider it a match no matter what its
 			// off variation was. But we still need to evaluate it in order to generate an event.
 			prereqOK = false
 		}
 
 		if es.prerequisiteFlagEventRecorder != nil {
-			event := PrerequisiteFlagEvent{es.flag.Key, es.context, prereqFeatureFlag, prereqResult}
+			event := PrerequisiteFlagEvent{es.flag.Key, es.context, prereqFeatureFlag, Result{
+				Detail:       prereqResultDetail,
+				IsExperiment: isExperiment(prereqFeatureFlag, prereqResultDetail.Reason),
+			}}
 			es.prerequisiteFlagEventRecorder(event)
 		}
 

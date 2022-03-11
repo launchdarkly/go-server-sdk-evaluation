@@ -44,7 +44,7 @@ type PrerequisiteFlagEvent struct {
 	// must not modify the flag's properties.
 	PrerequisiteFlag *ldmodel.FeatureFlag
 	// PrerequisiteResult is the result of evaluating the prerequisite flag.
-	PrerequisiteResult ldreason.EvaluationDetail
+	PrerequisiteResult Result
 }
 
 // DataProvider is an abstraction for querying feature flags and user segments from a data store.

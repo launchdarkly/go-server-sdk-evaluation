@@ -65,7 +65,7 @@ func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsOff(t *testing.T) {
 	assert.Equal(t, f0.Key, e.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e.Context)
 	assert.Equal(t, &f1, e.PrerequisiteFlag)
-	m.In(t).Assert(e.PrerequisiteResult, EvalDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonOff()))
+	m.In(t).Assert(e.PrerequisiteResult, ResultDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonOff()))
 }
 
 func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsNotMet(t *testing.T) {
@@ -92,7 +92,7 @@ func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsNotMet(t *testing.T) {
 	assert.Equal(t, f0.Key, e.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e.Context)
 	assert.Equal(t, &f1, e.PrerequisiteFlag)
-	m.In(t).Assert(e.PrerequisiteResult, EvalDetailProps(0, ldvalue.String("nogo"), ldreason.NewEvalReasonFallthrough()))
+	m.In(t).Assert(e.PrerequisiteResult, ResultDetailProps(0, ldvalue.String("nogo"), ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestFlagReturnsFallthroughVariationAndEventIfPrerequisiteIsMetAndThereAreNoRules(t *testing.T) {
@@ -119,7 +119,7 @@ func TestFlagReturnsFallthroughVariationAndEventIfPrerequisiteIsMetAndThereAreNo
 	assert.Equal(t, f0.Key, e.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e.Context)
 	assert.Equal(t, &f1, e.PrerequisiteFlag)
-	m.In(t).Assert(e.PrerequisiteResult, EvalDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
+	m.In(t).Assert(e.PrerequisiteResult, ResultDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestPrerequisiteCanMatchWithNonScalarValue(t *testing.T) {
@@ -148,7 +148,7 @@ func TestPrerequisiteCanMatchWithNonScalarValue(t *testing.T) {
 	assert.Equal(t, f0.Key, e.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e.Context)
 	assert.Equal(t, &f1, e.PrerequisiteFlag)
-	m.In(t).Assert(e.PrerequisiteResult, EvalDetailProps(1, prereqVar1, ldreason.NewEvalReasonFallthrough()))
+	m.In(t).Assert(e.PrerequisiteResult, ResultDetailProps(1, prereqVar1, ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestMultipleLevelsOfPrerequisiteProduceMultipleEvents(t *testing.T) {
@@ -183,13 +183,13 @@ func TestMultipleLevelsOfPrerequisiteProduceMultipleEvents(t *testing.T) {
 	assert.Equal(t, f1.Key, e0.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e0.Context)
 	assert.Equal(t, &f2, e0.PrerequisiteFlag)
-	m.In(t).Assert(e0.PrerequisiteResult, EvalDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
+	m.In(t).Assert(e0.PrerequisiteResult, ResultDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
 
 	e1 := eventSink.events[1]
 	assert.Equal(t, f0.Key, e1.TargetFlagKey)
 	assert.Equal(t, flagTestContext, e1.Context)
 	assert.Equal(t, &f1, e1.PrerequisiteFlag)
-	m.In(t).Assert(e1.PrerequisiteResult, EvalDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
+	m.In(t).Assert(e1.PrerequisiteResult, ResultDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
 }
 
 func TestPrerequisiteCycleLeadingBackToOriginalFlagReturnsErrorAndDoesNotOverflow(t *testing.T) {
