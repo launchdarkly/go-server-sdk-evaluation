@@ -20,21 +20,9 @@ func clauseMatchesContext(c *ldmodel.Clause, context *ldcontext.Context) (bool, 
 	if c.Attribute.String() == ldattr.KindAttr {
 		return maybeNegate(c.Negate, clauseMatchByKind(c, context)), nil
 	}
-	kind := c.Kind
-	if kind == "" {
-		kind = ldcontext.DefaultKind
-	}
-	actualContext := *context
-	if context.Multiple() {
-		if individualContext, ok := context.MultiKindByName(kind); ok {
-			actualContext = individualContext
-		} else {
-			return false, nil
-		}
-	} else {
-		if context.Kind() != kind {
-			return false, nil
-		}
+	actualContext, ok := getApplicableContextByKind(context, c.ContextKind)
+	if !ok {
+		return false, nil
 	}
 	uValue, _ := actualContext.GetValueForRef(c.Attribute)
 	if uValue.IsNull() {

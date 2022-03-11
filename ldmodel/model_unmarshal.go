@@ -118,8 +118,8 @@ func readTargets(r *jreader.Reader, out *[]Target) {
 		var t Target
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
-			case "kind":
-				t.Kind = ldcontext.Kind(r.String())
+			case "contextKind":
+				t.ContextKind = ldcontext.Kind(r.String())
 			case "values":
 				readStringList(r, &t.Values)
 			case "variation":
@@ -156,8 +156,8 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 		var clause Clause
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
-			case "kind":
-				clause.Kind = ldcontext.Kind(r.String())
+			case "contextKind":
+				clause.ContextKind = ldcontext.Kind(r.String())
 			case "attribute":
 				readAttrRef(r, &clause.Attribute)
 			case "op":

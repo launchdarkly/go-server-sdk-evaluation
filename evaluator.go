@@ -256,7 +256,7 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 		// kind (user), if there are no Values, we check for a corresponding target in Targets.
 		for _, t := range es.flag.ContextTargets {
 			var variation ldvalue.OptionalInt
-			if (t.Kind == "" || t.Kind == ldcontext.DefaultKind) && len(t.Values) == 0 {
+			if (t.ContextKind == "" || t.ContextKind == ldcontext.DefaultKind) && len(t.Values) == 0 {
 				for _, t1 := range es.flag.Targets {
 					if t1.Variation == t.Variation {
 						variation = es.targetMatchVariation(&t1) //nolint:gosec // see comments at top of file
@@ -275,7 +275,7 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 }
 
 func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.OptionalInt {
-	if context, ok := es.getApplicableContextByKind(t.Kind); ok {
+	if context, ok := getApplicableContextByKind(&es.context, t.ContextKind); ok {
 		if ldmodel.EvaluatorAccessors.TargetFindKey(t, context.Key()) {
 			return ldvalue.NewOptionalInt(t.Variation)
 		}
@@ -283,15 +283,15 @@ func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.Optio
 	return ldvalue.OptionalInt{}
 }
 
-func (es *evaluationScope) getApplicableContextByKind(kind ldcontext.Kind) (ldcontext.Context, bool) {
+func getApplicableContextByKind(baseContext *ldcontext.Context, kind ldcontext.Kind) (ldcontext.Context, bool) {
 	if kind == "" {
 		kind = ldcontext.DefaultKind
 	}
-	if es.context.Multiple() {
-		return es.context.MultiKindByName(kind)
+	if baseContext.Multiple() {
+		return baseContext.MultiKindByName(kind)
 	}
-	if es.context.Kind() == kind {
-		return es.context, true
+	if baseContext.Kind() == kind {
+		return *baseContext, true
 	}
 	return ldcontext.Context{}, false
 }
