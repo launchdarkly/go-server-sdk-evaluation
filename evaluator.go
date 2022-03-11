@@ -24,8 +24,16 @@ import (
 //       }
 // The rationale is the same as above, and is safe as long as the same conditions apply.
 
+// Result encapsulates all information returned by Evaluator.Evaluate.
 type Result struct {
-	Detail       ldreason.EvaluationDetail
+	// Detail contains the evaluation detail fields.
+	Detail ldreason.EvaluationDetail
+
+	// IsExperiment is true if this evaluation result was determined by an experiment. Normally if
+	// this is true, then Detail.Reason will also communicate that fact, but there are some cases
+	// related to the older experimentation model where this field may be true even if Detail.Reason
+	// does not say anything special. When the SDK submits evaluation information to the event
+	// processor, it should set the RequireReason field in ldevents.FlagEventProperties to this value.
 	IsExperiment bool
 }
 
