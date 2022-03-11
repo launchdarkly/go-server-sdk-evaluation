@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
+	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 
 	"github.com/stretchr/testify/assert"
@@ -128,7 +128,7 @@ func TestAllOperators(t *testing.T) {
 				func(t *testing.T) {
 					uValue := ldvalue.CopyArbitraryValue(ti.userValue)
 					cValue := ldvalue.CopyArbitraryValue(ti.clauseValue)
-					c := ldmodel.Clause{Attribute: ldattr.NewNameRef(userAttr), Op: ti.opName}
+					c := ldbuilders.Clause(userAttr, ti.opName)
 					for _, v := range ti.moreClauseValues {
 						c.Values = append(c.Values, ldvalue.CopyArbitraryValue(v))
 					}

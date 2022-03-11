@@ -14,6 +14,7 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var flagTestContext = lduser.NewUser("x")
@@ -197,4 +198,19 @@ func TestMalformedFlagErrorForBadFlagProperties(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestUserNotSpecifiedErrorForInvalidContext(t *testing.T) {
+	badContext := ldcontext.New("")
+	require.Error(t, badContext.Err())
+
+	f := ldbuilders.NewFlagBuilder("feature").
+		On(false).
+		OffVariation(1).
+		FallthroughVariation(0).
+		Variations(fallthroughValue, offValue, onValue).
+		Build()
+
+	result := basicEvaluator().Evaluate(&f, badContext, FailOnAnyPrereqEvent(t))
+	assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null()), result)
 }
