@@ -3,6 +3,7 @@ package evaluation
 import (
 	"fmt"
 
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/internal"
@@ -85,7 +86,8 @@ func (es *evaluationScope) segmentRuleMatchesUser(r *ldmodel.SegmentRule, key, s
 	}
 
 	// All of the clauses are met. Check to see if the user buckets in
-	bucket, err := es.bucketUser(ldvalue.OptionalInt{}, key, r.BucketBy, salt)
+	// TEMPORARY - instead of ldcontext.DefaultKind here, we will eventually have a Kind field in the segment
+	bucket, err := es.computeBucketValue(ldvalue.OptionalInt{}, ldcontext.DefaultKind, key, r.BucketBy, salt)
 	if err != nil {
 		return false, err
 	}

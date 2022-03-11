@@ -232,7 +232,7 @@ func (es *evaluationScope) getValueForVariationOrRollout(
 	vr ldmodel.VariationOrRollout,
 	reason ldreason.EvaluationReason,
 ) ldreason.EvaluationDetail {
-	index, inExperiment, err := es.variationIndexForUser(vr, es.flag.Key, es.flag.Salt)
+	index, inExperiment, err := es.variationOrRolloutResult(vr, es.flag.Key, es.flag.Salt)
 	if err != nil {
 		es.logEvaluationError(err)
 		return ldreason.NewEvaluationDetailForError(internal.ErrorKindForError(err), ldvalue.Null())
@@ -332,7 +332,7 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) (bool, erro
 	return ldmodel.ClauseMatchesContext(clause, &es.context)
 }
 
-func (es *evaluationScope) variationIndexForUser(
+func (es *evaluationScope) variationOrRolloutResult(
 	r ldmodel.VariationOrRollout, key, salt string) (variationIndex int, inExperiment bool, err error) {
 	if r.Variation.IsDefined() {
 		return r.Variation.IntValue(), false, nil
@@ -342,7 +342,7 @@ func (es *evaluationScope) variationIndexForUser(
 		return -1, false, internal.EmptyRolloutError{}
 	}
 
-	bucketVal, err := es.bucketUser(r.Rollout.Seed, key, r.Rollout.BucketBy, salt)
+	bucketVal, err := es.computeBucketValue(r.Rollout.Seed, r.Rollout.ContextKind, key, r.Rollout.BucketBy, salt)
 	if err != nil {
 		return -1, false, err
 	}

@@ -216,6 +216,11 @@ type Rollout struct {
 	// Kind specifies whether this rollout is a simple percentage rollout or represents an experiment. Experiments have
 	// different behaviour for tracking and variation bucketing.
 	Kind RolloutKind
+	// ContextKind is the context kind that this rollout will use to get any necessary context attributes.
+	//
+	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
+	// treated as ldcontext.DefaultKind.
+	ContextKind ldcontext.Kind
 	// Variations is a list of the variations in the percentage rollout and what percentage of users
 	// to include in each.
 	//

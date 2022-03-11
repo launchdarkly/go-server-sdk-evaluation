@@ -193,6 +193,8 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 		switch string(obj.Name()) {
 		case "kind":
 			out.Kind = RolloutKind(r.String())
+		case "contextKind":
+			out.ContextKind = ldcontext.Kind(r.String())
 		case "variations":
 			for arr := r.Array(); arr.Next(); {
 				var wv WeightedVariation
