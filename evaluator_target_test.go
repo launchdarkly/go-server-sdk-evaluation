@@ -60,10 +60,10 @@ func TestFlagMatchesContextFromTargets(t *testing.T) {
 			{Variation: matchVar2, Values: []string{"b", "a"}},
 		}
 		flag.ContextTargets = []ldmodel.Target{
-			{Kind: "dog", Variation: matchVar1, Values: []string{"a", "b"}},
-			{Kind: "dog", Variation: matchVar2, Values: []string{"c"}},
-			{Kind: "user", Variation: matchVar1},
-			{Kind: "user", Variation: matchVar2},
+			{ContextKind: "dog", Variation: matchVar1, Values: []string{"a", "b"}},
+			{ContextKind: "dog", Variation: matchVar2, Values: []string{"c"}},
+			{ContextKind: "user", Variation: matchVar1},
+			{ContextKind: "user", Variation: matchVar2},
 		}
 		ldmodel.PreprocessFlag(&flag)
 
