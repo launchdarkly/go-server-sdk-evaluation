@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/internal"
@@ -29,7 +30,26 @@ func ClauseMatchesContext(c *Clause, context *ldcontext.Context) (bool, error) {
 	if c.Attribute.Err() != nil {
 		return false, internal.BadAttrRefError(c.Attribute.String())
 	}
-	uValue, _ := context.GetValueForRef(c.Attribute)
+	if c.Attribute.String() == ldattr.KindAttr {
+		return maybeNegate(c.Negate, clauseMatchByKind(c, context)), nil
+	}
+	kind := c.ContextKind
+	if kind == "" {
+		kind = ldcontext.DefaultKind
+	}
+	actualContext := *context
+	if context.Multiple() {
+		if individualContext, ok := context.MultiKindByName(kind); ok {
+			actualContext = individualContext
+		} else {
+			return false, nil
+		}
+	} else {
+		if context.Kind() != kind {
+			return false, nil
+		}
+	}
+	uValue, _ := actualContext.GetValueForRef(c.Attribute)
 	if uValue.IsNull() {
 		// if the user attribute is null/missing, it's an automatic non-match - regardless of c.Negate
 		return false, nil
@@ -79,6 +99,26 @@ func matchAny(
 		}
 	}
 	return false
+}
+
+func clauseMatchByKind(c *Clause, context *ldcontext.Context) bool {
+	// If Attribute is "kind", then we treat Operator and Values as a match expression against a list
+	// of all individual kinds in the context. That is, for a multi-kind context with kinds of "org"
+	// and "user", it is a match if either of those strings is a match with Operator and Values.
+	matchFn := operatorFn(c.Op)
+	if context.Multiple() {
+		for i := 0; i < context.MultiKindCount(); i++ {
+			if individualContext, ok := context.MultiKindByIndex(i); ok {
+				uValue := ldvalue.String(string(individualContext.Kind()))
+				if matchAny(c.Op, matchFn, uValue, c.Values, c.preprocessed) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	uValue := ldvalue.String(string(context.Kind()))
+	return matchAny(c.Op, matchFn, uValue, c.Values, c.preprocessed)
 }
 
 type opFn (func(userValue ldvalue.Value, clauseValue ldvalue.Value, preprocessed clausePreprocessedValue) bool)

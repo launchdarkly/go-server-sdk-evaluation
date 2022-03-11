@@ -14,6 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type prereqEventSink struct {
+	events []PrerequisiteFlagEvent
+}
+
+func (p *prereqEventSink) record(event PrerequisiteFlagEvent) {
+	p.events = append(p.events, event)
+}
+
 func TestFlagReturnsOffVariationIfPrerequisiteIsNotFound(t *testing.T) {
 	f0 := ldbuilders.NewFlagBuilder("feature0").
 		On(true).

@@ -219,20 +219,17 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 			flag := booleanFlagWithSegmentMatch(p.segment.Key)
 
 			t.Run("returns error", func(t *testing.T) {
-				eventSink := prereqEventSink{}
 				e := NewEvaluator(basicDataProvider().withStoredSegments(p.segment))
-				result := e.Evaluate(&flag, p.context, eventSink.record)
+				result := e.Evaluate(&flag, p.context, FailOnAnyPrereqEvent(t))
 
 				assert.Equal(t, ldreason.NewEvaluationDetailForError(ldreason.EvalErrorMalformedFlag, ldvalue.Null()), result)
-				assert.Equal(t, 0, len(eventSink.events))
 			})
 
 			t.Run("logs error", func(t *testing.T) {
 				logCapture := ldlogtest.NewMockLog()
-				eventSink := prereqEventSink{}
 				e := NewEvaluatorWithOptions(basicDataProvider().withStoredSegments(p.segment),
 					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
-				_ = e.Evaluate(&flag, p.context, eventSink.record)
+				_ = e.Evaluate(&flag, p.context, FailOnAnyPrereqEvent(t))
 
 				errorLines := logCapture.GetOutput(ldlog.Error)
 				if assert.Len(t, errorLines, 1) {
