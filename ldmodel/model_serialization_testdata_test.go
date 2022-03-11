@@ -105,13 +105,13 @@ const simpleClauseJSON = `{"attribute": "key", "op": "in", "values": ["a"], "neg
 const simpleClauseMinimalJSON = `{"attribute": "key", "op": "in", "values": ["a"]}`
 
 var clauseWithKind = Clause{
-	Kind:      ldcontext.Kind("org"),
-	Attribute: ldattr.NewNameRef("key"),
-	Op:        OperatorIn,
-	Values:    []ldvalue.Value{ldvalue.String("a")},
+	ContextKind: ldcontext.Kind("org"),
+	Attribute:   ldattr.NewNameRef("key"),
+	Op:          OperatorIn,
+	Values:      []ldvalue.Value{ldvalue.String("a")},
 }
 
-const clauseWithKindJSON = `{"kind": "org", "attribute": "key", "op": "in", "values": ["a"], "negate": false}`
+const clauseWithKindJSON = `{"contextKind": "org", "attribute": "key", "op": "in", "values": ["a"], "negate": false}`
 
 var negatedClause = Clause{
 	Attribute: ldattr.NewNameRef("key"),
@@ -240,10 +240,10 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			name: "contextTargets",
 			flag: FeatureFlag{
 				ContextTargets: []Target{
-					{Kind: "org", Variation: 1, Values: []string{"a", "b"}},
+					{ContextKind: "org", Variation: 1, Values: []string{"a", "b"}},
 				},
 			},
-			jsonString: `{"contextTargets": [ {"kind": "org", "variation": 1, "values": ["a", "b"]} ]}`,
+			jsonString: `{"contextTargets": [ {"contextKind": "org", "variation": 1, "values": ["a", "b"]} ]}`,
 		},
 		{
 			name: "minimal rule with variation",

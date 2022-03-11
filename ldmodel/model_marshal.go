@@ -100,8 +100,8 @@ func writeTargets(obj *jwriter.ObjectState, targets []Target, name string) {
 	targetsArr := obj.Name(name).Array()
 	for _, t := range targets {
 		targetObj := targetsArr.Object()
-		if t.Kind != "" {
-			targetObj.Name("kind").String(string(t.Kind))
+		if t.ContextKind != "" {
+			targetObj.Name("contextKind").String(string(t.ContextKind))
 		}
 		targetObj.Name("variation").Int(t.Variation)
 		writeStringArray(&targetObj, "values", t.Values)
@@ -176,8 +176,8 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 	clausesArr := obj.Name("clauses").Array()
 	for _, c := range clauses {
 		clauseObj := clausesArr.Object()
-		if c.Kind != "" {
-			clauseObj.Name("kind").String(string(c.Kind))
+		if c.ContextKind != "" {
+			clauseObj.Name("contextKind").String(string(c.ContextKind))
 		}
 		clauseObj.Name("attribute").String(c.Attribute.String())
 		clauseObj.Name("op").String(string(c.Op))
