@@ -33,7 +33,7 @@ func ClauseMatchesContext(c *Clause, context *ldcontext.Context) (bool, error) {
 	if c.Attribute.String() == ldattr.KindAttr {
 		return maybeNegate(c.Negate, clauseMatchByKind(c, context)), nil
 	}
-	kind := c.Kind
+	kind := c.ContextKind
 	if kind == "" {
 		kind = ldcontext.DefaultKind
 	}

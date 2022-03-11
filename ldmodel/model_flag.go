@@ -249,14 +249,14 @@ func (r Rollout) IsExperiment() bool {
 
 // Clause describes an individual clause within a FlagRule or SegmentRule.
 type Clause struct {
-	// Kind is the context kind that this clause applies to.
+	// ContextKind is the context kind that this clause applies to.
 	//
 	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
 	// treated as ldcontext.DefaultKind.
 	//
-	// If the value of Attribute is "kind", then Kind is ignored because the nature of the context kind
+	// If the value of Attribute is "kind", then ContextKind is ignored because the nature of the context kind
 	// test is described in a richer way by Operator and Values.
-	Kind ldcontext.Kind
+	ContextKind ldcontext.Kind
 	// Attribute specifies the context attribute that is being tested.
 	//
 	// This is required for all Operator types except SegmentMatch. If Op is SegmentMatch then Attribute
@@ -302,11 +302,11 @@ type WeightedVariation struct {
 
 // Target describes a set of users who will receive a specific variation.
 type Target struct {
-	// Kind is the context kind that this target list applies to.
+	// ContextKind is the context kind that this target list applies to.
 	//
 	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
 	// treated as ldcontext.DefaultKind.
-	Kind ldcontext.Kind
+	ContextKind ldcontext.Kind
 	// Values is the set of user keys included in this Target.
 	Values []string
 	// Variation is the index of the variation to be returned if the user matches one of these keys. This

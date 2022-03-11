@@ -16,7 +16,7 @@ func makeClause(attr string, op Operator, values ...ldvalue.Value) Clause {
 }
 
 func makeClauseWithKind(kind ldcontext.Kind, attr string, op Operator, values ...ldvalue.Value) Clause {
-	return Clause{Kind: kind, Attribute: ldattr.NewNameRef(attr), Op: op, Values: values}
+	return Clause{ContextKind: kind, Attribute: ldattr.NewNameRef(attr), Op: op, Values: values}
 }
 
 func assertClauseMatch(t *testing.T, shouldMatch bool, clause Clause, context ldcontext.Context) {
