@@ -75,7 +75,7 @@ func TestFlagReturnsWhetherContextWasInFallthroughExperiment(t *testing.T) {
 	f := ldbuilders.NewFlagBuilder("experiment").
 		On(true).
 		Fallthrough(ldbuilders.Experiment(
-			61,
+			ldvalue.NewOptionalInt(61),
 			ldbuilders.Bucket(0, 10000),
 			ldbuilders.Bucket(2, 20000),
 			ldbuilders.BucketUntracked(0, 70000),
@@ -106,7 +106,7 @@ func TestFlagReturnsWhetherContextWasInRuleExperiment(t *testing.T) {
 	f := ldbuilders.NewFlagBuilder("experiment").
 		On(true).
 		AddRule(makeRuleToMatchUserKeyPrefix("user", ldbuilders.Experiment(
-			61,
+			ldvalue.NewOptionalInt(61),
 			ldbuilders.Bucket(0, 10000),
 			ldbuilders.Bucket(2, 20000),
 			ldbuilders.BucketUntracked(0, 70000),

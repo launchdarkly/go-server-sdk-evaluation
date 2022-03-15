@@ -128,7 +128,7 @@ func (es *evaluationScope) segmentRuleMatchesContext(r *ldmodel.SegmentRule, key
 
 	// All of the clauses are met. Check to see if the user buckets in
 	// TEMPORARY - instead of ldcontext.DefaultKind here, we will eventually have a Kind field in the segment
-	bucket, err := es.computeBucketValue(ldvalue.OptionalInt{}, ldcontext.DefaultKind, key, r.BucketBy, salt)
+	bucket, err := es.computeBucketValue(false, ldvalue.OptionalInt{}, ldcontext.DefaultKind, key, r.BucketBy, salt)
 	if err != nil {
 		return false, err
 	}

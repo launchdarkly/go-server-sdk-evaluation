@@ -16,7 +16,13 @@ const (
 )
 
 func (es *evaluationScope) computeBucketValue(
-	seed ldvalue.OptionalInt, contextKind ldcontext.Kind, key string, attr ldattr.Ref, salt string) (float32, error) {
+	isExperiment bool,
+	seed ldvalue.OptionalInt,
+	contextKind ldcontext.Kind,
+	key string,
+	attr ldattr.Ref,
+	salt string,
+) (float32, error) {
 	var prefix string
 	if seed.IsDefined() {
 		prefix = strconv.Itoa(seed.IntValue())
@@ -24,7 +30,7 @@ func (es *evaluationScope) computeBucketValue(
 		prefix = key + "." + salt
 	}
 
-	if !attr.IsDefined() {
+	if isExperiment || !attr.IsDefined() { // always bucket by key in an experiment
 		attr = ldattr.NewNameRef(ldattr.KeyAttr)
 	} else if attr.Err() != nil {
 		return 0, attr.Err()
@@ -42,8 +48,10 @@ func (es *evaluationScope) computeBucketValue(
 		return 0, nil
 	}
 
-	if secondary := selectedContext.Secondary(); secondary.IsDefined() {
-		idHash = idHash + "." + secondary.StringValue()
+	if !isExperiment { // secondary key is not supported in experiments
+		if secondary := selectedContext.Secondary(); secondary.IsDefined() {
+			idHash = idHash + "." + secondary.StringValue()
+		}
 	}
 
 	h := sha1.New() // nolint:gas // just used for insecure hashing
