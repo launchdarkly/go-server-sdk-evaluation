@@ -22,7 +22,7 @@ var flagWithAllProperties = FeatureFlag{
 		{
 			Values:       []string{"user-key"},
 			Variation:    2,
-			preprocessed: targetPreprocessedData{valuesMap: map[string]bool{"user-key": true}}, // this is set by PreprocessFlag()
+			preprocessed: targetPreprocessedData{valuesMap: map[string]struct{}{"user-key": {}}}, // this is set by PreprocessFlag()
 		},
 	},
 	Rules: []FlagRule{
@@ -242,8 +242,8 @@ var segmentWithAllProperties = Segment{
 	Included: []string{"user1"},
 	Excluded: []string{"user2"},
 	preprocessed: segmentPreprocessedData{
-		includeMap: map[string]bool{"user1": true},
-		excludeMap: map[string]bool{"user2": true},
+		includeMap: map[string]struct{}{"user1": {}},
+		excludeMap: map[string]struct{}{"user2": {}},
 	},
 	Rules: []SegmentRule{
 		{

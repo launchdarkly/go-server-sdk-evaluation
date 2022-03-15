@@ -45,14 +45,16 @@ var flagTopLevelDefaultProperties = map[string]interface{}{
 }
 
 var segmentTopLevelDefaultProperties = map[string]interface{}{
-	"key":        "",
-	"deleted":    false,
-	"version":    0,
-	"generation": nil,
-	"included":   []string{},
-	"excluded":   []string{},
-	"rules":      []interface{}{},
-	"salt":       "",
+	"key":              "",
+	"deleted":          false,
+	"version":          0,
+	"generation":       nil,
+	"included":         []string{},
+	"excluded":         []string{},
+	"includedContexts": []interface{}{},
+	"excludedContexts": []interface{}{},
+	"rules":            []interface{}{},
+	"salt":             "",
 }
 
 var simpleRollout = Rollout{
@@ -497,6 +499,22 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			jsonString: `{"excluded": ["a", "b"]}`,
 		},
 		{
+			name: "includedContexts",
+			segment: Segment{
+				IncludedContexts: []SegmentTarget{
+					{ContextKind: "org", Values: []string{"a", "b"}},
+				}},
+			jsonString: `{"includedContexts": [ {"contextKind": "org", "values": ["a", "b"]} ]}`,
+		},
+		{
+			name: "excludedContexts",
+			segment: Segment{
+				ExcludedContexts: []SegmentTarget{
+					{ContextKind: "org", Values: []string{"a", "b"}},
+				}},
+			jsonString: `{"excludedContexts": [ {"contextKind": "org", "values": ["a", "b"]} ]}`,
+		},
+		{
 			name: "minimal rule",
 			segment: Segment{
 				Rules: []SegmentRule{
@@ -591,6 +609,11 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			name:       "unbounded and generation",
 			segment:    Segment{Unbounded: true, Generation: ldvalue.NewOptionalInt(1)},
 			jsonString: `{"unbounded": true, "generation": 1}`,
+		},
+		{
+			name:       "unbounded and generation and unboundedContextKind",
+			segment:    Segment{Unbounded: true, UnboundedContextKind: "org", Generation: ldvalue.NewOptionalInt(1)},
+			jsonString: `{"unbounded": true, "unboundedContextKind": "org", "generation": 1}`,
 		},
 		{
 			name:       "salt",

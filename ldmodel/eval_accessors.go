@@ -158,6 +158,17 @@ func (e EvaluatorAccessorMethods) SegmentFindKeyInIncluded(segment *Segment, key
 	return findValueInMapOrStrings(key, segment.Included, segment.preprocessed.includeMap)
 }
 
+// SegmentTargetFindKey returns true if the specified key is in this SegmentTarget's
+// Values list, or false otherwise. It also returns false if the target parameter is nil.
+//
+// If preprocessing has been done, this is a fast map lookup. Otherwise it iterates the list.
+func (e EvaluatorAccessorMethods) SegmentTargetFindKey(target *SegmentTarget, key string) bool {
+	if target == nil {
+		return false
+	}
+	return findValueInMapOrStrings(key, target.Values, target.preprocessed.valuesMap)
+}
+
 // TargetFindKey returns true if the specified key is in this Target's Values list, or false
 // otherwise. It also returns false if the target parameter is nil.
 //
@@ -169,7 +180,7 @@ func (e EvaluatorAccessorMethods) TargetFindKey(target *Target, key string) bool
 	return findValueInMapOrStrings(key, target.Values, target.preprocessed.valuesMap)
 }
 
-func findValueInMapOrStrings(value string, values []string, valuesMap map[string]bool) bool {
+func findValueInMapOrStrings(value string, values []string, valuesMap map[string]struct{}) bool {
 	if valuesMap != nil {
 		_, found := valuesMap[value]
 		return found

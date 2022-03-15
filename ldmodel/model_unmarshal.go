@@ -248,6 +248,10 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 			readStringList(r, &segment.Included)
 		case "excluded":
 			readStringList(r, &segment.Excluded)
+		case "includedContexts":
+			readSegmentTargets(r, &segment.IncludedContexts)
+		case "excludedContexts":
+			readSegmentTargets(r, &segment.ExcludedContexts)
 		case "rules":
 			for rulesArr := r.ArrayOrNull(); rulesArr.Next(); {
 				rule := SegmentRule{}
@@ -271,7 +275,24 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 			segment.Salt = r.String()
 		case "unbounded":
 			segment.Unbounded = r.Bool()
+		case "unboundedContextKind":
+			segment.UnboundedContextKind = ldcontext.Kind(r.String())
 		}
+	}
+}
+
+func readSegmentTargets(r *jreader.Reader, out *[]SegmentTarget) {
+	for arr := r.ArrayOrNull(); arr.Next(); {
+		var t SegmentTarget
+		for obj := r.Object(); obj.Next(); {
+			switch string(obj.Name()) {
+			case "contextKind":
+				t.ContextKind = ldcontext.Kind(r.String())
+			case "values":
+				readStringList(r, &t.Values)
+			}
+		}
+		*out = append(*out, t)
 	}
 }
 

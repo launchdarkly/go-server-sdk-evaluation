@@ -74,11 +74,10 @@ type evaluationScope struct {
 	flag                          *ldmodel.FeatureFlag
 	context                       ldcontext.Context
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder
-	// These bigSegments properties start out unset, and will be set only once during an
-	// evaluation the first time we query a big segment, if any.
-	bigSegmentsReferenced bool
-	bigSegmentsMembership BigSegmentMembership
-	bigSegmentsStatus     ldreason.BigSegmentsStatus
+	// These bigSegments properties start out unset. They are computed lazily if we encounter
+	// big segment references during an evaluation. See evaluator_segment.go.
+	bigSegmentsMemberships map[string]BigSegmentMembership
+	bigSegmentsStatus      ldreason.BigSegmentsStatus
 }
 
 // Implementation of the Evaluator interface.
@@ -103,7 +102,7 @@ func (e *evaluator) Evaluate(
 	prerequisiteChain := make([]string, 0, 20)
 
 	detail, _ := es.evaluate(prerequisiteChain)
-	if es.bigSegmentsReferenced {
+	if es.bigSegmentsStatus != "" {
 		detail.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(detail.Reason,
 			es.bigSegmentsStatus)
 	}
@@ -118,10 +117,10 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 		return es.getOffValue(ldreason.NewEvalReasonOff()), true
 	}
 
-	// Note that all of our internal methods operate on pointers (*User, *FeatureFlag, *Clause, etc.);
+	// Note that all of our internal methods operate on pointers (*Context, *FeatureFlag, *Clause, etc.);
 	// this is done to avoid the overhead of repeatedly copying these structs by value. We know that
 	// the pointers cannot be nil, since the entry point is always Evaluate which does receive its
-	// parameters by value; mutability is not a concern, since User is immutable and the evaluation
+	// parameters by value; mutability is not a concern, since Context is immutable and the evaluation
 	// code will never modify anything in the data model. Taking the address of these structs will not
 	// cause heap escaping because we are never *returning* pointers (and never passing them to
 	// external code such as prerequisiteFlagEventRecorder).
@@ -143,7 +142,7 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 
 	// Now walk through the rules and see if any match
 	for ruleIndex, rule := range es.flag.Rules {
-		match, err := es.ruleMatchesUser(&rule) //nolint:gosec // see comments at top of file
+		match, err := es.ruleMatchesContext(&rule) //nolint:gosec // see comments at top of file
 		if err != nil {
 			es.logEvaluationError(err)
 			return ldreason.NewEvaluationDetailForError(errorKindForError(err), ldvalue.Null()), false
@@ -174,10 +173,7 @@ func (es *evaluationScope) evaluatePrerequisite(
 	subScope := *es
 	subScope.flag = prereqFlag
 	result, ok := subScope.evaluate(prerequisiteChain)
-	if !es.bigSegmentsReferenced && subScope.bigSegmentsReferenced {
-		es.bigSegmentsReferenced = true
-		es.bigSegmentsStatus = subScope.bigSegmentsStatus
-	}
+	es.bigSegmentsStatus = computeUpdatedBigSegmentsStatus(es.bigSegmentsStatus, subScope.bigSegmentsStatus)
 	return result, ok
 }
 
@@ -303,10 +299,10 @@ func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.Optio
 	return ldvalue.OptionalInt{}
 }
 
-func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) (bool, error) {
+func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule) (bool, error) {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
 	for _, clause := range rule.Clauses {
-		match, err := es.clauseMatchesUser(&clause) //nolint:gosec // see comments at top of file
+		match, err := es.clauseMatchesContext(&clause) //nolint:gosec // see comments at top of file
 		if !match || err != nil {
 			return match, err
 		}
@@ -314,7 +310,7 @@ func (es *evaluationScope) ruleMatchesUser(rule *ldmodel.FlagRule) (bool, error)
 	return true, nil
 }
 
-func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) (bool, error) {
+func (es *evaluationScope) clauseMatchesContext(clause *ldmodel.Clause) (bool, error) {
 	// Note that clause is passed by reference only for efficiency; we do not modify it
 	// In the case of a segment match operator, we check if the user is in any of the segments,
 	// and possibly negate
@@ -322,7 +318,7 @@ func (es *evaluationScope) clauseMatchesUser(clause *ldmodel.Clause) (bool, erro
 		for _, value := range clause.Values {
 			if value.Type() == ldvalue.StringType {
 				if segment := es.owner.dataProvider.GetSegment(value.StringValue()); segment != nil {
-					match, err := es.segmentContainsUser(segment)
+					match, err := es.segmentContainsContext(segment)
 					if err != nil {
 						return false, err
 					}
@@ -393,6 +389,22 @@ func getApplicableContextByKind(baseContext *ldcontext.Context, kind ldcontext.K
 		return *baseContext, true
 	}
 	return ldcontext.Context{}, false
+}
+
+func getApplicableContextKeyByKind(baseContext *ldcontext.Context, kind ldcontext.Kind) (string, bool) {
+	if kind == "" {
+		kind = ldcontext.DefaultKind
+	}
+	if baseContext.Multiple() {
+		if mc, ok := baseContext.MultiKindByName(kind); ok {
+			return mc.Key(), true
+		}
+		return "", false
+	}
+	if baseContext.Kind() == kind {
+		return baseContext.Key(), true
+	}
+	return "", false
 }
 
 func reasonToExperimentReason(reason ldreason.EvaluationReason) ldreason.EvaluationReason {

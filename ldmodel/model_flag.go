@@ -250,7 +250,7 @@ type Target struct {
 	// Variation is the index of the variation to be returned if the user matches one of these keys. This
 	// is always a real variation index; it cannot be undefined.
 	Variation int
-	// preprocessedData is created by PreprocessFlag() to speed up target matching.
+	// preprocessed is created by PreprocessFlag() to speed up target matching.
 	preprocessed targetPreprocessedData
 }
 

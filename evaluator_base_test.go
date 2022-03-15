@@ -103,6 +103,10 @@ func makeClauseToMatchUser(user ldcontext.Context) ldmodel.Clause {
 	return ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(user.Key()))
 }
 
+func makeClauseToMatchAnyContextOfKind(kind ldcontext.Kind) ldmodel.Clause {
+	return ldbuilders.Negate(ldbuilders.ClauseWithKind(kind, ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String("")))
+}
+
 func makeClauseToNotMatchUser(user ldcontext.Context) ldmodel.Clause {
 	return ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String("not-"+user.Key()))
 }
@@ -123,15 +127,23 @@ func makeRuleToMatchUserKeyPrefix(prefix string, variationOrRollout ldmodel.Vari
 		Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorStartsWith, ldvalue.String(prefix)))
 }
 
-func booleanFlagWithClause(clause ldmodel.Clause) ldmodel.FeatureFlag {
+func makeBooleanFlagWithClauses(clauses ...ldmodel.Clause) ldmodel.FeatureFlag {
 	return ldbuilders.NewFlagBuilder("feature").
 		On(true).
-		AddRule(ldbuilders.NewRuleBuilder().Variation(1).Clauses(clause)).
+		AddRule(ldbuilders.NewRuleBuilder().Variation(1).Clauses(clauses...)).
 		Variations(ldvalue.Bool(false), ldvalue.Bool(true)).
 		FallthroughVariation(0).
 		Build()
 }
 
-func booleanFlagWithSegmentMatch(segmentKeys ...string) ldmodel.FeatureFlag {
-	return booleanFlagWithClause(ldbuilders.SegmentMatchClause(segmentKeys...))
+func makeBooleanFlagToMatchAnyOfSegments(segmentKeys ...string) ldmodel.FeatureFlag {
+	return makeBooleanFlagWithClauses(ldbuilders.SegmentMatchClause(segmentKeys...))
+}
+
+func makeBooleanFlagToMatchAllOfSegments(segmentKeys ...string) ldmodel.FeatureFlag {
+	var clauses []ldmodel.Clause
+	for _, segmentKey := range segmentKeys {
+		clauses = append(clauses, ldbuilders.SegmentMatchClause(segmentKey))
+	}
+	return makeBooleanFlagWithClauses(clauses...)
 }
