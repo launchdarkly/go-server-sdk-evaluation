@@ -197,14 +197,16 @@ func (es *evaluationScope) checkPrerequisites(stack evaluationStack) (ldreason.E
 	}
 
 	stack.prerequisiteFlagChain = append(stack.prerequisiteFlagChain, es.flag.Key)
-	// Note that the change to prerequisiteChain does not persist after returning from this method.
-	// That introduces a potential edge-case inefficiency with deeply nested prerequisites: if the
+	// Note that the change to stack.prerequisiteFlagChain does not persist after returning from
+	// this method. That means we don't ever need to explicitly remove the last item-- but, it
+	// introduces a potential edge-case inefficiency with deeply nested prerequisites: if the
 	// original slice had a capacity of 20, and then the 20th prerequisite has 5 prerequisites of
 	// its own, when checkPrerequisites is called for each of those it will end up hitting the
 	// capacity of the slice each time and allocating a new backing array each time. The way
 	// around that would be to pass a *pointer* to the slice, so the backing array would be
 	// retained. However, doing so appears to defeat Go's escape analysis and cause heap escaping
-	// of the slice every time, which would be worse in more typical use cases.
+	// of the slice every time, which would be worse in more typical use cases. We do not expect
+	// the preallocated capacity to be reached in typical usage.
 
 	for _, prereq := range es.flag.Prerequisites {
 		prereqFeatureFlag := es.owner.dataProvider.GetFeatureFlag(prereq.Key)
