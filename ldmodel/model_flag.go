@@ -167,12 +167,14 @@ type Rollout struct {
 	// the weights are [1000, 1000, 1000] they will be treated as if they were [1000, 1000, 98000]).
 	Variations []WeightedVariation
 	// BucketBy specifies which user attribute should be used to distinguish between users in a rollout.
+	// This only works for simple rollouts; it is ignored for experiments.
 	//
 	// The default (when BucketBy is empty) is ldattr.KeyAttr, the user's primary key. If you wish to
 	// treat users with different keys as the same for rollout purposes as long as they have the same
 	// "country" attribute, you would set this to "country".
 	//
-	// Rollouts always take the user's "secondary key" attribute into account as well if the user has one.
+	// Simple rollouts always take the user's "secondary key" attribute into account as well if the user
+	// has one. Experiments ignore the secondary key.
 	BucketBy ldattr.Ref
 	// Seed, if present, specifies the seed for the hashing algorithm this rollout will use to bucket users, so that
 	// rollouts with the same Seed will assign the same users to the same buckets.

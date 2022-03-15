@@ -1,6 +1,8 @@
 package evaluation
 
 import (
+	"fmt"
+	"strconv"
 	"testing"
 
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
@@ -11,264 +13,320 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// See evaluator_bucketing_testdata_test.go for the values used in parameterized tests here.
 
 var noSeed = ldvalue.OptionalInt{}
 
-func userEvalScope(context ldcontext.Context) *evaluationScope {
+func makeEvalScope(context ldcontext.Context) *evaluationScope {
 	return &evaluationScope{context: context}
 }
 
-func TestVariationOrRolloutResult(t *testing.T) {
-	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 60000), ldbuilders.Bucket(1, 40000))
-
-	c1 := ldcontext.New("userKeyA")
-	variationIndex, inExperiment, err := userEvalScope(c1).variationOrRolloutResult(vr, "hashKey", "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, variationIndex)
-	assert.False(t, inExperiment)
-
-	c2 := ldcontext.New("userKeyB")
-	variationIndex, inExperiment, err = userEvalScope(c2).variationOrRolloutResult(vr, "hashKey", "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, 1, variationIndex)
-	assert.False(t, inExperiment)
-
-	c3 := ldcontext.New("userKeyC")
-	variationIndex, inExperiment, err = userEvalScope(c3).variationOrRolloutResult(vr, "hashKey", "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, variationIndex)
-	assert.False(t, inExperiment)
+func findBucketValueInVariationList(bucketValue float32, buckets []ldmodel.WeightedVariation) int {
+	// This partially replicates logic in variationOrRolloutResult-- that's deliberate since we
+	// want to make sure that logic doesn't change unintentionally
+	bucketValueInt := int(bucketValue * 100000)
+	cumulativeWeight := 0
+	for i, bucket := range buckets {
+		cumulativeWeight += bucket.Weight
+		if bucketValueInt < cumulativeWeight {
+			return i
+		}
+	}
+	return len(buckets) - 1
 }
 
-func TestVariationOrRolloutResultWithCustomAttribute(t *testing.T) {
-	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 60000), ldbuilders.Bucket(1, 40000))
-	vr.Rollout.BucketBy = ldattr.NewNameRef("intAttr")
+func TestRolloutBucketing(t *testing.T) {
+	buckets := []ldmodel.WeightedVariation{
+		// The variation indices here are deliberately out of order so we can be sure it's really using that
+		// field, rather than assuming it is the same as the index of the WeightedVariation array element.
+		{Variation: 3, Weight: 20000}, // [0,20000)
+		{Variation: 2, Weight: 20000}, // [20000,40000)
+		{Variation: 1, Weight: 20000}, // [40000,60000)
+		{Variation: 0, Weight: 40000}, // [60000,100000]
+	}
 
-	c1 := ldcontext.NewBuilder("userKeyD").SetInt("intAttr", 33333).Build()
-	variationIndex, inExperiment, err := userEvalScope(c1).variationOrRolloutResult(vr, "hashKey", "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, variationIndex) // bucketValue = 0.54771423
-	assert.False(t, inExperiment)
+	for _, defaultContextKind := range []bool{true, false} {
+		t.Run(fmt.Sprintf("defaultContextKind=%t", defaultContextKind), func(t *testing.T) {
+			baseRollout := ldmodel.Rollout{Variations: buckets}
+			contextKind := ldcontext.DefaultKind
 
-	c2 := ldcontext.NewBuilder("userKeyD").SetInt("intAttr", 99999).Build()
-	variationIndex, inExperiment, err = userEvalScope(c2).variationOrRolloutResult(vr, "hashKey", "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, 1, variationIndex) // bucketValue = 0.7309658
-	assert.False(t, inExperiment)
+			checkResult := func(t *testing.T, p bucketingTestParams, context ldcontext.Context, rollout ldmodel.Rollout) {
+				if !defaultContextKind {
+					context = ldcontext.NewMulti(
+						ldcontext.NewWithKind("irrelevantKind", "irrelevantKey"),
+						ldcontext.NewBuilderFromContext(context).Kind(contextKind).Build(),
+					)
+					rollout.ContextKind = contextKind
+				}
+
+				bucketValue, err := makeEvalScope(context).computeBucketValue(false, noSeed,
+					rollout.ContextKind, p.flagOrSegmentKey, rollout.BucketBy, p.salt)
+				assert.NoError(t, err)
+				assert.InEpsilon(t, p.expectedBucketValue, bucketValue, 0.0000001)
+
+				variationIndex, inExperiment, err := makeEvalScope(context).variationOrRolloutResult(
+					ldmodel.VariationOrRollout{Rollout: rollout},
+					p.flagOrSegmentKey,
+					p.salt,
+				)
+				assert.NoError(t, err)
+				expectedBucket := findBucketValueInVariationList(p.expectedBucketValue, buckets)
+				assert.Equal(t, buckets[expectedBucket].Variation, variationIndex)
+				assert.False(t, inExperiment)
+			}
+
+			t.Run("by key", func(t *testing.T) {
+				for _, p := range makeBucketingTestParams() {
+					t.Run(p.description(), func(t *testing.T) {
+						context := ldcontext.New(p.contextValue)
+						checkResult(t, p, context, baseRollout)
+					})
+				}
+			})
+
+			t.Run("by custom string attribute", func(t *testing.T) {
+				rollout := baseRollout
+				rollout.BucketBy = ldattr.NewNameRef("attr1")
+
+				for _, p := range makeBucketingTestParams() {
+					t.Run(p.description(), func(t *testing.T) {
+						context := ldcontext.NewBuilder(p.contextValue).SetString("attr1", p.contextValue).Build()
+						checkResult(t, p, context, rollout)
+					})
+				}
+			})
+
+			t.Run("by custom int attribute", func(t *testing.T) {
+				rollout := baseRollout
+				rollout.BucketBy = ldattr.NewNameRef("attr1")
+
+				for _, p := range makeBucketingTestParamsWithNumericStringValues() {
+					t.Run(p.description(), func(t *testing.T) {
+						n, err := strconv.Atoi(p.contextValue)
+						require.NoError(t, err)
+						context := ldcontext.NewBuilder(p.contextValue).SetInt("attr1", n).Build()
+						checkResult(t, p, context, rollout)
+					})
+				}
+			})
+
+			t.Run("secondary key changes result", func(t *testing.T) {
+				for _, p := range makeBucketingTestParams() {
+					t.Run(p.description(), func(t *testing.T) {
+						context1 := ldcontext.New(p.contextValue)
+						context2 := ldcontext.NewBuilder(p.contextValue).Secondary("some-secondary-key").Build()
+
+						bucketValue1, err := makeEvalScope(context1).computeBucketValue(false, noSeed,
+							"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
+						assert.NoError(t, err)
+						assert.InEpsilon(t, p.expectedBucketValue, bucketValue1, 0.0000001)
+
+						bucketValue2, err := makeEvalScope(context2).computeBucketValue(false, noSeed,
+							"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
+						assert.NoError(t, err)
+						assert.NotEqual(t, bucketValue1, bucketValue2)
+					})
+				}
+			})
+		})
+	}
 }
 
-func TestVariationOrRolloutResultInExperiment(t *testing.T) {
+func TestExperimentBucketing(t *testing.T) {
 	// seed here carefully chosen so users fall into different buckets
-	vr := ldbuilders.Experiment(61, ldbuilders.Bucket(0, 10000), ldbuilders.Bucket(1, 20000), ldbuilders.BucketUntracked(0, 70000))
-
-	c1 := ldcontext.New("userKeyA")
-	variationIndex, inExperiment, err := userEvalScope(c1).variationOrRolloutResult(vr, "hashKey", "saltyA")
-	// bucketVal = 0.09801207
-	assert.NoError(t, err)
-	assert.Equal(t, 0, variationIndex)
-	assert.True(t, inExperiment)
-
-	c2 := ldcontext.New("userKeyB")
-	variationIndex, inExperiment, err = userEvalScope(c2).variationOrRolloutResult(vr, "hashKey", "saltyA")
-	// bucketVal = 0.14483777
-	assert.NoError(t, err)
-	assert.Equal(t, 1, variationIndex)
-	assert.True(t, inExperiment)
-
-	c3 := ldcontext.New("userKeyC")
-	variationIndex, inExperiment, err = userEvalScope(c3).variationOrRolloutResult(vr, "hashKey", "saltyA")
-	// bucketVal = 0.9242641
-	assert.NoError(t, err)
-	assert.Equal(t, 0, variationIndex)
-	assert.False(t, inExperiment)
-}
-
-func TestVariationOrRolloutResultErrorConditions(t *testing.T) {
-	user := ldcontext.New("key")
-
-	vr1 := ldmodel.VariationOrRollout{
-		Rollout: ldmodel.Rollout{},
+	buckets := []ldmodel.WeightedVariation{
+		ldbuilders.Bucket(1, 10000),
+		ldbuilders.Bucket(0, 20000),
+		ldbuilders.BucketUntracked(0, 70000),
 	}
-	_, _, err := userEvalScope(user).variationOrRolloutResult(vr1, "hashKey", "salt")
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "rollout or experiment with no variations")
+	baseExperiment := ldmodel.Rollout{Kind: ldmodel.RolloutKindExperiment, Variations: buckets}
+
+	// We won't check every permutation that was covered in TestRolloutBucketing - mostly areas where
+	// the behavior of experiments is expected to be different from the behavior of rollouts.
+
+	checkResult := func(t *testing.T, p bucketingTestParams, context ldcontext.Context, experiment ldmodel.Rollout) {
+		bucketValue, err := makeEvalScope(context).computeBucketValue(true, p.seed,
+			experiment.ContextKind, p.flagOrSegmentKey, experiment.BucketBy, p.salt)
+		assert.NoError(t, err)
+		assert.InEpsilon(t, p.expectedBucketValue, bucketValue, 0.0000001)
+
+		experiment.Seed = p.seed
+		variationIndex, inExperiment, err := makeEvalScope(context).variationOrRolloutResult(
+			ldmodel.VariationOrRollout{Rollout: experiment},
+			p.flagOrSegmentKey,
+			p.salt,
+		)
+		assert.NoError(t, err)
+		expectedBucket := findBucketValueInVariationList(p.expectedBucketValue, buckets)
+		assert.Equal(t, buckets[expectedBucket].Variation, variationIndex)
+		assert.Equal(t, !buckets[expectedBucket].Untracked, inExperiment)
 	}
 
-	vr2 := ldmodel.VariationOrRollout{
-		Rollout: ldmodel.Rollout{
-			BucketBy:   ldattr.NewRef("///"),
-			Variations: []ldmodel.WeightedVariation{{Variation: 0, Weight: 100000}},
-		},
-	}
-	_, _, err = userEvalScope(user).variationOrRolloutResult(vr2, "hashKey", "salt")
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "attribute reference")
-	}
-}
-
-func TestComputeBucketValueByKey(t *testing.T) {
-	c1 := ldcontext.New("userKeyA")
-	bucket1, err := userEvalScope(c1).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, 0.42157587, bucket1, 0.0000001)
-
-	bucket1a, err := userEvalScope(c1).computeBucketValue(noSeed, "", "hashKey", ldattr.Ref{}, "saltyA") // defaults to key
-	assert.NoError(t, err)
-	assert.Equal(t, bucket1, bucket1a)
-
-	c2 := ldcontext.New("userKeyB")
-	bucket2, err := userEvalScope(c2).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, 0.6708485, bucket2, 0.0000001)
-
-	c3 := ldcontext.New("userKeyC")
-	bucket3, err := userEvalScope(c3).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, 0.10343106, bucket3, 0.0000001)
-}
-
-func TestComputeBucketValueByKeyForSpecificKind(t *testing.T) {
-	user := ldcontext.New("otherKey")
-	org := ldcontext.NewWithKind("org", "userKeyA")
-	multi := ldcontext.NewMulti(user, org)
-
-	bucket1, err := userEvalScope(org).computeBucketValue(noSeed, "org", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, 0.42157587, bucket1, 0.0000001) // should match answer for userKeyA in previous test
-
-	bucket2, err := userEvalScope(multi).computeBucketValue(noSeed, "org", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, bucket1, bucket2)
-}
-
-func TestComputeBucketValueWithSeed(t *testing.T) {
-	seed := ldvalue.NewOptionalInt(61)
-
-	c1 := ldcontext.New("userKeyA")
-	bucket1, err := userEvalScope(c1).computeBucketValue(seed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, 0.09801207, bucket1, 0.0000001)
-
-	c2 := ldcontext.New("userKeyB")
-	bucket2, err := userEvalScope(c2).computeBucketValue(seed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, 0.14483777, bucket2, 0.0000001)
-
-	c3 := ldcontext.New("userKeyC")
-	bucket3, err := userEvalScope(c3).computeBucketValue(seed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, 0.9242641, bucket3, 0.0000001)
+	t.Run("by key", func(t *testing.T) {
+		for _, p := range makeBucketingTestParamsForExperiments() {
+			t.Run(p.description(), func(t *testing.T) {
+				context := ldcontext.New(p.contextValue)
+				checkResult(t, p, context, baseExperiment)
+			})
+		}
+	})
 
 	t.Run("changing hashKey and salt has no effect when seed is specified", func(t *testing.T) {
-		bucket1DifferentHashKeySalt, err := userEvalScope(c1).computeBucketValue(seed, "", "otherHashKey", ldattr.NewNameRef("key"), "otherSaltyA")
-		assert.NoError(t, err)
-		assert.InEpsilon(t, bucket1, bucket1DifferentHashKeySalt, 0.0000001)
+		for _, p := range makeBucketingTestParamsForExperiments() {
+			if !p.seed.IsDefined() {
+				continue
+			}
+			t.Run(p.description(), func(t *testing.T) {
+				context := ldcontext.New(p.contextValue)
+
+				modifiedParams1 := p
+				modifiedParams1.flagOrSegmentKey += "xxx"
+				checkResult(t, modifiedParams1, context, baseExperiment) // did not change expectedBucketValue, still passes
+
+				modifiedParams2 := p
+				modifiedParams2.salt += "yyy"
+				checkResult(t, modifiedParams2, context, baseExperiment) // did not change expectedBucketValue, still passes
+			})
+		}
 	})
 
 	t.Run("changing seed produces different bucket value", func(t *testing.T) {
-		otherSeed := ldvalue.NewOptionalInt(60)
-		bucket1DifferentSeed, err := userEvalScope(c1).computeBucketValue(otherSeed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-		assert.NoError(t, err)
-		assert.InEpsilon(t, 0.7008816, bucket1DifferentSeed, 0.0000001)
+		for _, p := range makeBucketingTestParamsForExperiments() {
+			t.Run(p.description(), func(t *testing.T) {
+				context := ldcontext.New(p.contextValue)
+
+				bucketValue1, err := makeEvalScope(context).computeBucketValue(true, p.seed,
+					"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
+				assert.NoError(t, err)
+
+				var modifiedSeed ldvalue.OptionalInt
+				if p.seed.IsDefined() {
+					modifiedSeed = ldvalue.NewOptionalInt(p.seed.IntValue() + 1)
+				} else {
+					modifiedSeed = ldvalue.NewOptionalInt(999)
+				}
+				bucketValue2, err := makeEvalScope(context).computeBucketValue(true, modifiedSeed,
+					"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
+				assert.NoError(t, err)
+
+				assert.NotEqual(t, bucketValue1, bucketValue2)
+			})
+		}
+	})
+
+	t.Run("secondary key is ignored", func(t *testing.T) {
+		for _, p := range makeBucketingTestParamsForExperiments() {
+			t.Run(p.description(), func(t *testing.T) {
+				context := ldcontext.NewBuilder(p.contextValue).Secondary("shouldbeignored").Build()
+				checkResult(t, p, context, baseExperiment) // did not change expectedBucketValue, still passes
+			})
+		}
+	})
+
+	t.Run("bucketBy is ignored", func(t *testing.T) {
+		for _, p := range makeBucketingTestParamsForExperiments() {
+			t.Run(p.description(), func(t *testing.T) {
+				context := ldcontext.NewBuilder(p.contextValue).SetString("attr1", p.contextValue+"xyz").Build()
+				experiment := baseExperiment
+				experiment.BucketBy = ldattr.NewNameRef("attr1")
+
+				checkResult(t, p, context, experiment) // did not change expectedBucketValue, still passes
+			})
+		}
 	})
 }
 
-func TestComputeBucketValueWithSecondaryKey(t *testing.T) {
-	c1 := ldcontext.New("userKey")
-	c2 := ldcontext.NewBuilder("userKey").Secondary("mySecondaryKey").Build()
-	bucket1, err := userEvalScope(c1).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("key"), "salt")
-	assert.NoError(t, err)
-	bucket2, err := userEvalScope(c2).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("key"), "salt")
-	assert.NoError(t, err)
-	assert.NotEqual(t, bucket1, bucket2)
+func TestVariationOrRolloutResultErrorConditions(t *testing.T) {
+	context := ldcontext.New("key")
+
+	for _, p := range []struct {
+		rollout              ldmodel.Rollout
+		expectedErrorMessage string
+	}{
+		{
+			rollout:              ldmodel.Rollout{},
+			expectedErrorMessage: "rollout or experiment with no variations",
+		},
+		{
+			rollout:              ldmodel.Rollout{Kind: ldmodel.RolloutKindExperiment},
+			expectedErrorMessage: "rollout or experiment with no variations",
+		},
+		{
+			rollout: ldmodel.Rollout{
+				BucketBy:   ldattr.NewRef("///"),
+				Variations: []ldmodel.WeightedVariation{{Variation: 0, Weight: 100000}},
+			},
+			expectedErrorMessage: "attribute reference",
+		},
+	} {
+		t.Run(p.expectedErrorMessage, func(t *testing.T) {
+			vr := ldmodel.VariationOrRollout{Rollout: p.rollout}
+			_, _, err := makeEvalScope(context).variationOrRolloutResult(vr, "hashKey", "salt")
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), p.expectedErrorMessage)
+			}
+		})
+	}
 }
 
-func TestComputeBucketValueWithSecondaryKeyForSpecificKind(t *testing.T) {
-	other := ldcontext.NewWithKind("other", "someKey")
-	org := ldcontext.NewBuilder("someKey").Kind("org").Secondary("mySecondaryKey").Build()
-	multi := ldcontext.NewMulti(other, org)
-	bucket1, err := userEvalScope(org).computeBucketValue(noSeed, "org", "hashKey", ldattr.NewNameRef("key"), "salt")
-	assert.NoError(t, err)
-	bucket2, err := userEvalScope(multi).computeBucketValue(noSeed, "org", "hashKey", ldattr.NewNameRef("key"), "salt")
-	assert.NoError(t, err)
-	assert.Equal(t, bucket1, bucket2)
-}
+func TestComputeBucketValueInvalidConditions(t *testing.T) {
+	flagKey, salt := "flagKey", "saltyA" // irrelevant to these tests
 
-func TestComputeBucketValueByIntAttr(t *testing.T) {
-	user := ldcontext.NewBuilder("userKeyD").SetInt("intAttr", 33333).Build()
-	bucket, err := userEvalScope(user).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("intAttr"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, 0.54771423, bucket, 0.0000001)
+	t.Run("single-kind context does not match desired kind", func(t *testing.T) {
+		context := ldcontext.New("key")
+		desiredKind := ldcontext.Kind("org")
+		bucket, err := makeEvalScope(context).computeBucketValue(false, noSeed, desiredKind, flagKey, ldattr.Ref{}, "saltyA")
+		assert.NoError(t, err)
+		assert.Equal(t, float32(0), bucket)
+	})
 
-	user = ldcontext.NewBuilder("userKeyD").SetString("stringAttr", "33333").Build()
-	bucket2, err := userEvalScope(user).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("stringAttr"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, bucket, bucket2, 0.0000001)
-}
+	t.Run("multi-kind context does not match desired kind", func(t *testing.T) {
+		context := ldcontext.NewMulti(ldcontext.New("irrelevantKey1"), ldcontext.NewWithKind("irrelevantKind", "irrelevantKey2"))
+		desiredKind := ldcontext.Kind("org")
+		bucket, err := makeEvalScope(context).computeBucketValue(false, noSeed, desiredKind, flagKey, ldattr.Ref{}, "saltyA")
+		assert.NoError(t, err)
+		assert.Equal(t, float32(0), bucket)
+	})
 
-func TestComputeBucketValueByFloatAttrNotAllowed(t *testing.T) {
-	user := ldcontext.NewBuilder("userKeyE").SetFloat64("floatAttr", 999.999).Build()
-	bucket, err := userEvalScope(user).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("floatAttr"), "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, float32(0), bucket)
-}
+	t.Run("bucket by nonexistent attribute", func(t *testing.T) {
+		context := ldcontext.New("key")
+		bucket, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewNameRef("unknownAttr"), salt)
+		assert.NoError(t, err)
+		assert.Equal(t, float32(0), bucket)
+	})
 
-func TestComputeBucketValueByFloatAttrThatIsReallyAnIntIsAllowed(t *testing.T) {
-	user := ldcontext.NewBuilder("userKeyE").SetFloat64("floatAttr", 33333).Build()
-	bucket, err := userEvalScope(user).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("floatAttr"), "saltyA")
-	assert.NoError(t, err)
-	assert.InEpsilon(t, 0.54771423, bucket, 0.0000001)
-}
+	t.Run("bucket by non-integer numeric attribute", func(t *testing.T) {
+		context := ldcontext.NewBuilder("key").SetFloat64("floatAttr", 999.999).Build()
+		bucket, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewNameRef("floatAttr"), salt)
+		assert.NoError(t, err)
+		assert.Equal(t, float32(0), bucket)
+	})
 
-func TestComputeBucketValueByUnknownAttr(t *testing.T) {
-	user := ldcontext.NewBuilder("userKeyE").Build()
-	bucket, err := userEvalScope(user).computeBucketValue(noSeed, "", "hashKey", ldattr.NewNameRef("unknownAttr"), "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, float32(0), bucket)
-}
-
-func TestComputeBucketValueWithUnknownKind(t *testing.T) {
-	user := ldcontext.New("otherKey")
-	org := ldcontext.NewWithKind("org", "userKeyA")
-	multi := ldcontext.NewMulti(user, org)
-
-	bucket1, err := userEvalScope(org).computeBucketValue(noSeed, "user", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, float32(0), bucket1)
-
-	bucket2, err := userEvalScope(multi).computeBucketValue(noSeed, "other", "hashKey", ldattr.NewNameRef("key"), "saltyA")
-	assert.NoError(t, err)
-	assert.Equal(t, float32(0), bucket2)
-}
-
-func TestComputeBucketValueInvalidRef(t *testing.T) {
-	c1 := ldcontext.New("userKeyA")
-	_, err := userEvalScope(c1).computeBucketValue(noSeed, "", "hashKey", ldattr.NewRef("///"), "saltyA")
-	assert.Error(t, err)
+	t.Run("bucket by invalid attribute reference", func(t *testing.T) {
+		context := ldcontext.New("key")
+		badAttr := ldattr.NewRef("///")
+		_, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, badAttr, salt)
+		assert.Error(t, err) // Unlike the other invalid conditions, we treat this one as a malformed flag error
+	})
 }
 
 func TestBucketValueBeyondLastBucketIsPinnedToLastBucket(t *testing.T) {
 	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 5000), ldbuilders.Bucket(1, 5000))
 	user := ldcontext.NewBuilder("userKeyD").SetInt("intAttr", 99999).Build()
-	variationIndex, inExperiment, err := userEvalScope(user).variationOrRolloutResult(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment, err := makeEvalScope(user).variationOrRolloutResult(vr, "hashKey", "saltyA")
 	assert.NoError(t, err)
 	assert.Equal(t, 1, variationIndex)
 	assert.False(t, inExperiment)
 }
 
 func TestBucketValueBeyondLastBucketIsPinnedToLastBucketForExperiment(t *testing.T) {
-	vr := ldbuilders.Experiment(42, ldbuilders.Bucket(0, 5000), ldbuilders.Bucket(1, 5000))
+	vr := ldbuilders.Experiment(ldvalue.NewOptionalInt(42), ldbuilders.Bucket(0, 5000), ldbuilders.Bucket(1, 5000))
 	user := ldcontext.NewBuilder("userKeyD").SetInt("intAttr", 99999).Build()
-	variationIndex, inExperiment, err := userEvalScope(user).variationOrRolloutResult(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment, err := makeEvalScope(user).variationOrRolloutResult(vr, "hashKey", "saltyA")
 	assert.NoError(t, err)
 	assert.Equal(t, 1, variationIndex)
 	assert.True(t, inExperiment)
-}
-
-func TestEmptyExperimenttIsError(t *testing.T) {
-	vr := ldbuilders.Experiment(42)
-	user := ldcontext.NewBuilder("userKeyD").SetInt("intAttr", 99999).Build()
-	_, _, err := userEvalScope(user).variationOrRolloutResult(vr, "hashKey", "saltyA")
-	assert.Error(t, err)
 }

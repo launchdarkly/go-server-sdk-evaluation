@@ -25,12 +25,12 @@ func Rollout(buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
 }
 
 // Experiment constructs a VariationOrRollout representing an experiment with the specified buckets.
-func Experiment(seed int32, buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
+func Experiment(seed ldvalue.OptionalInt, buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
 	return ldmodel.VariationOrRollout{
 		Rollout: ldmodel.Rollout{
 			Kind:       ldmodel.RolloutKindExperiment,
 			Variations: buckets,
-			Seed:       ldvalue.NewOptionalInt(int(seed)),
+			Seed:       seed,
 		},
 	}
 }

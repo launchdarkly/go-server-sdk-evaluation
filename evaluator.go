@@ -344,13 +344,14 @@ func (es *evaluationScope) variationOrRolloutResult(
 		return -1, false, emptyRolloutError{}
 	}
 
-	bucketVal, err := es.computeBucketValue(r.Rollout.Seed, r.Rollout.ContextKind, key, r.Rollout.BucketBy, salt)
+	isExperiment := r.Rollout.IsExperiment()
+
+	bucketVal, err := es.computeBucketValue(isExperiment, r.Rollout.Seed, r.Rollout.ContextKind,
+		key, r.Rollout.BucketBy, salt)
 	if err != nil {
 		return -1, false, err
 	}
 	var sum float32
-
-	isExperiment := r.Rollout.IsExperiment()
 
 	for _, bucket := range r.Rollout.Variations {
 		sum += float32(bucket.Weight) / 100000.0

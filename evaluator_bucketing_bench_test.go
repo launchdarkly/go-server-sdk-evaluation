@@ -8,7 +8,7 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
-func BenchmarkBucketUser(b *testing.B) {
+func BenchmarkComputeBucketValue(b *testing.B) {
 	benchCases := map[string]struct {
 		withSeed bool
 	}{
@@ -18,14 +18,14 @@ func BenchmarkBucketUser(b *testing.B) {
 
 	for label, benchCase := range benchCases {
 		b.Run(label, func(b *testing.B) {
-			benchmarkBucketUser(b, benchCase.withSeed)
+			benchmarkComputeBucketValue(b, benchCase.withSeed)
 		})
 	}
 }
 
-func benchmarkBucketUser(b *testing.B, withSeed bool) {
-	u := ldcontext.New("userKeyA")
-	evalScope := userEvalScope(u)
+func benchmarkComputeBucketValue(b *testing.B, withSeed bool) {
+	context := ldcontext.New("userKeyA")
+	evalScope := makeEvalScope(context)
 
 	var seed ldvalue.OptionalInt
 	if withSeed {
@@ -35,6 +35,6 @@ func benchmarkBucketUser(b *testing.B, withSeed bool) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, evalBenchmarkErr = evalScope.computeBucketValue(seed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
+		_, evalBenchmarkErr = evalScope.computeBucketValue(false, seed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
 	}
 }
