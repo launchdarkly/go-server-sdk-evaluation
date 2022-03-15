@@ -65,22 +65,22 @@ func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment) (bool, err
 		}
 	} else {
 		// always check for included before excluded
-		userKey, hasUserKey := getApplicableContextKeyByKind(&es.context, ldcontext.DefaultKind)
-		isOnlyUser := es.context.Kind() == ldcontext.DefaultKind
-		if hasUserKey && ldmodel.EvaluatorAccessors.SegmentFindKeyInIncluded(s, userKey) {
+		defaultKindKey, hasDefaultKindKey := getApplicableContextKeyByKind(&es.context, ldcontext.DefaultKind)
+		isOnlyDefaultKind := es.context.Kind() == ldcontext.DefaultKind
+		if hasDefaultKindKey && ldmodel.EvaluatorAccessors.SegmentFindKeyInIncluded(s, defaultKindKey) {
 			return true, nil
 		}
-		if !isOnlyUser {
+		if !isOnlyDefaultKind {
 			for i := range s.IncludedContexts {
 				if es.segmentTargetMatchesContext(&s.IncludedContexts[i]) {
 					return true, nil
 				}
 			}
 		}
-		if hasUserKey && ldmodel.EvaluatorAccessors.SegmentFindKeyInExcluded(s, userKey) {
+		if hasDefaultKindKey && ldmodel.EvaluatorAccessors.SegmentFindKeyInExcluded(s, defaultKindKey) {
 			return false, nil
 		}
-		if !isOnlyUser {
+		if !isOnlyDefaultKind {
 			for i := range s.ExcludedContexts {
 				if es.segmentTargetMatchesContext(&s.ExcludedContexts[i]) {
 					return false, nil
