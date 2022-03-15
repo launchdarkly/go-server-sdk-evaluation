@@ -99,23 +99,20 @@ func basicEvaluator() Evaluator {
 	return NewEvaluator(basicDataProvider())
 }
 
-func makeClauseToMatchUser(user ldcontext.Context) ldmodel.Clause {
-	return ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(user.Key()))
+func makeClauseToMatchContext(context ldcontext.Context) ldmodel.Clause {
+	return ldbuilders.ClauseWithKind(context.Kind(), ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(context.Key()))
 }
 
 func makeClauseToMatchAnyContextOfKind(kind ldcontext.Kind) ldmodel.Clause {
 	return ldbuilders.Negate(ldbuilders.ClauseWithKind(kind, ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String("")))
 }
 
-func makeClauseToNotMatchUser(user ldcontext.Context) ldmodel.Clause {
-	return ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String("not-"+user.Key()))
-}
-
-func makeFlagToMatchUser(user ldcontext.Context, variationOrRollout ldmodel.VariationOrRollout) ldmodel.FeatureFlag {
+func makeFlagToMatchContext(user ldcontext.Context, variationOrRollout ldmodel.VariationOrRollout) ldmodel.FeatureFlag {
 	return ldbuilders.NewFlagBuilder("feature").
 		On(true).
 		OffVariation(1).
-		AddRule(ldbuilders.NewRuleBuilder().ID("rule-id").VariationOrRollout(variationOrRollout).Clauses(makeClauseToMatchUser(user))).
+		AddRule(ldbuilders.NewRuleBuilder().ID("rule-id").VariationOrRollout(variationOrRollout).
+			Clauses(makeClauseToMatchContext(user))).
 		FallthroughVariation(0).
 		Variations(fallthroughValue, offValue, onValue).
 		Build()

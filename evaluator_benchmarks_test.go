@@ -9,7 +9,6 @@ import (
 
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
@@ -68,36 +67,36 @@ func (env *evalBenchmarkEnv) setUp(bc evalBenchmarkCase) {
 
 	env.targetUsers = make([]ldcontext.Context, bc.numTargets)
 	for i := 0; i < bc.numTargets; i++ {
-		env.targetUsers[i] = lduser.NewUser(makeEvalBenchmarkTargetUserKey(i))
+		env.targetUsers[i] = ldcontext.New(makeEvalBenchmarkTargetUserKey(i))
 	}
 }
 
 func makeEvalBenchmarkUser(bc evalBenchmarkCase) ldcontext.Context {
 	if bc.shouldMatchClause {
-		builder := lduser.NewUserBuilder("user-match")
+		builder := ldcontext.NewBuilder("user-match")
 		switch bc.operator {
 		case ldmodel.OperatorGreaterThan:
-			builder.Custom("numAttr", ldvalue.Int(10000))
+			builder.SetInt("numAttr", 10000)
 		case ldmodel.OperatorContains:
 			builder.Name("name-0")
 		case ldmodel.OperatorMatches:
-			builder.Custom("stringAttr", ldvalue.String("stringAttr-0"))
+			builder.SetString("stringAttr", "stringAttr-0")
 		case ldmodel.OperatorAfter:
-			builder.Custom("dateAttr", ldvalue.String("2999-12-31T00:00:00.000-00:00"))
+			builder.SetString("dateAttr", "2999-12-31T00:00:00.000-00:00")
 		case ldmodel.OperatorSemVerEqual:
-			builder.Custom("semVerAttr", ldvalue.String("1.0.0"))
+			builder.SetString("semVerAttr", "1.0.0")
 		case ldmodel.OperatorIn:
-			builder.Custom("stringAttr", ldvalue.String("stringAttr-0"))
+			builder.SetString("stringAttr", "stringAttr-0")
 		}
 		return builder.Build()
 	}
 	// default is that the user will not be matched by any clause or target
-	return lduser.NewUserBuilder("user-nomatch").
+	return ldcontext.NewBuilder("user-nomatch").
 		Name("name-nomatch").
-		Custom("stringAttr", ldvalue.String("stringAttr-nomatch")).
-		Custom("numAttr", ldvalue.Int(0)).
-		Custom("dateAttr", ldvalue.String("1980-01-01T00:00:00.000-00:00")).
-		Custom("semVerAttr", ldvalue.String("0.0.5")).
+		SetString("stringAttr", "stringAttr-nomatch").
+		SetInt("numAttr", 0).
+		SetString("dateAttr", "1980-01-01T00:00:00.000-00:00").
+		SetString("semVerAttr", "0.0.5").
 		Build()
 }
 
@@ -161,7 +160,7 @@ func BenchmarkEvaluationUserIncludedInSegment(b *testing.B) {
 	// This attempts to match a user from the middle of the segment's include list. Currently, the execution
 	// time is roughly linear based on the length of the list, since we are iterating it.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		user := lduser.NewUser(env.targetSegment.Included[len(env.targetSegment.Included)/2])
+		user := ldcontext.New(env.targetSegment.Included[len(env.targetSegment.Included)/2])
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Detail.Value.BoolValue() {
 			b.FailNow()
@@ -173,7 +172,7 @@ func BenchmarkEvaluationUserExcludedFromSegment(b *testing.B) {
 	// This attempts to match a user who is explicitly excluded from the segment. Currently, the execution
 	// time is roughly linear based on the length of the include and exclude lists, since we are iterating them.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		user := lduser.NewUser(env.targetSegment.Excluded[len(env.targetSegment.Excluded)/2])
+		user := ldcontext.New(env.targetSegment.Excluded[len(env.targetSegment.Excluded)/2])
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Detail.Value.BoolValue() {
 			b.FailNow()

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
@@ -142,7 +142,7 @@ func TestAllOperators(t *testing.T) {
 						ldmodel.PreprocessFlag(&flag)
 						c = flag.Rules[0].Clauses[0]
 					}
-					context := lduser.NewUserBuilder("key").Custom(userAttr, uValue).Build()
+					context := ldcontext.NewBuilder("key").SetValue(userAttr, uValue).Build()
 					isMatch, err := clauseMatchesContext(&c, &context)
 					assert.NoError(t, err)
 					assert.Equal(t, ti.expected, isMatch)

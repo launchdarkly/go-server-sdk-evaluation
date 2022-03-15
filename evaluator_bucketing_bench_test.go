@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
@@ -24,7 +24,7 @@ func BenchmarkBucketUser(b *testing.B) {
 }
 
 func benchmarkBucketUser(b *testing.B, withSeed bool) {
-	u := lduser.NewUser("userKeyA")
+	u := ldcontext.New("userKeyA")
 	evalScope := userEvalScope(u)
 
 	var seed ldvalue.OptionalInt

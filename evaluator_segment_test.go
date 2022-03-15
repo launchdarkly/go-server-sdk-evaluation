@@ -13,7 +13,6 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
 	"github.com/stretchr/testify/assert"
@@ -216,19 +215,17 @@ func TestSegmentMatch(t *testing.T) {
 func TestSegmentMatchClauseFallsThroughIfSegmentNotFound(t *testing.T) {
 	f := makeBooleanFlagToMatchAnyOfSegments("unknown-segment-key")
 	evaluator := NewEvaluator(basicDataProvider().withNonexistentSegment("unknown-segment-key"))
-	user := lduser.NewUser("foo")
 
-	result := evaluator.Evaluate(&f, user, nil)
+	result := evaluator.Evaluate(&f, flagTestContext, nil)
 	assert.False(t, result.Detail.Value.BoolValue())
 }
 
 func TestCanMatchJustOneSegmentFromList(t *testing.T) {
-	segment := buildSegment().Included("foo").Build()
+	segment := buildSegment().Included(flagTestContext.Key()).Build()
 	f := makeBooleanFlagToMatchAnyOfSegments("unknown-segment-key", segment.Key)
 	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment).withNonexistentSegment("unknown-segment-key"))
-	user := lduser.NewUser("foo")
 
-	result := evaluator.Evaluate(&f, user, nil)
+	result := evaluator.Evaluate(&f, flagTestContext, nil)
 	assert.True(t, result.Detail.Value.BoolValue())
 }
 
@@ -320,8 +317,8 @@ func TestSegmentRuleIsNonMatchForInvalidBucketByReference(t *testing.T) {
 		Salt("salty").
 		Build()
 
-	user1 := lduser.NewUserBuilder("x").Name("userKeyA").Build() // bucket value = 0.14574753
-	assertSegmentMatch(t, segment, user1, false)
+	context := ldcontext.NewBuilder("x").Name("userKeyA").Build() // bucket value = 0.14574753
+	assertSegmentMatch(t, segment, context, false)
 }
 
 func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {

@@ -74,9 +74,8 @@ type DataProvider interface {
 // BigSegmentProvider is an abstraction for querying membership in big segments. The caller
 // provides an implementation of this interface to NewEvaluatorWithBigSegments.
 type BigSegmentProvider interface {
-	// GetUserMembership queries a snapshot of the current segment state for a specific context
-	// key. The context does not need to have the "user" kind-- the name User in this method is
-	// retained for historical reasons.
+	// GetMembership queries a snapshot of the current segment state for a specific context
+	// key.
 	//
 	// The underlying big segment store implementation will use a hash of the context key, rather
 	// than the raw key. But computing the hash is the responsibility of the BigSegmentProvider
@@ -94,7 +93,7 @@ type BigSegmentProvider interface {
 	//
 	// If the returned BigSegmentMembership is nil, it is treated the same as an implementation
 	// whose CheckMembership method always returns an empty value.
-	GetUserMembership(
+	GetMembership(
 		contextKey string,
 	) (BigSegmentMembership, ldreason.BigSegmentsStatus)
 }

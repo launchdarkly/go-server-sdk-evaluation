@@ -44,9 +44,12 @@ func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment) (bool, err
 				es.bigSegmentsStatus = ldreason.BigSegmentsNotConfigured
 			} else {
 				var thisQueryStatus ldreason.BigSegmentsStatus
-				membership, thisQueryStatus = es.owner.bigSegmentProvider.GetUserMembership(key)
-				// Note, this interface method has "User" in the name but it is really for any context kind--
-				// all that matters is the key, since a Big Segment can only be for one context kind.
+				membership, thisQueryStatus = es.owner.bigSegmentProvider.GetMembership(key)
+				// Note that this query is just by key; the context kind doesn't matter because any given
+				// Big Segment can only reference one context kind. So if segment A for the "user" kind
+				// includes a "user" context with key X, and segment B for the "org" kind includes an "org"
+				// context with the same key X, it is fine to say that the membership for key X is
+				// segment A and segment B-- there is no ambiguity.
 				if es.bigSegmentsMemberships == nil {
 					es.bigSegmentsMemberships = make(map[string]BigSegmentMembership)
 				}

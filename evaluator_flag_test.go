@@ -11,14 +11,13 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var flagTestContext = lduser.NewUser("x")
+var flagTestContext = ldcontext.New("x")
 
 var fallthroughValue = ldvalue.String("fall")
 var offValue = ldvalue.String("off")
@@ -61,20 +60,17 @@ func TestFlagReturnsFallthroughIfFlagIsOnAndThereAreNoRules(t *testing.T) {
 	assert.False(t, result.IsExperiment)
 }
 
-func TestFlagMatchesUserFromRules(t *testing.T) {
-	user := lduser.NewUser("userkey")
-	f := makeFlagToMatchUser(user, ldbuilders.Variation(2))
+func TestFlagMatchesContextFromRules(t *testing.T) {
+	f := makeFlagToMatchContext(flagTestContext, ldbuilders.Variation(2))
 
-	result := basicEvaluator().Evaluate(&f, user, FailOnAnyPrereqEvent(t))
+	result := basicEvaluator().Evaluate(&f, flagTestContext, FailOnAnyPrereqEvent(t))
 	m.In(t).Assert(result, ResultDetailProps(2, onValue, ldreason.NewEvalReasonRuleMatch(0, "rule-id")))
 	assert.False(t, result.IsExperiment)
 }
 
-func TestFlagReturnsWhetherUserWasInFallthroughExperiment(t *testing.T) {
+func TestFlagReturnsWhetherContextWasInFallthroughExperiment(t *testing.T) {
 	// seed here carefully chosen so users fall into different buckets
-	user1 := lduser.NewUser("userKeyA")
-	user2 := lduser.NewUser("userKeyB")
-	user3 := lduser.NewUser("userKeyC")
+	user1, user2, user3 := ldcontext.New("userKeyA"), ldcontext.New("userKeyB"), ldcontext.New("userKeyC")
 
 	f := ldbuilders.NewFlagBuilder("experiment").
 		On(true).
@@ -103,11 +99,9 @@ func TestFlagReturnsWhetherUserWasInFallthroughExperiment(t *testing.T) {
 	assert.False(t, result.IsExperiment)
 }
 
-func TestFlagReturnsWhetherUserWasInRuleExperiment(t *testing.T) {
+func TestFlagReturnsWhetherContextWasInRuleExperiment(t *testing.T) {
 	// seed here carefully chosen so users fall into different buckets
-	user1 := lduser.NewUser("userKeyA")
-	user2 := lduser.NewUser("userKeyB")
-	user3 := lduser.NewUser("userKeyC")
+	user1, user2, user3 := ldcontext.New("userKeyA"), ldcontext.New("userKeyB"), ldcontext.New("userKeyC")
 
 	f := ldbuilders.NewFlagBuilder("experiment").
 		On(true).

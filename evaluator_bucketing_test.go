@@ -19,7 +19,7 @@ func userEvalScope(context ldcontext.Context) *evaluationScope {
 	return &evaluationScope{context: context}
 }
 
-func TestVariationIndexForUser(t *testing.T) {
+func TestVariationOrRolloutResult(t *testing.T) {
 	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 60000), ldbuilders.Bucket(1, 40000))
 
 	c1 := ldcontext.New("userKeyA")
@@ -41,7 +41,7 @@ func TestVariationIndexForUser(t *testing.T) {
 	assert.False(t, inExperiment)
 }
 
-func TestVariationIndexForUserWithCustomAttribute(t *testing.T) {
+func TestVariationOrRolloutResultWithCustomAttribute(t *testing.T) {
 	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 60000), ldbuilders.Bucket(1, 40000))
 	vr.Rollout.BucketBy = ldattr.NewNameRef("intAttr")
 
@@ -58,7 +58,7 @@ func TestVariationIndexForUserWithCustomAttribute(t *testing.T) {
 	assert.False(t, inExperiment)
 }
 
-func TestVariationIndexForUserInExperiment(t *testing.T) {
+func TestVariationOrRolloutResultInExperiment(t *testing.T) {
 	// seed here carefully chosen so users fall into different buckets
 	vr := ldbuilders.Experiment(61, ldbuilders.Bucket(0, 10000), ldbuilders.Bucket(1, 20000), ldbuilders.BucketUntracked(0, 70000))
 
@@ -84,7 +84,7 @@ func TestVariationIndexForUserInExperiment(t *testing.T) {
 	assert.False(t, inExperiment)
 }
 
-func TestVariationIndexForUserErrorConditions(t *testing.T) {
+func TestVariationOrRolloutResultErrorConditions(t *testing.T) {
 	user := ldcontext.New("key")
 
 	vr1 := ldmodel.VariationOrRollout{

@@ -7,7 +7,6 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
@@ -27,7 +26,7 @@ func basicBigSegmentsProvider() *simpleBigSegmentProvider {
 	return &simpleBigSegmentProvider{}
 }
 
-func (s *simpleBigSegmentProvider) GetUserMembership(contextKey string) (BigSegmentMembership, ldreason.BigSegmentsStatus) {
+func (s *simpleBigSegmentProvider) GetMembership(contextKey string) (BigSegmentMembership, ldreason.BigSegmentsStatus) {
 	s.membershipKeysQueried = append(s.membershipKeysQueried, contextKey)
 	var membership BigSegmentMembership
 	if s.getMembership != nil {
@@ -65,7 +64,7 @@ func (s *simpleBigSegmentProvider) withStatusForKey(key string, status ldreason.
 
 func (s *simpleBigSegmentProvider) withMembership(
 	key string,
-	membership *simpleUserMembership,
+	membership *simpleMembership,
 ) *simpleBigSegmentProvider {
 	previousGetMembership := s.getMembership
 	return &simpleBigSegmentProvider{
@@ -82,13 +81,13 @@ func (s *simpleBigSegmentProvider) withMembership(
 	}
 }
 
-type simpleUserMembership struct {
+type simpleMembership struct {
 	segmentChecks []string
 	included      []string
 	excluded      []string
 }
 
-func (m *simpleUserMembership) CheckMembership(segmentRef string) ldvalue.OptionalBool {
+func (m *simpleMembership) CheckMembership(segmentRef string) ldvalue.OptionalBool {
 	m.segmentChecks = append(m.segmentChecks, segmentRef)
 	for _, inc := range m.included {
 		if inc == segmentRef {
@@ -103,14 +102,14 @@ func (m *simpleUserMembership) CheckMembership(segmentRef string) ldvalue.Option
 	return ldvalue.OptionalBool{}
 }
 
-func basicUserMembership() *simpleUserMembership { return &simpleUserMembership{} }
+func basicMembership() *simpleMembership { return &simpleMembership{} }
 
-func (s *simpleUserMembership) include(segmentRefs ...string) *simpleUserMembership {
+func (s *simpleMembership) include(segmentRefs ...string) *simpleMembership {
 	s.included = append(s.included, segmentRefs...)
 	return s
 }
 
-func (s *simpleUserMembership) exclude(segmentRefs ...string) *simpleUserMembership {
+func (s *simpleMembership) exclude(segmentRefs ...string) *simpleMembership {
 	s.excluded = append(s.excluded, segmentRefs...)
 	return s
 }
@@ -127,7 +126,7 @@ func TestBigSegmentWithNoProviderIsNotMatched(t *testing.T) {
 	)
 	f := makeBooleanFlagToMatchAnyOfSegments("segmentkey")
 
-	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
+	result := evaluator.Evaluate(&f, ldcontext.New(basicUserKey), nil)
 	assert.Equal(t, ldvalue.Bool(false), result.Detail.Value)
 	assert.Equal(t, ldreason.BigSegmentsNotConfigured, result.Detail.Reason.GetBigSegmentsStatus())
 }
@@ -139,11 +138,11 @@ func TestBigSegmentWithNoGenerationIsNotMatched(t *testing.T) {
 	evaluator := NewEvaluatorWithOptions(
 		basicDataProvider().withStoredSegments(segment),
 		EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().withMembership(basicUserKey,
-			basicUserMembership().include(makeBigSegmentRef(&segment)))),
+			basicMembership().include(makeBigSegmentRef(&segment)))),
 	)
 	f := makeBooleanFlagToMatchAnyOfSegments(segment.Key)
 
-	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
+	result := evaluator.Evaluate(&f, ldcontext.New(basicUserKey), nil)
 	assert.Equal(t, ldvalue.Bool(false), result.Detail.Value)
 	assert.Equal(t, ldreason.BigSegmentsNotConfigured, result.Detail.Reason.GetBigSegmentsStatus())
 }
@@ -152,7 +151,7 @@ func TestBigSegmentMatch(t *testing.T) {
 	contextKey := "contextkey"
 	segmentKey := "segmentkey"
 	flag := makeBooleanFlagToMatchAnyOfSegments(segmentKey)
-	makeEvaluator := func(segment ldmodel.Segment, contextMembership *simpleUserMembership) Evaluator {
+	makeEvaluator := func(segment ldmodel.Segment, contextMembership *simpleMembership) Evaluator {
 		return NewEvaluatorWithOptions(
 			basicDataProvider().withStoredSegments(segment),
 			EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().withMembership(contextKey, contextMembership)),
@@ -177,7 +176,7 @@ func TestBigSegmentMatch(t *testing.T) {
 						UnboundedContextKind(contextKind).
 						Generation(2).
 						Build()
-					evaluator := makeEvaluator(segment, basicUserMembership().include(makeBigSegmentRef(&segment)))
+					evaluator := makeEvaluator(segment, basicMembership().include(makeBigSegmentRef(&segment)))
 
 					t.Run("matched by include", func(t *testing.T) {
 						result := evaluator.Evaluate(&flag, context, nil)
@@ -203,7 +202,7 @@ func TestBigSegmentMatch(t *testing.T) {
 							ldbuilders.NewSegmentRuleBuilder().Clauses(makeClauseToMatchAnyContextOfKind(contextKind)),
 						).
 						Build()
-					evaluator := makeEvaluator(segment, basicUserMembership())
+					evaluator := makeEvaluator(segment, basicMembership())
 
 					t.Run("matched by rule", func(t *testing.T) {
 						result := evaluator.Evaluate(&flag, context, nil)
@@ -221,7 +220,7 @@ func TestBigSegmentMatch(t *testing.T) {
 
 					t.Run("exclude takes priority over rule", func(t *testing.T) {
 						evaluatorWithExclude := makeEvaluator(segment,
-							basicUserMembership().exclude(makeBigSegmentRef(&segment)))
+							basicMembership().exclude(makeBigSegmentRef(&segment)))
 						result := evaluatorWithExclude.Evaluate(&flag, context, nil)
 						assert.Equal(t, ldvalue.Bool(false), result.Detail.Value)
 						assert.Equal(t, ldreason.BigSegmentsHealthy, result.Detail.Reason.GetBigSegmentsStatus())
@@ -242,11 +241,11 @@ func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserShowsNoMatch(t *testin
 	evaluator := NewEvaluatorWithOptions(
 		basicDataProvider().withStoredSegments(segment),
 		EvaluatorOptionBigSegmentProvider(
-			basicBigSegmentsProvider().withMembership(basicUserKey, basicUserMembership())),
+			basicBigSegmentsProvider().withMembership(basicUserKey, basicMembership())),
 	)
 	f := makeBooleanFlagToMatchAnyOfSegments(segment.Key)
 
-	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
+	result := evaluator.Evaluate(&f, ldcontext.New(basicUserKey), nil)
 	assert.Equal(t, ldvalue.Bool(true), result.Detail.Value)
 	assert.Equal(t, ldreason.BigSegmentsHealthy, result.Detail.Reason.GetBigSegmentsStatus())
 }
@@ -259,12 +258,12 @@ func TestBigSegmentStatusIsReturnedFromProvider(t *testing.T) {
 	evaluator := NewEvaluatorWithOptions(
 		basicDataProvider().withStoredSegments(segment),
 		EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().
-			withMembership(basicUserKey, basicUserMembership().include(makeBigSegmentRef(&segment))).
+			withMembership(basicUserKey, basicMembership().include(makeBigSegmentRef(&segment))).
 			withStatus(ldreason.BigSegmentsStale)),
 	)
 	f := makeBooleanFlagToMatchAnyOfSegments(segment.Key)
 
-	result := evaluator.Evaluate(&f, lduser.NewUser(basicUserKey), nil)
+	result := evaluator.Evaluate(&f, ldcontext.New(basicUserKey), nil)
 	assert.Equal(t, ldvalue.Bool(true), result.Detail.Value)
 	assert.Equal(t, ldreason.BigSegmentsStale, result.Detail.Reason.GetBigSegmentsStatus())
 }
@@ -280,7 +279,7 @@ func TestBigSegmentStateIsQueriedOnlyOncePerUniqueContextKey(t *testing.T) {
 		context := ldcontext.New(contextKey)
 		segment1 := ldbuilders.NewSegmentBuilder(segmentKey1).Unbounded(true).Generation(1).Build()
 		segment2 := ldbuilders.NewSegmentBuilder(segmentKey2).Unbounded(true).Generation(2).Build()
-		membership := basicUserMembership().include(makeBigSegmentRef(&segment1), makeBigSegmentRef(&segment2))
+		membership := basicMembership().include(makeBigSegmentRef(&segment1), makeBigSegmentRef(&segment2))
 		bigSegmentsProvider := basicBigSegmentsProvider().withMembership(contextKey, membership)
 		evaluator := NewEvaluatorWithOptions(
 			basicDataProvider().withStoredSegments(segment1, segment2),
@@ -305,7 +304,7 @@ func TestBigSegmentStateIsQueriedOnlyOncePerUniqueContextKey(t *testing.T) {
 		segment1 := ldbuilders.NewSegmentBuilder(segmentKey1).Unbounded(true).Generation(1).Build()
 		segment2 := ldbuilders.NewSegmentBuilder(segmentKey2).Unbounded(true).Generation(2).
 			UnboundedContextKind(otherKind).Build()
-		membership := basicUserMembership().include(makeBigSegmentRef(&segment1), makeBigSegmentRef(&segment2))
+		membership := basicMembership().include(makeBigSegmentRef(&segment1), makeBigSegmentRef(&segment2))
 		bigSegmentsProvider := basicBigSegmentsProvider().withMembership(contextKey, membership)
 		evaluator := NewEvaluatorWithOptions(
 			basicDataProvider().withStoredSegments(segment1, segment2),
@@ -330,8 +329,8 @@ func TestBigSegmentStateIsQueriedOnlyOncePerUniqueContextKey(t *testing.T) {
 		segment1 := ldbuilders.NewSegmentBuilder(segmentKey1).Unbounded(true).Generation(1).Build()
 		segment2 := ldbuilders.NewSegmentBuilder(segmentKey2).Unbounded(true).Generation(2).
 			UnboundedContextKind(otherKind).Build()
-		membershipForKey1 := basicUserMembership().include(makeBigSegmentRef(&segment1))
-		membershipForKey2 := basicUserMembership().include(makeBigSegmentRef(&segment2))
+		membershipForKey1 := basicMembership().include(makeBigSegmentRef(&segment1))
+		membershipForKey2 := basicMembership().include(makeBigSegmentRef(&segment2))
 		bigSegmentsProvider := basicBigSegmentsProvider().
 			withMembership(contextKey1, membershipForKey1).
 			withMembership(contextKey2, membershipForKey2)
@@ -364,8 +363,8 @@ func TestBigSegmentStatusWithMultipleQueries(t *testing.T) {
 	segment1 := ldbuilders.NewSegmentBuilder(segmentKey1).Unbounded(true).Generation(1).Build()
 	segment2 := ldbuilders.NewSegmentBuilder(segmentKey2).Unbounded(true).Generation(2).
 		UnboundedContextKind(otherKind).Build()
-	membershipForKey1 := basicUserMembership().include(makeBigSegmentRef(&segment1))
-	membershipForKey2 := basicUserMembership().include(makeBigSegmentRef(&segment2))
+	membershipForKey1 := basicMembership().include(makeBigSegmentRef(&segment1))
+	membershipForKey2 := basicMembership().include(makeBigSegmentRef(&segment2))
 	flag := makeBooleanFlagToMatchAllOfSegments(segmentKey1, segmentKey2)
 
 	type params struct{ status1, status2, expected ldreason.BigSegmentsStatus }
@@ -414,11 +413,11 @@ func TestBigSegmentStatusIsReturnedWhenBigSegmentWasReferencedFromPrerequisiteFl
 	evaluator := NewEvaluatorWithOptions(
 		basicDataProvider().withStoredFlags(f1).withStoredSegments(segment),
 		EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().
-			withMembership(basicUserKey, basicUserMembership().include(makeBigSegmentRef(&segment))).
+			withMembership(basicUserKey, basicMembership().include(makeBigSegmentRef(&segment))).
 			withStatus(ldreason.BigSegmentsStale)),
 	)
 
-	result := evaluator.Evaluate(&f0, lduser.NewUser(basicUserKey), nil)
+	result := evaluator.Evaluate(&f0, ldcontext.New(basicUserKey), nil)
 	assert.Equal(t, ldvalue.Bool(true), result.Detail.Value)
 	assert.Equal(t, ldreason.BigSegmentsStale, result.Detail.Reason.GetBigSegmentsStatus())
 }
