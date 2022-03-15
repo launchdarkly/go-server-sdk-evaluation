@@ -1,6 +1,7 @@
 package evaluation
 
 import (
+	"fmt"
 	"testing"
 
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
@@ -192,91 +193,49 @@ func TestMultipleLevelsOfPrerequisiteProduceMultipleEvents(t *testing.T) {
 	m.In(t).Assert(e1.PrerequisiteResult, ResultDetailProps(1, ldvalue.String("go"), ldreason.NewEvalReasonFallthrough()))
 }
 
-func TestPrerequisiteCycleLeadingBackToOriginalFlagReturnsErrorAndDoesNotOverflow(t *testing.T) {
-	f0 := ldbuilders.NewFlagBuilder("feature0").
-		On(true).
-		OffVariation(1).
-		AddPrerequisite("feature1", 1).
-		FallthroughVariation(0).
-		Variations(fallthroughValue, offValue, onValue).
-		Build()
-	f1 := ldbuilders.NewFlagBuilder("feature1").
-		On(true).
-		AddPrerequisite("feature2", 1).
-		FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
-		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
-		Build()
-	f2 := ldbuilders.NewFlagBuilder("feature2").
-		On(true).
-		AddPrerequisite("feature0", 1). // deliberate error: this points back to the original flag
-		FallthroughVariation(1).        // this 1 matches the 1 in f1's prerequisites
-		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
-		Build()
-	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f0, f1, f2))
+func TestPrerequisiteCycleDetection(t *testing.T) {
+	for _, cycleGoesToOriginalFlag := range []bool{true, false} {
+		t.Run(fmt.Sprintf("cycleGoesToOriginalFlag=%t", cycleGoesToOriginalFlag), func(t *testing.T) {
+			f0 := ldbuilders.NewFlagBuilder("feature0").
+				On(true).
+				OffVariation(1).
+				AddPrerequisite("feature1", 1).
+				FallthroughVariation(0).
+				Variations(fallthroughValue, offValue, onValue).
+				Build()
+			f1 := ldbuilders.NewFlagBuilder("feature1").
+				On(true).
+				AddPrerequisite("feature2", 1).
+				FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
+				Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+				Build()
+			cycleTargetKey := f1.Key
+			if cycleGoesToOriginalFlag {
+				cycleTargetKey = f0.Key
+			}
+			f2 := ldbuilders.NewFlagBuilder("feature2").
+				On(true).
+				AddPrerequisite(cycleTargetKey, 1). // deliberate error
+				FallthroughVariation(1).
+				Variations(ldvalue.String("nogo"), ldvalue.String("go")).
+				Build()
 
-	eventSink := prereqEventSink{}
-	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
+			logCapture := ldlogtest.NewMockLog()
+			evaluator := NewEvaluatorWithOptions(
+				basicDataProvider().withStoredFlags(f0, f1, f2),
+				EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)),
+			)
 
-	assert.Len(t, eventSink.events, 0)
-}
+			result := evaluator.Evaluate(&f0, flagTestContext, FailOnAnyPrereqEvent(t))
+			m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
 
-func TestPrerequisiteCycleNotInvolvingOriginalFlagReturnsErrorAndDoesNotOverflow(t *testing.T) {
-	f0 := ldbuilders.NewFlagBuilder("feature0").
-		On(true).
-		OffVariation(1).
-		AddPrerequisite("feature1", 1).
-		FallthroughVariation(0).
-		Variations(fallthroughValue, offValue, onValue).
-		Build()
-	f1 := ldbuilders.NewFlagBuilder("feature1").
-		On(true).
-		AddPrerequisite("feature2", 1).
-		FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
-		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
-		Build()
-	f2 := ldbuilders.NewFlagBuilder("feature2").
-		On(true).
-		AddPrerequisite("feature1", 1). // deliberate error: this points back to a flag we've already visited
-		FallthroughVariation(1).        // this 1 matches the 1 in f1's prerequisites
-		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
-		Build()
-	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f0, f1, f2))
+			// Note, we used FailOnAnyPrereqEvent because we would only generate a prerequisite event after
+			// we *finish* evaluating a prerequisite-- and due to the cycle, none of these evaluations can
+			// ever successfully finish.
 
-	eventSink := prereqEventSink{}
-	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
-
-	assert.Len(t, eventSink.events, 0)
-}
-
-func TestPrerequisiteCycleCausesErrorToBeLogged(t *testing.T) {
-	f0 := ldbuilders.NewFlagBuilder("feature0").
-		On(true).
-		OffVariation(1).
-		AddPrerequisite("feature1", 1).
-		FallthroughVariation(0).
-		Variations(fallthroughValue, offValue, onValue).
-		Build()
-	f1 := ldbuilders.NewFlagBuilder("feature1").
-		On(true).
-		AddPrerequisite("feature0", 1). // deliberate error
-		FallthroughVariation(1).        // this 1 matches the 1 in f0's prerequisites
-		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
-		Build()
-	logCapture := ldlogtest.NewMockLog()
-	evaluator := NewEvaluatorWithOptions(
-		basicDataProvider().withStoredFlags(f0, f1),
-		EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)),
-	)
-
-	eventSink := prereqEventSink{}
-	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
-	m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
-
-	assert.Len(t, eventSink.events, 0)
-
-	errorLines := logCapture.GetOutput(ldlog.Error)
-	require.Len(t, errorLines, 1)
-	assert.Regexp(t, `"feature1".*prerequisite.*"feature0".*circular reference`, errorLines[0])
+			errorLines := logCapture.GetOutput(ldlog.Error)
+			require.Len(t, errorLines, 1)
+			assert.Regexp(t, `Invalid flag configuration.*prerequisite relationship.*circular reference`, errorLines[0])
+		})
+	}
 }

@@ -143,7 +143,7 @@ func TestAllOperators(t *testing.T) {
 						c = flag.Rules[0].Clauses[0]
 					}
 					context := ldcontext.NewBuilder("key").SetValue(userAttr, uValue).Build()
-					isMatch, err := clauseMatchesContext(&c, &context)
+					isMatch, err := makeEvalScope(context).clauseMatchesContext(&c, evaluationStack{})
 					assert.NoError(t, err)
 					assert.Equal(t, ti.expected, isMatch)
 				},

@@ -20,7 +20,7 @@ import (
 // affect the other aspects of clause behavior.
 
 func assertClauseMatch(t *testing.T, shouldMatch bool, clause ldmodel.Clause, context ldcontext.Context) {
-	match, err := clauseMatchesContext(&clause, &context)
+	match, err := makeEvalScope(context).clauseMatchesContext(&clause, evaluationStack{})
 	assert.NoError(t, err)
 	assert.Equal(t, shouldMatch, match)
 }
@@ -38,7 +38,7 @@ func doClauseMatchTest(t *testing.T, p clauseMatchParams) {
 		desc = "should match"
 	}
 	t.Run(fmt.Sprintf("%s, %s", p.name, desc), func(t *testing.T) {
-		match, err := clauseMatchesContext(&p.clause, &p.context)
+		match, err := makeEvalScope(p.context).clauseMatchesContext(&p.clause, evaluationStack{})
 		require.NoError(t, err)
 		assert.Equal(t, p.shouldMatch, match)
 	})
@@ -358,7 +358,7 @@ func TestClauseMatchErrorConditions(t *testing.T) {
 	t.Run("unspecified attribute", func(t *testing.T) {
 		clause := ldbuilders.ClauseRef(ldattr.Ref{}, ldmodel.OperatorIn, ldvalue.Int(4))
 		context := ldcontext.New("key")
-		match, err := clauseMatchesContext(&clause, &context)
+		match, err := makeEvalScope(context).clauseMatchesContext(&clause, evaluationStack{})
 		assert.Equal(t, emptyAttrRefError{}, err)
 		assert.False(t, match)
 	})
@@ -366,7 +366,7 @@ func TestClauseMatchErrorConditions(t *testing.T) {
 	t.Run("invalid attribute reference", func(t *testing.T) {
 		clause := ldbuilders.ClauseRef(ldattr.NewRef("///"), ldmodel.OperatorIn, ldvalue.Int(4))
 		context := ldcontext.New("key")
-		match, err := clauseMatchesContext(&clause, &context)
+		match, err := makeEvalScope(context).clauseMatchesContext(&clause, evaluationStack{})
 		assert.Equal(t, badAttrRefError("///"), err)
 		assert.False(t, match)
 	})

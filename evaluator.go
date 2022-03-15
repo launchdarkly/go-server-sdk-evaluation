@@ -43,6 +43,11 @@ type evaluator struct {
 	errorLogger        ldlog.BaseLogger
 }
 
+const ( // See Evaluate() regarding the use of these constants
+	preallocatedPrerequisiteChainSize = 20
+	preallocatedSegmentChainSize      = 20
+)
+
 // NewEvaluator creates an Evaluator, specifying a DataProvider that it will use if it needs to
 // query additional feature flags or user segments during an evaluation.
 //
@@ -80,6 +85,11 @@ type evaluationScope struct {
 	bigSegmentsStatus      ldreason.BigSegmentsStatus
 }
 
+type evaluationStack struct {
+	prerequisiteFlagChain []string
+	segmentChain          []string
+}
+
 // Implementation of the Evaluator interface.
 func (e *evaluator) Evaluate(
 	flag *ldmodel.FeatureFlag,
@@ -99,9 +109,12 @@ func (e *evaluator) Evaluate(
 
 	// Preallocate some space for prerequisiteChain on the stack. We can get up to that many levels
 	// of nested prerequisites before appending to the slice will cause a heap allocation.
-	prerequisiteChain := make([]string, 0, 20)
+	stack := evaluationStack{
+		prerequisiteFlagChain: make([]string, 0, preallocatedPrerequisiteChainSize),
+		segmentChain:          make([]string, 0, preallocatedSegmentChainSize),
+	}
 
-	detail, _ := es.evaluate(prerequisiteChain)
+	detail, _ := es.evaluate(stack)
 	if es.bigSegmentsStatus != "" {
 		detail.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(detail.Reason,
 			es.bigSegmentsStatus)
@@ -112,7 +125,7 @@ func (e *evaluator) Evaluate(
 // Entry point for evaluating a flag which could be either the original flag or a prerequisite.
 // The second return value is normally true. If it is false, it means we should immediately
 // terminate the whole current stack of evaluations and not do any more checking or recursing.
-func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.EvaluationDetail, bool) {
+func (es *evaluationScope) evaluate(stack evaluationStack) (ldreason.EvaluationDetail, bool) {
 	if !es.flag.On {
 		return es.getOffValue(ldreason.NewEvalReasonOff()), true
 	}
@@ -125,7 +138,7 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 	// cause heap escaping because we are never *returning* pointers (and never passing them to
 	// external code such as prerequisiteFlagEventRecorder).
 
-	prereqErrorReason, ok := es.checkPrerequisites(prerequisiteChain)
+	prereqErrorReason, ok := es.checkPrerequisites(stack)
 	if !ok {
 		// Is this an actual error, like a malformed flag? Then return an error with default value.
 		if prereqErrorReason.GetKind() == ldreason.EvalReasonError {
@@ -142,7 +155,7 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 
 	// Now walk through the rules and see if any match
 	for ruleIndex, rule := range es.flag.Rules {
-		match, err := es.ruleMatchesContext(&rule) //nolint:gosec // see comments at top of file
+		match, err := es.ruleMatchesContext(&rule, stack) //nolint:gosec // see comments at top of file
 		if err != nil {
 			es.logEvaluationError(err)
 			return ldreason.NewEvaluationDetailForError(errorKindForError(err), ldvalue.Null()), false
@@ -161,9 +174,9 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 // case we want the entire evaluation to fail with a MalformedFlag error.
 func (es *evaluationScope) evaluatePrerequisite(
 	prereqFlag *ldmodel.FeatureFlag,
-	prerequisiteChain []string,
+	stack evaluationStack,
 ) (ldreason.EvaluationDetail, bool) {
-	for _, p := range prerequisiteChain {
+	for _, p := range stack.prerequisiteFlagChain {
 		if prereqFlag.Key == p {
 			err := circularPrereqReferenceError(prereqFlag.Key)
 			es.logEvaluationError(err)
@@ -172,18 +185,18 @@ func (es *evaluationScope) evaluatePrerequisite(
 	}
 	subScope := *es
 	subScope.flag = prereqFlag
-	result, ok := subScope.evaluate(prerequisiteChain)
+	result, ok := subScope.evaluate(stack)
 	es.bigSegmentsStatus = computeUpdatedBigSegmentsStatus(es.bigSegmentsStatus, subScope.bigSegmentsStatus)
 	return result, ok
 }
 
 // Returns an empty reason if all prerequisites are OK, otherwise constructs an error reason that describes the failure
-func (es *evaluationScope) checkPrerequisites(prerequisiteChain []string) (ldreason.EvaluationReason, bool) {
+func (es *evaluationScope) checkPrerequisites(stack evaluationStack) (ldreason.EvaluationReason, bool) {
 	if len(es.flag.Prerequisites) == 0 {
 		return ldreason.EvaluationReason{}, true
 	}
 
-	prerequisiteChain = append(prerequisiteChain, es.flag.Key)
+	stack.prerequisiteFlagChain = append(stack.prerequisiteFlagChain, es.flag.Key)
 	// Note that the change to prerequisiteChain does not persist after returning from this method.
 	// That introduces a potential edge-case inefficiency with deeply nested prerequisites: if the
 	// original slice had a capacity of 20, and then the 20th prerequisite has 5 prerequisites of
@@ -200,7 +213,7 @@ func (es *evaluationScope) checkPrerequisites(prerequisiteChain []string) (ldrea
 		}
 		prereqOK := true
 
-		prereqResultDetail, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, prerequisiteChain)
+		prereqResultDetail, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, stack)
 		if !prereqValid {
 			// In this case we want to immediately exit with an error and not check any more prereqs
 			return ldreason.NewEvalReasonError(ldreason.EvalErrorMalformedFlag), false
@@ -299,39 +312,15 @@ func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.Optio
 	return ldvalue.OptionalInt{}
 }
 
-func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule) (bool, error) {
+func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule, stack evaluationStack) (bool, error) {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
 	for _, clause := range rule.Clauses {
-		match, err := es.clauseMatchesContext(&clause) //nolint:gosec // see comments at top of file
+		match, err := es.clauseMatchesContext(&clause, stack) //nolint:gosec // see comments at top of file
 		if !match || err != nil {
 			return match, err
 		}
 	}
 	return true, nil
-}
-
-func (es *evaluationScope) clauseMatchesContext(clause *ldmodel.Clause) (bool, error) {
-	// Note that clause is passed by reference only for efficiency; we do not modify it
-	// In the case of a segment match operator, we check if the user is in any of the segments,
-	// and possibly negate
-	if clause.Op == ldmodel.OperatorSegmentMatch {
-		for _, value := range clause.Values {
-			if value.Type() == ldvalue.StringType {
-				if segment := es.owner.dataProvider.GetSegment(value.StringValue()); segment != nil {
-					match, err := es.segmentContainsContext(segment)
-					if err != nil {
-						return false, err
-					}
-					if match {
-						return !clause.Negate, nil // match - true unless negated
-					}
-				}
-			}
-		}
-		return clause.Negate, nil // non-match - false unless negated
-	}
-
-	return clauseMatchesContext(clause, &es.context)
 }
 
 func (es *evaluationScope) variationOrRolloutResult(
