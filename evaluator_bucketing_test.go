@@ -49,11 +49,20 @@ func TestRolloutBucketing(t *testing.T) {
 	}
 
 	for _, defaultContextKind := range []bool{true, false} {
+		// The purpose of running everything twice with defaultContext=true or false is to prove that
+		// comnputeBucketValue is always checking the desired context kind whenever it gets attributes
+		// from the context.
+
 		t.Run(fmt.Sprintf("defaultContextKind=%t", defaultContextKind), func(t *testing.T) {
 			baseRollout := ldmodel.Rollout{Variations: buckets}
 			contextKind := ldcontext.DefaultKind
 
 			checkResult := func(t *testing.T, p bucketingTestParams, context ldcontext.Context, rollout ldmodel.Rollout) {
+				// For each of these test cases, we're doing two tests. First, we test the lower-level method
+				// computeBucketValue, which tells the actual bucket value. Then, we test variationOrRolloutResult--
+				// which also calls computeBucketValue, but we are verifying that variationOrRolloutResult then
+				// applies the right logic to pick the result variation.
+
 				if !defaultContextKind {
 					context = ldcontext.NewMulti(
 						ldcontext.NewWithKind("irrelevantKind", "irrelevantKey"),
