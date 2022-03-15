@@ -71,28 +71,38 @@ type DataProvider interface {
 	GetSegment(key string) *ldmodel.Segment
 }
 
-// BigSegmentProvider is an abstraction for querying user membership in big segments. The caller
+// BigSegmentProvider is an abstraction for querying membership in big segments. The caller
 // provides an implementation of this interface to NewEvaluatorWithBigSegments.
 type BigSegmentProvider interface {
-	// GetUserMembership queries a snapshot of the current segment state for a specific user.
+	// GetMembership queries a snapshot of the current segment state for a specific context
+	// key.
 	//
-	// The underlying big segment store implementation will use a hash of the user key, rather
+	// The underlying big segment store implementation will use a hash of the context key, rather
 	// than the raw key. But computing the hash is the responsibility of the BigSegmentProvider
 	// implementation rather than the evaluator, because there may already have a cached result for
 	// that user, and we don't want to have to compute a hash repeatedly just to query a cache.
 	//
+	// Any given big segment is specific to one context kind, so we do not specify a context kind
+	// here; it is OK for the membership results to include different context kinds for the same
+	// key. That is, if for instance the context {kind: "user", key: "x"} is included in big segment
+	// S1, and the context {kind: "org", key: "x"} is included in big segment S2, then the query
+	// result for key "x" will show that it is included in both S1 and S2; even though those "x"
+	// keys are really for two unrelated context kinds, we will always know which kind we mean if
+	// we are specifically checking either S1 or S2, because S1 is defined as only applying to the
+	// "user" kind and S2 is defined as only applying to the "org" kind.
+	//
 	// If the returned BigSegmentMembership is nil, it is treated the same as an implementation
-	// whose IsUserIncluded and IsUserExcluded methods always return false.
-	GetUserMembership(
-		userKey string,
+	// whose CheckMembership method always returns an empty value.
+	GetMembership(
+		contextKey string,
 	) (BigSegmentMembership, ldreason.BigSegmentsStatus)
 }
 
-// BigSegmentMembership is the return type of BigSegmentProvider.GetUserMembership(). It is
-// associated with a single user, and provides the ability to check whether that user is included
-// in or excluded from any number of big segments.
+// BigSegmentMembership is the return type of BigSegmentProvider.GetContextMembership(). It is
+// associated with a single context kind and context key, and provides the ability to check whether
+// that context is included in or excluded from any number of big segments.
 //
-// This is an immutable snapshot of the state for this user at the time GetBigSegmentMembership
+// This is an immutable snapshot of the state for this context at the time GetBigSegmentMembership
 // was called. Calling CheckMembership should not cause the state to be queried again. The object
 // should be safe for concurrent access by multiple goroutines.
 //

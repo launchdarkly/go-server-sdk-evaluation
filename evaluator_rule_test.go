@@ -12,7 +12,6 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldlogtest"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
 	"github.com/stretchr/testify/assert"
@@ -32,19 +31,19 @@ func TestMalformedFlagErrorForBadRuleProperties(t *testing.T) {
 		{
 			name:    "variation index too high",
 			context: basicContext,
-			flag:    makeFlagToMatchUser(basicContext, ldbuilders.Variation(999)),
+			flag:    makeFlagToMatchContext(basicContext, ldbuilders.Variation(999)),
 			message: "nonexistent variation index 999",
 		},
 		{
 			name:    "negative variation index",
 			context: basicContext,
-			flag:    makeFlagToMatchUser(basicContext, ldbuilders.Variation(-1)),
+			flag:    makeFlagToMatchContext(basicContext, ldbuilders.Variation(-1)),
 			message: "nonexistent variation index -1",
 		},
 		{
 			name:    "no variation or rollout",
 			context: basicContext,
-			flag:    makeFlagToMatchUser(basicContext, ldbuilders.Rollout()),
+			flag:    makeFlagToMatchContext(basicContext, ldbuilders.Rollout()),
 			message: "rollout or experiment with no variations",
 		},
 	} {
@@ -94,7 +93,7 @@ func TestMalformedFlagErrorForBadClauseProperties(t *testing.T) {
 		},
 	} {
 		t.Run(p.name, func(t *testing.T) {
-			goodClause := makeClauseToMatchUser(p.context)
+			goodClause := makeClauseToMatchContext(p.context)
 			flag := ldbuilders.NewFlagBuilder("feature").
 				On(true).
 				AddRule(ldbuilders.NewRuleBuilder().ID("bad").Variation(1).Clauses(p.clause)).
@@ -123,16 +122,16 @@ func TestMalformedFlagErrorForBadClauseProperties(t *testing.T) {
 }
 
 func TestClauseWithUnknownOperatorDoesNotStopSubsequentRuleFromMatching(t *testing.T) {
+	context := ldcontext.New("key")
 	badClause := ldbuilders.Clause(ldattr.NameAttr, "doesSomethingUnsupported", ldvalue.String("Bob"))
-	goodClause := ldbuilders.Clause(ldattr.NameAttr, ldmodel.OperatorIn, ldvalue.String("Bob"))
+	goodClause := makeClauseToMatchContext(context)
 	f := ldbuilders.NewFlagBuilder("feature").
 		On(true).
 		AddRule(ldbuilders.NewRuleBuilder().ID("bad").Variation(1).Clauses(badClause)).
 		AddRule(ldbuilders.NewRuleBuilder().ID("good").Variation(1).Clauses(goodClause)).
 		Variations(ldvalue.Bool(false), ldvalue.Bool(true)).
 		Build()
-	user := lduser.NewUserBuilder("key").Name("Bob").Build()
 
-	result := basicEvaluator().Evaluate(&f, user, nil)
+	result := basicEvaluator().Evaluate(&f, context, nil)
 	m.In(t).Assert(result, ResultDetailProps(1, ldvalue.Bool(true), ldreason.NewEvalReasonRuleMatch(1, "good")))
 }

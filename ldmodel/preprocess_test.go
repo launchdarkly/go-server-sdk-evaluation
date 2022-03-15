@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
@@ -33,8 +34,8 @@ func TestPreprocessFlagBuildsTargetMap(t *testing.T) {
 	assert.Nil(t, f.Targets[0].preprocessed.valuesMap)
 
 	assert.Len(t, f.Targets[1].preprocessed.valuesMap, 2)
-	assert.True(t, f.Targets[1].preprocessed.valuesMap["a"])
-	assert.True(t, f.Targets[1].preprocessed.valuesMap["b"])
+	assert.Contains(t, f.Targets[1].preprocessed.valuesMap, "a")
+	assert.Contains(t, f.Targets[1].preprocessed.valuesMap, "b")
 }
 
 func TestPreprocessFlagCreatesClauseValuesMapForMultiValueEqualityTest(t *testing.T) {
@@ -56,15 +57,11 @@ func TestPreprocessFlagCreatesClauseValuesMapForMultiValueEqualityTest(t *testin
 	PreprocessFlag(&f)
 
 	m := f.Rules[0].Clauses[0].preprocessed.valuesMap
-	require.Len(t, m, 3)
-
-	assert.True(t, m[asPrimitiveValueKey(ldvalue.Bool(true))])
-	assert.False(t, m[asPrimitiveValueKey(ldvalue.Bool(false))])
-	assert.True(t, m[asPrimitiveValueKey(ldvalue.String("a"))])
-	assert.False(t, m[asPrimitiveValueKey(ldvalue.String("b"))])
-	assert.True(t, m[asPrimitiveValueKey(ldvalue.Int(0))])
-	assert.True(t, m[asPrimitiveValueKey(ldvalue.Float64(0))]) // the canonical value of this is the same as Int(0)
-	assert.False(t, m[asPrimitiveValueKey(ldvalue.Int(1))])
+	assert.Equal(t, map[jsonPrimitiveValueKey]struct{}{
+		asPrimitiveValueKey(ldvalue.Bool(true)):  {},
+		asPrimitiveValueKey(ldvalue.String("a")): {},
+		asPrimitiveValueKey(ldvalue.Int(0)):      {},
+	}, m)
 }
 
 func TestPreprocessFlagDoesNotCreateClauseValuesMapForSingleValueEqualityTest(t *testing.T) {
@@ -251,6 +248,12 @@ func TestPreprocessSegmentBuildsIncludeAndExcludeMaps(t *testing.T) {
 	s := Segment{
 		Included: []string{"a", "b"},
 		Excluded: []string{"c"},
+		IncludedContexts: []SegmentTarget{
+			{ContextKind: ldcontext.Kind("org"), Values: []string{"x", "y"}},
+		},
+		ExcludedContexts: []SegmentTarget{
+			{ContextKind: ldcontext.Kind("org"), Values: []string{"z"}},
+		},
 	}
 
 	assert.Nil(t, s.preprocessed.includeMap)
@@ -258,12 +261,10 @@ func TestPreprocessSegmentBuildsIncludeAndExcludeMaps(t *testing.T) {
 
 	PreprocessSegment(&s)
 
-	assert.Len(t, s.preprocessed.includeMap, 2)
-	assert.True(t, s.preprocessed.includeMap["a"])
-	assert.True(t, s.preprocessed.includeMap["b"])
-
-	assert.Len(t, s.preprocessed.excludeMap, 1)
-	assert.True(t, s.preprocessed.excludeMap["c"])
+	assert.Equal(t, map[string]struct{}{"a": {}, "b": {}}, s.preprocessed.includeMap)
+	assert.Equal(t, map[string]struct{}{"c": {}}, s.preprocessed.excludeMap)
+	assert.Equal(t, map[string]struct{}{"x": {}, "y": {}}, s.IncludedContexts[0].preprocessed.valuesMap)
+	assert.Equal(t, map[string]struct{}{"z": {}}, s.ExcludedContexts[0].preprocessed.valuesMap)
 }
 
 func TestPreprocessSegmentPreprocessesClausesInRules(t *testing.T) {

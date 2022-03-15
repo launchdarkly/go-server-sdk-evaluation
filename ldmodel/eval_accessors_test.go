@@ -188,6 +188,30 @@ func TestSegmentFindValueInIncluded(t *testing.T) {
 	})
 }
 
+func TestSegmentTargetFindKey(t *testing.T) {
+	foundValues := []string{"a", "b", "c"}
+	notFoundValues := []string{"d", "e", "f"}
+
+	for _, withPreprocessing := range []bool{false, true} {
+		t.Run(fmt.Sprintf("preprocessed: %t", withPreprocessing), func(t *testing.T) {
+			target := SegmentTarget{Values: foundValues}
+			if withPreprocessing {
+				target.preprocessed.valuesMap = preprocessStringSet(target.Values)
+			}
+			for _, value := range foundValues {
+				assert.True(t, EvaluatorAccessors.SegmentTargetFindKey(&target, value), value)
+			}
+			for _, value := range notFoundValues {
+				assert.False(t, EvaluatorAccessors.SegmentTargetFindKey(&target, value), value)
+			}
+		})
+	}
+
+	t.Run("nil pointer", func(t *testing.T) {
+		assert.False(t, EvaluatorAccessors.SegmentTargetFindKey(nil, ""))
+	})
+}
+
 func TestTargetFindKey(t *testing.T) {
 	foundValues := []string{"a", "b", "c"}
 	notFoundValues := []string{"d", "e", "f"}
@@ -196,7 +220,7 @@ func TestTargetFindKey(t *testing.T) {
 		t.Run(fmt.Sprintf("preprocessed: %t", withPreprocessing), func(t *testing.T) {
 			target := Target{Values: foundValues}
 			if withPreprocessing {
-				target.preprocessed = preprocessTarget(target)
+				target.preprocessed.valuesMap = preprocessStringSet(target.Values)
 			}
 			for _, value := range foundValues {
 				assert.True(t, EvaluatorAccessors.TargetFindKey(&target, value), value)

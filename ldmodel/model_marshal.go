@@ -122,6 +122,8 @@ func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
 	obj.Name("key").String(segment.Key)
 	writeStringArray(&obj, "included", segment.Included)
 	writeStringArray(&obj, "excluded", segment.Excluded)
+	writeSegmentTargets(&obj, segment.IncludedContexts, "includedContexts")
+	writeSegmentTargets(&obj, segment.ExcludedContexts, "excludedContexts")
 	obj.Name("salt").String(segment.Salt)
 
 	rulesArr := obj.Name("rules").Array()
@@ -136,12 +138,26 @@ func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
 	rulesArr.End()
 
 	obj.Maybe("unbounded", segment.Unbounded).Bool(segment.Unbounded)
+	obj.Maybe("unboundedContextKind", segment.UnboundedContextKind != "").String(string(segment.UnboundedContextKind))
 
 	obj.Name("version").Int(segment.Version)
 	segment.Generation.WriteToJSONWriter(obj.Name("generation"))
 	obj.Name("deleted").Bool(segment.Deleted)
 
 	obj.End()
+}
+
+func writeSegmentTargets(obj *jwriter.ObjectState, targets []SegmentTarget, name string) {
+	targetsArr := obj.Name(name).Array()
+	for _, t := range targets {
+		targetObj := targetsArr.Object()
+		if t.ContextKind != "" {
+			targetObj.Name("contextKind").String(string(t.ContextKind))
+		}
+		writeStringArray(&targetObj, "values", t.Values)
+		targetObj.End()
+	}
+	targetsArr.End()
 }
 
 func writeStringArray(obj *jwriter.ObjectState, name string, values []string) {

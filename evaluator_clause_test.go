@@ -6,7 +6,6 @@ import (
 
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/lduser"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldbuilders"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
@@ -358,16 +357,16 @@ func TestClauseMatchOnKindAttribute(t *testing.T) {
 func TestClauseMatchErrorConditions(t *testing.T) {
 	t.Run("unspecified attribute", func(t *testing.T) {
 		clause := ldbuilders.ClauseRef(ldattr.Ref{}, ldmodel.OperatorIn, ldvalue.Int(4))
-		user := lduser.NewUserBuilder("key").Name("Bob").Build()
-		match, err := clauseMatchesContext(&clause, &user)
+		context := ldcontext.New("key")
+		match, err := clauseMatchesContext(&clause, &context)
 		assert.Equal(t, emptyAttrRefError{}, err)
 		assert.False(t, match)
 	})
 
 	t.Run("invalid attribute reference", func(t *testing.T) {
 		clause := ldbuilders.ClauseRef(ldattr.NewRef("///"), ldmodel.OperatorIn, ldvalue.Int(4))
-		user := lduser.NewUserBuilder("key").Name("Bob").Build()
-		match, err := clauseMatchesContext(&clause, &user)
+		context := ldcontext.New("key")
+		match, err := clauseMatchesContext(&clause, &context)
 		assert.Equal(t, badAttrRefError("///"), err)
 		assert.False(t, match)
 	})

@@ -170,7 +170,7 @@ type Rollout struct {
 	//
 	// The default (when BucketBy is empty) is ldattr.KeyAttr, the user's primary key. If you wish to
 	// treat users with different keys as the same for rollout purposes as long as they have the same
-	// "country" attribute, you would set this to "country" (lduser.CountryAttribute).
+	// "country" attribute, you would set this to "country".
 	//
 	// Rollouts always take the user's "secondary key" attribute into account as well if the user has one.
 	BucketBy ldattr.Ref
@@ -250,7 +250,7 @@ type Target struct {
 	// Variation is the index of the variation to be returned if the user matches one of these keys. This
 	// is always a real variation index; it cannot be undefined.
 	Variation int
-	// preprocessedData is created by PreprocessFlag() to speed up target matching.
+	// preprocessed is created by PreprocessFlag() to speed up target matching.
 	preprocessed targetPreprocessedData
 }
 

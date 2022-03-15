@@ -2,6 +2,7 @@ package ldbuilders
 
 import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldattr"
+	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
@@ -46,6 +47,20 @@ func (b *SegmentBuilder) Included(keys ...string) *SegmentBuilder {
 	return b
 }
 
+// IncludedContextKind adds a target list to the segment's IncludedContexts.
+func (b *SegmentBuilder) IncludedContextKind(kind ldcontext.Kind, keys ...string) *SegmentBuilder {
+	b.segment.IncludedContexts = append(b.segment.IncludedContexts,
+		ldmodel.SegmentTarget{ContextKind: kind, Values: keys})
+	return b
+}
+
+// ExcludedContextKind adds a target to the segment's ExcludedContexts.
+func (b *SegmentBuilder) ExcludedContextKind(kind ldcontext.Kind, keys ...string) *SegmentBuilder {
+	b.segment.ExcludedContexts = append(b.segment.ExcludedContexts,
+		ldmodel.SegmentTarget{ContextKind: kind, Values: keys})
+	return b
+}
+
 // Version sets the segment's Version property.
 func (b *SegmentBuilder) Version(value int) *SegmentBuilder {
 	b.segment.Version = value
@@ -62,6 +77,12 @@ func (b *SegmentBuilder) Salt(value string) *SegmentBuilder {
 // a big segment.
 func (b *SegmentBuilder) Unbounded(value bool) *SegmentBuilder {
 	b.segment.Unbounded = value
+	return b
+}
+
+// UnboundedContextKind sets the segment's UnboundedContextKind property.
+func (b *SegmentBuilder) UnboundedContextKind(kind ldcontext.Kind) *SegmentBuilder {
+	b.segment.UnboundedContextKind = kind
 	return b
 }
 

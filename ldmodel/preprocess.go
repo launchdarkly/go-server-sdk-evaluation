@@ -10,17 +10,17 @@ import (
 )
 
 type targetPreprocessedData struct {
-	valuesMap map[string]bool
+	valuesMap map[string]struct{}
 }
 
 type segmentPreprocessedData struct {
-	includeMap map[string]bool
-	excludeMap map[string]bool
+	includeMap map[string]struct{}
+	excludeMap map[string]struct{}
 }
 
 type clausePreprocessedData struct {
 	values    []clausePreprocessedValue
-	valuesMap map[jsonPrimitiveValueKey]bool
+	valuesMap map[jsonPrimitiveValueKey]struct{}
 }
 
 type clausePreprocessedValue struct {
@@ -50,7 +50,7 @@ func (j jsonPrimitiveValueKey) isValid() bool {
 // available to any other code. The method is not safe for concurrent access across goroutines.
 func PreprocessFlag(f *FeatureFlag) {
 	for i, t := range f.Targets {
-		f.Targets[i].preprocessed = preprocessTarget(t)
+		f.Targets[i].preprocessed.valuesMap = preprocessStringSet(t.Values)
 	}
 	for i, r := range f.Rules {
 		for j, c := range r.Clauses {
@@ -67,17 +67,13 @@ func PreprocessFlag(f *FeatureFlag) {
 // it available to any other code. The method is not safe for concurrent access across goroutines.
 func PreprocessSegment(s *Segment) {
 	p := segmentPreprocessedData{}
-	if len(s.Included) > 0 {
-		p.includeMap = make(map[string]bool, len(s.Included))
-		for _, key := range s.Included {
-			p.includeMap[key] = true
-		}
+	p.includeMap = preprocessStringSet(s.Included)
+	p.excludeMap = preprocessStringSet(s.Excluded)
+	for i, t := range s.IncludedContexts {
+		s.IncludedContexts[i].preprocessed.valuesMap = preprocessStringSet(t.Values)
 	}
-	if len(s.Excluded) > 0 {
-		p.excludeMap = make(map[string]bool, len(s.Excluded))
-		for _, key := range s.Excluded {
-			p.excludeMap[key] = true
-		}
+	for i, t := range s.ExcludedContexts {
+		s.ExcludedContexts[i].preprocessed.valuesMap = preprocessStringSet(t.Values)
 	}
 	s.preprocessed = p
 
@@ -86,18 +82,6 @@ func PreprocessSegment(s *Segment) {
 			s.Rules[i].Clauses[j].preprocessed = preprocessClause(c)
 		}
 	}
-}
-
-func preprocessTarget(t Target) targetPreprocessedData {
-	ret := targetPreprocessedData{}
-	if len(t.Values) > 0 {
-		m := make(map[string]bool, len(t.Values))
-		for _, v := range t.Values {
-			m[v] = true
-		}
-		ret.valuesMap = m
-	}
-	return ret
 }
 
 func preprocessClause(c Clause) clausePreprocessedData {
@@ -110,10 +94,10 @@ func preprocessClause(c Clause) clausePreprocessedData {
 		// to a map lookup.
 		if len(c.Values) > 1 { // don't bother if it's empty or has a single value
 			valid := true
-			m := make(map[jsonPrimitiveValueKey]bool, len(c.Values))
+			m := make(map[jsonPrimitiveValueKey]struct{}, len(c.Values))
 			for _, v := range c.Values {
 				if key := asPrimitiveValueKey(v); key.isValid() {
-					m[key] = true
+					m[key] = struct{}{}
 				} else {
 					valid = false
 					break
@@ -154,6 +138,17 @@ func asPrimitiveValueKey(v ldvalue.Value) jsonPrimitiveValueKey {
 	default:
 		return jsonPrimitiveValueKey{}
 	}
+}
+
+func preprocessStringSet(valuesIn []string) map[string]struct{} {
+	if len(valuesIn) == 0 {
+		return nil
+	}
+	ret := make(map[string]struct{}, len(valuesIn))
+	for _, value := range valuesIn {
+		ret[value] = struct{}{}
+	}
+	return ret
 }
 
 func preprocessValues(
