@@ -107,8 +107,9 @@ func (e *evaluator) Evaluate(
 		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
 	}
 
-	// Preallocate some space for prerequisiteChain on the stack. We can get up to that many levels
-	// of nested prerequisites before appending to the slice will cause a heap allocation.
+	// Preallocate some space for prerequisiteFlagChain and segmentChain on the stack. We can
+	// get up to that many levels of nested prerequisites or nested segments before appending
+	// to the slice will cause a heap allocation.
 	stack := evaluationStack{
 		prerequisiteFlagChain: make([]string, 0, preallocatedPrerequisiteChainSize),
 		segmentChain:          make([]string, 0, preallocatedSegmentChainSize),
