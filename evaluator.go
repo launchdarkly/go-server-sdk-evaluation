@@ -126,18 +126,16 @@ func (e *evaluator) Evaluate(
 // Entry point for evaluating a flag which could be either the original flag or a prerequisite.
 // The second return value is normally true. If it is false, it means we should immediately
 // terminate the whole current stack of evaluations and not do any more checking or recursing.
+//
+// Note that the evaluationStack is passed by value-- unlike other structs such as the FeatureFlag
+// which we reference by address for the sake of efficiency (see comments at top of file). One
+// reason for this is described in the comments at each point where we modify one of its fields
+// with append(). The other is that Go's escape analysis is not quite clever enough to let the
+// slices that we preallocated in Evaluate() remain on the stack if we pass that struct by address.
 func (es *evaluationScope) evaluate(stack evaluationStack) (ldreason.EvaluationDetail, bool) {
 	if !es.flag.On {
 		return es.getOffValue(ldreason.NewEvalReasonOff()), true
 	}
-
-	// Note that all of our internal methods operate on pointers (*Context, *FeatureFlag, *Clause, etc.);
-	// this is done to avoid the overhead of repeatedly copying these structs by value. We know that
-	// the pointers cannot be nil, since the entry point is always Evaluate which does receive its
-	// parameters by value; mutability is not a concern, since Context is immutable and the evaluation
-	// code will never modify anything in the data model. Taking the address of these structs will not
-	// cause heap escaping because we are never *returning* pointers (and never passing them to
-	// external code such as prerequisiteFlagEventRecorder).
 
 	prereqErrorReason, ok := es.checkPrerequisites(stack)
 	if !ok {
