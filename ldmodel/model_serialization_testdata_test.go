@@ -553,6 +553,15 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			jsonString: `{"rules": [ {"id": "", "weight": 100000, "bucketBy": "///", "clauses": []} ]}`,
 		},
 		{
+			name: "rule rolloutContextKind",
+			segment: Segment{
+				Rules: []SegmentRule{
+					{Weight: ldvalue.NewOptionalInt(100000), RolloutContextKind: ldcontext.Kind("org")},
+				},
+			},
+			jsonString: `{"rules": [ {"id": "", "weight": 100000, "rolloutContextKind": "org", "clauses": []} ]}`,
+		},
+		{
 			name: "rule ID",
 			segment: Segment{
 				Rules: []SegmentRule{

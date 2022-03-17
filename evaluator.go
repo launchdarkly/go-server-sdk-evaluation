@@ -336,7 +336,7 @@ func (es *evaluationScope) variationOrRolloutResult(
 
 	isExperiment := r.Rollout.IsExperiment()
 
-	bucketVal, err := es.computeBucketValue(isExperiment, r.Rollout.Seed, r.Rollout.ContextKind,
+	bucketVal, _, err := es.computeBucketValue(isExperiment, r.Rollout.Seed, r.Rollout.ContextKind,
 		key, r.Rollout.BucketBy, salt)
 	if err != nil {
 		return -1, false, err

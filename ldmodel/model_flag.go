@@ -157,7 +157,8 @@ type Rollout struct {
 	// ContextKind is the context kind that this rollout will use to get any necessary context attributes.
 	//
 	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
-	// treated as ldcontext.DefaultKind.
+	// treated as ldcontext.DefaultKind. An empty string value here represents the property being unset
+	// (so it will be omitted in serialization).
 	ContextKind ldcontext.Kind
 	// Variations is a list of the variations in the percentage rollout and what percentage of users
 	// to include in each.
@@ -192,7 +193,8 @@ type Clause struct {
 	// ContextKind is the context kind that this clause applies to.
 	//
 	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
-	// treated as ldcontext.DefaultKind.
+	// treated as ldcontext.DefaultKind. An empty string value here represents the property being unset (so
+	// it will be omitted in serialization).
 	//
 	// If the value of Attribute is "kind", then ContextKind is ignored because the nature of the context kind
 	// test is described in a richer way by Operator and Values.
@@ -245,7 +247,8 @@ type Target struct {
 	// ContextKind is the context kind that this target list applies to.
 	//
 	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
-	// treated as ldcontext.DefaultKind.
+	// treated as ldcontext.DefaultKind. An empty string value here represents the property being unset (so
+	// it will be omitted in serialization).
 	ContextKind ldcontext.Kind
 	// Values is the set of user keys included in this Target.
 	Values []string

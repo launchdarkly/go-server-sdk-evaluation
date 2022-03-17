@@ -267,6 +267,8 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 						}
 					case "bucketBy":
 						readAttrRef(r, &rule.BucketBy)
+					case "rolloutContextKind":
+						rule.RolloutContextKind = ldcontext.Kind(r.String())
 					}
 				}
 				segment.Rules = append(segment.Rules, rule)
