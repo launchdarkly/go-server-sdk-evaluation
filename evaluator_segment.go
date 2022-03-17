@@ -16,7 +16,18 @@ func makeBigSegmentRef(s *ldmodel.Segment) string {
 	return fmt.Sprintf("%s.g%d", s.Key, s.Generation.IntValue())
 }
 
-func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment) (bool, error) {
+func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment, stack evaluationStack) (bool, error) {
+	// Have we already visited this segment recursively?
+	for _, visitedKey := range stack.segmentChain {
+		if visitedKey == s.Key {
+			return false, circularSegmentReferenceError(s.Key)
+		}
+	}
+
+	// Add this segment key to the visited list. Since stack is passed by value, this change does not
+	// persist after we return from this method. See comments in evaluationScope.checkPrerequisites().
+	stack.segmentChain = append(stack.segmentChain, s.Key)
+
 	// Check if the user is specifically included in or excluded from the segment by key
 	if s.Unbounded {
 		if !s.Generation.IsDefined() {
@@ -92,7 +103,7 @@ func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment) (bool, err
 	// Check if any of the segment rules match
 	for _, rule := range s.Rules {
 		// Note, taking address of range variable here is OK because it's not used outside the loop
-		match, err := es.segmentRuleMatchesContext(&rule, s.Key, s.Salt) //nolint:gosec // see comment above
+		match, err := es.segmentRuleMatchesContext(&rule, stack, s.Key, s.Salt) //nolint:gosec // see comment above
 		if err != nil {
 			return false, malformedSegmentError{SegmentKey: s.Key, Err: err}
 		}
@@ -111,11 +122,14 @@ func (es *evaluationScope) segmentTargetMatchesContext(t *ldmodel.SegmentTarget)
 	return false
 }
 
-func (es *evaluationScope) segmentRuleMatchesContext(r *ldmodel.SegmentRule, key, salt string) (bool, error) {
-	// Note that r is passed by reference only for efficiency; we do not modify it
-	for _, clause := range r.Clauses {
-		c := clause
-		match, err := clauseMatchesContext(&c, &es.context)
+func (es *evaluationScope) segmentRuleMatchesContext(
+	r *ldmodel.SegmentRule,
+	stack evaluationStack,
+	key, salt string,
+) (bool, error) {
+	for i := range r.Clauses {
+		// Note that the clause is passed by address only for efficiency; we do not modify it
+		match, err := es.clauseMatchesContext(&r.Clauses[i], stack)
 		if !match || err != nil {
 			return false, err
 		}

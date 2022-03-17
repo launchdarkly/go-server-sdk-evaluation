@@ -43,6 +43,11 @@ type evaluator struct {
 	errorLogger        ldlog.BaseLogger
 }
 
+const ( // See Evaluate() regarding the use of these constants
+	preallocatedPrerequisiteChainSize = 20
+	preallocatedSegmentChainSize      = 20
+)
+
 // NewEvaluator creates an Evaluator, specifying a DataProvider that it will use if it needs to
 // query additional feature flags or user segments during an evaluation.
 //
@@ -80,6 +85,11 @@ type evaluationScope struct {
 	bigSegmentsStatus      ldreason.BigSegmentsStatus
 }
 
+type evaluationStack struct {
+	prerequisiteFlagChain []string
+	segmentChain          []string
+}
+
 // Implementation of the Evaluator interface.
 func (e *evaluator) Evaluate(
 	flag *ldmodel.FeatureFlag,
@@ -97,11 +107,15 @@ func (e *evaluator) Evaluate(
 		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
 	}
 
-	// Preallocate some space for prerequisiteChain on the stack. We can get up to that many levels
-	// of nested prerequisites before appending to the slice will cause a heap allocation.
-	prerequisiteChain := make([]string, 0, 20)
+	// Preallocate some space for prerequisiteFlagChain and segmentChain on the stack. We can
+	// get up to that many levels of nested prerequisites or nested segments before appending
+	// to the slice will cause a heap allocation.
+	stack := evaluationStack{
+		prerequisiteFlagChain: make([]string, 0, preallocatedPrerequisiteChainSize),
+		segmentChain:          make([]string, 0, preallocatedSegmentChainSize),
+	}
 
-	detail, _ := es.evaluate(prerequisiteChain)
+	detail, _ := es.evaluate(stack)
 	if es.bigSegmentsStatus != "" {
 		detail.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(detail.Reason,
 			es.bigSegmentsStatus)
@@ -112,20 +126,18 @@ func (e *evaluator) Evaluate(
 // Entry point for evaluating a flag which could be either the original flag or a prerequisite.
 // The second return value is normally true. If it is false, it means we should immediately
 // terminate the whole current stack of evaluations and not do any more checking or recursing.
-func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.EvaluationDetail, bool) {
+//
+// Note that the evaluationStack is passed by value-- unlike other structs such as the FeatureFlag
+// which we reference by address for the sake of efficiency (see comments at top of file). One
+// reason for this is described in the comments at each point where we modify one of its fields
+// with append(). The other is that Go's escape analysis is not quite clever enough to let the
+// slices that we preallocated in Evaluate() remain on the stack if we pass that struct by address.
+func (es *evaluationScope) evaluate(stack evaluationStack) (ldreason.EvaluationDetail, bool) {
 	if !es.flag.On {
 		return es.getOffValue(ldreason.NewEvalReasonOff()), true
 	}
 
-	// Note that all of our internal methods operate on pointers (*Context, *FeatureFlag, *Clause, etc.);
-	// this is done to avoid the overhead of repeatedly copying these structs by value. We know that
-	// the pointers cannot be nil, since the entry point is always Evaluate which does receive its
-	// parameters by value; mutability is not a concern, since Context is immutable and the evaluation
-	// code will never modify anything in the data model. Taking the address of these structs will not
-	// cause heap escaping because we are never *returning* pointers (and never passing them to
-	// external code such as prerequisiteFlagEventRecorder).
-
-	prereqErrorReason, ok := es.checkPrerequisites(prerequisiteChain)
+	prereqErrorReason, ok := es.checkPrerequisites(stack)
 	if !ok {
 		// Is this an actual error, like a malformed flag? Then return an error with default value.
 		if prereqErrorReason.GetKind() == ldreason.EvalReasonError {
@@ -142,7 +154,7 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 
 	// Now walk through the rules and see if any match
 	for ruleIndex, rule := range es.flag.Rules {
-		match, err := es.ruleMatchesContext(&rule) //nolint:gosec // see comments at top of file
+		match, err := es.ruleMatchesContext(&rule, stack) //nolint:gosec // see comments at top of file
 		if err != nil {
 			es.logEvaluationError(err)
 			return ldreason.NewEvaluationDetailForError(errorKindForError(err), ldvalue.Null()), false
@@ -161,9 +173,9 @@ func (es *evaluationScope) evaluate(prerequisiteChain []string) (ldreason.Evalua
 // case we want the entire evaluation to fail with a MalformedFlag error.
 func (es *evaluationScope) evaluatePrerequisite(
 	prereqFlag *ldmodel.FeatureFlag,
-	prerequisiteChain []string,
+	stack evaluationStack,
 ) (ldreason.EvaluationDetail, bool) {
-	for _, p := range prerequisiteChain {
+	for _, p := range stack.prerequisiteFlagChain {
 		if prereqFlag.Key == p {
 			err := circularPrereqReferenceError(prereqFlag.Key)
 			es.logEvaluationError(err)
@@ -172,26 +184,28 @@ func (es *evaluationScope) evaluatePrerequisite(
 	}
 	subScope := *es
 	subScope.flag = prereqFlag
-	result, ok := subScope.evaluate(prerequisiteChain)
+	result, ok := subScope.evaluate(stack)
 	es.bigSegmentsStatus = computeUpdatedBigSegmentsStatus(es.bigSegmentsStatus, subScope.bigSegmentsStatus)
 	return result, ok
 }
 
 // Returns an empty reason if all prerequisites are OK, otherwise constructs an error reason that describes the failure
-func (es *evaluationScope) checkPrerequisites(prerequisiteChain []string) (ldreason.EvaluationReason, bool) {
+func (es *evaluationScope) checkPrerequisites(stack evaluationStack) (ldreason.EvaluationReason, bool) {
 	if len(es.flag.Prerequisites) == 0 {
 		return ldreason.EvaluationReason{}, true
 	}
 
-	prerequisiteChain = append(prerequisiteChain, es.flag.Key)
-	// Note that the change to prerequisiteChain does not persist after returning from this method.
-	// That introduces a potential edge-case inefficiency with deeply nested prerequisites: if the
+	stack.prerequisiteFlagChain = append(stack.prerequisiteFlagChain, es.flag.Key)
+	// Note that the change to stack.prerequisiteFlagChain does not persist after returning from
+	// this method. That means we don't ever need to explicitly remove the last item-- but, it
+	// introduces a potential edge-case inefficiency with deeply nested prerequisites: if the
 	// original slice had a capacity of 20, and then the 20th prerequisite has 5 prerequisites of
 	// its own, when checkPrerequisites is called for each of those it will end up hitting the
 	// capacity of the slice each time and allocating a new backing array each time. The way
 	// around that would be to pass a *pointer* to the slice, so the backing array would be
 	// retained. However, doing so appears to defeat Go's escape analysis and cause heap escaping
-	// of the slice every time, which would be worse in more typical use cases.
+	// of the slice every time, which would be worse in more typical use cases. We do not expect
+	// the preallocated capacity to be reached in typical usage.
 
 	for _, prereq := range es.flag.Prerequisites {
 		prereqFeatureFlag := es.owner.dataProvider.GetFeatureFlag(prereq.Key)
@@ -200,7 +214,7 @@ func (es *evaluationScope) checkPrerequisites(prerequisiteChain []string) (ldrea
 		}
 		prereqOK := true
 
-		prereqResultDetail, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, prerequisiteChain)
+		prereqResultDetail, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, stack)
 		if !prereqValid {
 			// In this case we want to immediately exit with an error and not check any more prereqs
 			return ldreason.NewEvalReasonError(ldreason.EvalErrorMalformedFlag), false
@@ -299,39 +313,15 @@ func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.Optio
 	return ldvalue.OptionalInt{}
 }
 
-func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule) (bool, error) {
+func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule, stack evaluationStack) (bool, error) {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
 	for _, clause := range rule.Clauses {
-		match, err := es.clauseMatchesContext(&clause) //nolint:gosec // see comments at top of file
+		match, err := es.clauseMatchesContext(&clause, stack) //nolint:gosec // see comments at top of file
 		if !match || err != nil {
 			return match, err
 		}
 	}
 	return true, nil
-}
-
-func (es *evaluationScope) clauseMatchesContext(clause *ldmodel.Clause) (bool, error) {
-	// Note that clause is passed by reference only for efficiency; we do not modify it
-	// In the case of a segment match operator, we check if the user is in any of the segments,
-	// and possibly negate
-	if clause.Op == ldmodel.OperatorSegmentMatch {
-		for _, value := range clause.Values {
-			if value.Type() == ldvalue.StringType {
-				if segment := es.owner.dataProvider.GetSegment(value.StringValue()); segment != nil {
-					match, err := es.segmentContainsContext(segment)
-					if err != nil {
-						return false, err
-					}
-					if match {
-						return !clause.Negate, nil // match - true unless negated
-					}
-				}
-			}
-		}
-		return clause.Negate, nil // non-match - false unless negated
-	}
-
-	return clauseMatchesContext(clause, &es.context)
 }
 
 func (es *evaluationScope) variationOrRolloutResult(

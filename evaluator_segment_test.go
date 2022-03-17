@@ -16,6 +16,7 @@ import (
 	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func assertSegmentMatch(t *testing.T, segment ldmodel.Segment, context ldcontext.Context, expected bool) {
@@ -227,6 +228,63 @@ func TestCanMatchJustOneSegmentFromList(t *testing.T) {
 
 	result := evaluator.Evaluate(&f, flagTestContext, nil)
 	assert.True(t, result.Detail.Value.BoolValue())
+}
+
+func TestSegmentRulesCanReferenceOtherSegments(t *testing.T) {
+	context1, context2, context3 := ldcontext.New("key1"), ldcontext.New("key2"), ldcontext.New("key3")
+
+	segment0 := ldbuilders.NewSegmentBuilder("segmentkey0").
+		AddRule(ldbuilders.NewSegmentRuleBuilder().Clauses(ldbuilders.SegmentMatchClause("segmentkey1"))).
+		Build()
+	segment1 := ldbuilders.NewSegmentBuilder("segmentkey1").
+		Included(context1.Key()).
+		AddRule(ldbuilders.NewSegmentRuleBuilder().Clauses(ldbuilders.SegmentMatchClause("segmentkey2"))).
+		Build()
+	segment2 := ldbuilders.NewSegmentBuilder("segmentkey2").
+		Included(context2.Key()).
+		Build()
+
+	flag := makeBooleanFlagToMatchAnyOfSegments(segment0.Key)
+	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment0, segment1, segment2))
+
+	assert.True(t, evaluator.Evaluate(&flag, context1, nil).Detail.Value.BoolValue())
+	assert.True(t, evaluator.Evaluate(&flag, context2, nil).Detail.Value.BoolValue())
+	assert.False(t, evaluator.Evaluate(&flag, context3, nil).Detail.Value.BoolValue())
+}
+
+func TestSegmentCycleDetection(t *testing.T) {
+	for _, cycleGoesToOriginalSegment := range []bool{true, false} {
+		t.Run(fmt.Sprintf("cycleGoesToOriginalFlag=%t", cycleGoesToOriginalSegment), func(t *testing.T) {
+
+			segment0 := ldbuilders.NewSegmentBuilder("segmentkey0").
+				AddRule(ldbuilders.NewSegmentRuleBuilder().Clauses(ldbuilders.SegmentMatchClause("segmentkey1"))).
+				Build()
+			segment1 := ldbuilders.NewSegmentBuilder("segmentkey1").
+				AddRule(ldbuilders.NewSegmentRuleBuilder().Clauses(ldbuilders.SegmentMatchClause("segmentkey2"))).
+				Build()
+			cycleTargetKey := segment1.Key
+			if cycleGoesToOriginalSegment {
+				cycleTargetKey = segment0.Key
+			}
+			segment2 := ldbuilders.NewSegmentBuilder("segmentkey2").
+				AddRule(ldbuilders.NewSegmentRuleBuilder().Clauses(ldbuilders.SegmentMatchClause(cycleTargetKey))).
+				Build()
+
+			flag := makeBooleanFlagToMatchAnyOfSegments(segment0.Key)
+			logCapture := ldlogtest.NewMockLog()
+			evaluator := NewEvaluatorWithOptions(
+				basicDataProvider().withStoredSegments(segment0, segment1, segment2),
+				EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)),
+			)
+
+			result := evaluator.Evaluate(&flag, flagTestContext, FailOnAnyPrereqEvent(t))
+			m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
+
+			errorLines := logCapture.GetOutput(ldlog.Error)
+			require.Len(t, errorLines, 1)
+			assert.Regexp(t, `.*segment rule.*circular reference`, errorLines[0])
+		})
+	}
 }
 
 func TestSegmentRulePercentageRollout(t *testing.T) {

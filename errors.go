@@ -85,6 +85,15 @@ func (e circularPrereqReferenceError) errorKind() ldreason.EvalErrorKind {
 	return ldreason.EvalErrorMalformedFlag
 }
 
+// CircularSegmentReferenceError means there was a cycle in segment rules. The string value is the key of the
+// segment where we detected the cycle.
+type circularSegmentReferenceError string
+
+func (e circularSegmentReferenceError) Error() string {
+	return fmt.Sprintf("segment rule referencing segment %q caused a circular reference;"+
+		" this is probably a temporary condition due to an incomplete update", string(e))
+}
+
 // MalformedSegmentError means invalid properties were found while trying to match a segment.
 type malformedSegmentError struct {
 	SegmentKey string

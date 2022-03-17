@@ -10,7 +10,31 @@ import (
 	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
 )
 
-func clauseMatchesContext(c *ldmodel.Clause, context *ldcontext.Context) (bool, error) {
+func (es *evaluationScope) clauseMatchesContext(clause *ldmodel.Clause, stack evaluationStack) (bool, error) {
+	// Note that clause is passed by reference only for efficiency; we do not modify it
+	// In the case of a segment match operator, we check if the user is in any of the segments,
+	// and possibly negate
+	if clause.Op == ldmodel.OperatorSegmentMatch {
+		for _, value := range clause.Values {
+			if value.Type() == ldvalue.StringType {
+				if segment := es.owner.dataProvider.GetSegment(value.StringValue()); segment != nil {
+					match, err := es.segmentContainsContext(segment, stack)
+					if err != nil {
+						return false, err
+					}
+					if match {
+						return !clause.Negate, nil // match - true unless negated
+					}
+				}
+			}
+		}
+		return clause.Negate, nil // non-match - false unless negated
+	}
+
+	return clauseMatchesContextNoSegments(clause, &es.context)
+}
+
+func clauseMatchesContextNoSegments(c *ldmodel.Clause, context *ldcontext.Context) (bool, error) {
 	if !c.Attribute.IsDefined() {
 		return false, emptyAttrRefError{}
 	}
