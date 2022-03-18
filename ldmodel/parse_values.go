@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 	"github.com/launchdarkly/go-semver"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
 func parseDateTime(value ldvalue.Value) (time.Time, bool) {

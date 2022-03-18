@@ -1,6 +1,6 @@
 package evaluation
 
-import "gopkg.in/launchdarkly/go-sdk-common.v3/ldlog"
+import "github.com/launchdarkly/go-sdk-common/v3/ldlog"
 
 // EvaluatorOption is an optional parameter for NewEvaluator.
 type EvaluatorOption interface {

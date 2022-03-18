@@ -1,11 +1,11 @@
 package evaluation
 
 import (
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v2/ldmodel"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldcontext"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
 // Evaluator is the engine for evaluating feature flags.

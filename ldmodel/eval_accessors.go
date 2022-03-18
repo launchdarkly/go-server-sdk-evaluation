@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 	"github.com/launchdarkly/go-semver"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
 // EvaluatorAccessorMethods contains functions that are used by the evaluation engine in the
