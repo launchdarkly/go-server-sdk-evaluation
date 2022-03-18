@@ -47,7 +47,7 @@ jobs:
       - checkout
       - run:
           name: Install go-junit-report
-          command: go get github.com/jstemmer/go-junit-report
+          command: go install github.com/jstemmer/go-junit-report@latest
 
       - run:
           name: Build
