@@ -3,10 +3,10 @@ package evaluation
 import (
 	"testing"
 
+	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 	m "github.com/launchdarkly/go-test-helpers/v2/matchers"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
 )
 
 // FailOnAnyPrereqEvent can be used as the prerequisiteFlagEventRecorder parameter to Evaluator.Evaluate()

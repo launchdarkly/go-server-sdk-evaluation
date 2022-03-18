@@ -1,7 +1,7 @@
 package ldmodel
 
 import (
-	"gopkg.in/launchdarkly/go-jsonstream.v1/jwriter"
+	"github.com/launchdarkly/go-jsonstream/v2/jwriter"
 )
 
 // For backward compatibility, we are only allowed to drop out properties that have default values if

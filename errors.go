@@ -3,7 +3,7 @@ package evaluation
 import (
 	"fmt"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldreason"
+	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
 )
 
 // These error types are used only internally to distinguish between reasons an evaluation might fail.

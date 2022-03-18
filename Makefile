@@ -10,7 +10,7 @@ COVERAGE_PROFILE_RAW=./build/coverage_raw.out
 COVERAGE_PROFILE_RAW_HTML=./build/coverage_raw.html
 COVERAGE_PROFILE_FILTERED=./build/coverage.out
 COVERAGE_PROFILE_FILTERED_HTML=./build/coverage.html
-COVERAGE_ENFORCER_FLAGS=-package gopkg.in/launchdarkly/go-server-sdk-evaluation.v2 -skipcode "// COVERAGE" -packagestats -filestats -showcode
+COVERAGE_ENFORCER_FLAGS=-package github.com/launchdarkly/go-server-sdk-evaluation/v2 -skipcode "// COVERAGE" -packagestats -filestats -showcode
 
 TEST_BINARY=./go-server-sdk-evaluation.test
 ALLOCATIONS_LOG=./allocations.out

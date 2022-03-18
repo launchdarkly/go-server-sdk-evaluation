@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"gopkg.in/launchdarkly/go-jsonstream.v1/jreader"
+	"github.com/launchdarkly/go-jsonstream/v2/jreader"
 )
 
 var (

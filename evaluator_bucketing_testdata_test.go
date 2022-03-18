@@ -3,7 +3,7 @@ package evaluation
 import (
 	"fmt"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v3/ldvalue"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
 // These parameters are used in evaluator_bucketing_test.go. In each case, we have precomputed
