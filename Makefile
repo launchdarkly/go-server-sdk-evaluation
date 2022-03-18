@@ -46,7 +46,9 @@ $(COVERAGE_PROFILE_RAW): $(ALL_SOURCES)
 	go test -coverprofile $(COVERAGE_PROFILE_RAW) ./... >/dev/null
 
 benchmarks: build
-	go test -benchmem '-run=^$$' '-bench=.*' ./...
+	@mkdir -p ./build
+	go test -benchmem '-run=^$$' '-bench=.*' ./... | tee build/benchmarks.out
+	@if grep <build/benchmarks.out 'NoAlloc.*[1-9][0-9]* allocs/op'; then echo "Unexpected heap allocations detected in benchmarks!"; exit 1; fi
 
 benchmarks-easyjson: build-easyjson
 	go test $(EASYJSON_TAG) -benchmem '-run=^$$' '-bench=.*' ./...
