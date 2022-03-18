@@ -71,9 +71,10 @@ func TestRolloutBucketing(t *testing.T) {
 					rollout.ContextKind = contextKind
 				}
 
-				bucketValue, err := makeEvalScope(context).computeBucketValue(false, noSeed,
+				bucketValue, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed,
 					rollout.ContextKind, p.flagOrSegmentKey, rollout.BucketBy, p.salt)
 				assert.NoError(t, err)
+				assert.Equal(t, bucketingFailureReason(0), failReason)
 				assert.InEpsilon(t, p.expectedBucketValue, bucketValue, 0.0000001)
 
 				variationIndex, inExperiment, err := makeEvalScope(context).variationOrRolloutResult(
@@ -128,14 +129,16 @@ func TestRolloutBucketing(t *testing.T) {
 						context1 := ldcontext.New(p.contextValue)
 						context2 := ldcontext.NewBuilder(p.contextValue).Secondary("some-secondary-key").Build()
 
-						bucketValue1, err := makeEvalScope(context1).computeBucketValue(false, noSeed,
+						bucketValue1, failReason, err := makeEvalScope(context1).computeBucketValue(false, noSeed,
 							"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
 						assert.NoError(t, err)
+						assert.Equal(t, bucketingFailureReason(0), failReason)
 						assert.InEpsilon(t, p.expectedBucketValue, bucketValue1, 0.0000001)
 
-						bucketValue2, err := makeEvalScope(context2).computeBucketValue(false, noSeed,
+						bucketValue2, failReason, err := makeEvalScope(context2).computeBucketValue(false, noSeed,
 							"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
 						assert.NoError(t, err)
+						assert.Equal(t, bucketingFailureReason(0), failReason)
 						assert.NotEqual(t, bucketValue1, bucketValue2)
 					})
 				}
@@ -157,9 +160,10 @@ func TestExperimentBucketing(t *testing.T) {
 	// the behavior of experiments is expected to be different from the behavior of rollouts.
 
 	checkResult := func(t *testing.T, p bucketingTestParams, context ldcontext.Context, experiment ldmodel.Rollout) {
-		bucketValue, err := makeEvalScope(context).computeBucketValue(true, p.seed,
+		bucketValue, failReason, err := makeEvalScope(context).computeBucketValue(true, p.seed,
 			experiment.ContextKind, p.flagOrSegmentKey, experiment.BucketBy, p.salt)
 		assert.NoError(t, err)
+		assert.Equal(t, bucketingFailureReason(0), failReason)
 		assert.InEpsilon(t, p.expectedBucketValue, bucketValue, 0.0000001)
 
 		experiment.Seed = p.seed
@@ -207,9 +211,10 @@ func TestExperimentBucketing(t *testing.T) {
 			t.Run(p.description(), func(t *testing.T) {
 				context := ldcontext.New(p.contextValue)
 
-				bucketValue1, err := makeEvalScope(context).computeBucketValue(true, p.seed,
+				bucketValue1, failReason, err := makeEvalScope(context).computeBucketValue(true, p.seed,
 					"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
 				assert.NoError(t, err)
+				assert.Equal(t, bucketingFailureReason(0), failReason)
 
 				var modifiedSeed ldvalue.OptionalInt
 				if p.seed.IsDefined() {
@@ -217,9 +222,10 @@ func TestExperimentBucketing(t *testing.T) {
 				} else {
 					modifiedSeed = ldvalue.NewOptionalInt(999)
 				}
-				bucketValue2, err := makeEvalScope(context).computeBucketValue(true, modifiedSeed,
+				bucketValue2, failReason, err := makeEvalScope(context).computeBucketValue(true, modifiedSeed,
 					"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
 				assert.NoError(t, err)
+				assert.Equal(t, bucketingFailureReason(0), failReason)
 
 				assert.NotEqual(t, bucketValue1, bucketValue2)
 			})
@@ -287,38 +293,43 @@ func TestComputeBucketValueInvalidConditions(t *testing.T) {
 	t.Run("single-kind context does not match desired kind", func(t *testing.T) {
 		context := ldcontext.New("key")
 		desiredKind := ldcontext.Kind("org")
-		bucket, err := makeEvalScope(context).computeBucketValue(false, noSeed, desiredKind, flagKey, ldattr.Ref{}, "saltyA")
+		bucket, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed, desiredKind, flagKey, ldattr.Ref{}, "saltyA")
 		assert.NoError(t, err)
+		assert.Equal(t, bucketingFailureContextLacksDesiredKind, failReason)
 		assert.Equal(t, float32(0), bucket)
 	})
 
 	t.Run("multi-kind context does not match desired kind", func(t *testing.T) {
 		context := ldcontext.NewMulti(ldcontext.New("irrelevantKey1"), ldcontext.NewWithKind("irrelevantKind", "irrelevantKey2"))
 		desiredKind := ldcontext.Kind("org")
-		bucket, err := makeEvalScope(context).computeBucketValue(false, noSeed, desiredKind, flagKey, ldattr.Ref{}, "saltyA")
+		bucket, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed, desiredKind, flagKey, ldattr.Ref{}, "saltyA")
 		assert.NoError(t, err)
+		assert.Equal(t, bucketingFailureContextLacksDesiredKind, failReason)
 		assert.Equal(t, float32(0), bucket)
 	})
 
 	t.Run("bucket by nonexistent attribute", func(t *testing.T) {
 		context := ldcontext.New("key")
-		bucket, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewNameRef("unknownAttr"), salt)
+		bucket, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewNameRef("unknownAttr"), salt)
 		assert.NoError(t, err)
+		assert.Equal(t, bucketingFailureAttributeNotFound, failReason)
 		assert.Equal(t, float32(0), bucket)
 	})
 
 	t.Run("bucket by non-integer numeric attribute", func(t *testing.T) {
 		context := ldcontext.NewBuilder("key").SetFloat64("floatAttr", 999.999).Build()
-		bucket, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewNameRef("floatAttr"), salt)
+		bucket, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewNameRef("floatAttr"), salt)
 		assert.NoError(t, err)
+		assert.Equal(t, bucketingFailureAttributeValueWrongType, failReason)
 		assert.Equal(t, float32(0), bucket)
 	})
 
 	t.Run("bucket by invalid attribute reference", func(t *testing.T) {
 		context := ldcontext.New("key")
 		badAttr := ldattr.NewRef("///")
-		_, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, badAttr, salt)
+		_, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, badAttr, salt)
 		assert.Error(t, err) // Unlike the other invalid conditions, we treat this one as a malformed flag error
+		assert.Equal(t, bucketingFailureInvalidAttrRef, failReason)
 	})
 }
 

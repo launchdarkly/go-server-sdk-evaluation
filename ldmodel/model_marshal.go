@@ -133,6 +133,7 @@ func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
 		writeClauses(w, &ruleObj, r.Clauses)
 		ruleObj.Maybe("weight", r.Weight.IsDefined()).Int(r.Weight.IntValue())
 		ruleObj.Maybe("bucketBy", r.BucketBy.String() != "").String(r.BucketBy.String())
+		ruleObj.Maybe("rolloutContextKind", r.RolloutContextKind != "").String(string(r.RolloutContextKind))
 		ruleObj.End()
 	}
 	rulesArr.End()

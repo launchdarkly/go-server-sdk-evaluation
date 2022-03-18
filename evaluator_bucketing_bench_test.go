@@ -35,6 +35,6 @@ func benchmarkComputeBucketValue(b *testing.B, withSeed bool) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, evalBenchmarkErr = evalScope.computeBucketValue(false, seed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
+		_, _, evalBenchmarkErr = evalScope.computeBucketValue(false, seed, "", "hashKey", ldattr.NewNameRef("key"), "saltyA")
 	}
 }

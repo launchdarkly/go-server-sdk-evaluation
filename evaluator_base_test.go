@@ -107,6 +107,10 @@ func makeClauseToMatchAnyContextOfKind(kind ldcontext.Kind) ldmodel.Clause {
 	return ldbuilders.Negate(ldbuilders.ClauseWithKind(kind, ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String("")))
 }
 
+func makeClauseToMatchAnyContextOfAnyKind() ldmodel.Clause {
+	return ldbuilders.Negate(ldbuilders.Clause(ldattr.KindAttr, ldmodel.OperatorIn, ldvalue.String("")))
+}
+
 func makeFlagToMatchContext(user ldcontext.Context, variationOrRollout ldmodel.VariationOrRollout) ldmodel.FeatureFlag {
 	return ldbuilders.NewFlagBuilder("feature").
 		On(true).

@@ -44,6 +44,9 @@ type Segment struct {
 	// UnboundedContextKind is the context kind associated with the included/excluded key lists if this segment
 	// is a Big Segment. If it is empty, we assume ldcontext.DefaultKind. This field is ignored if Unbounded is
 	// false.
+	//
+	// An empty string value here represents the property being unset (so it will be omitted in
+	// serialization).
 	UnboundedContextKind ldcontext.Kind
 	// Version is an integer that is incremented by LaunchDarkly every time the configuration of the segment is
 	// changed.
@@ -65,7 +68,8 @@ type SegmentTarget struct {
 	// ContextKind is the context kind that this target list applies to.
 	//
 	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
-	// treated as ldcontext.DefaultKind.
+	// treated as ldcontext.DefaultKind. An empty string value here represents the property being unset
+	// (so it will be omitted in serialization).
 	ContextKind ldcontext.Kind
 	// Values is the set of context keys included in this Target.
 	Values []string
@@ -84,11 +88,23 @@ type SegmentRule struct {
 	// rule are included in the segment. This is specified as an integer from 0 (0%) to 100000 (100%).
 	Weight ldvalue.OptionalInt
 	// BucketBy specifies which context attribute should be used to distinguish between contexts in a rollout.
+	// This property is ignored if Weight is undefined.
 	//
 	// The default (when BucketBy is empty) is ldattr.KeyAttr, the context's primary key. If you wish to
 	// treat contexts with different keys as the same for rollout purposes as long as they have the same
 	// "country" attribute, you would set this to "country".
 	//
 	// Rollouts always take the context's "secondary key" attribute into account as well if there is one.
+	//
+	// An empty ldattr.Ref{} value here represents the property being unset (so it will be omitted in
+	// serialization). That is different from setting it explicitly to "", which is an invalid attribute
+	// reference.
 	BucketBy ldattr.Ref
+	// RolloutContextKind specifies what kind of context the key (or other attribute if BucketBy is set)
+	// should be used to get attributes when computing a rollout. This property is ignored if Weight is
+	// undefined. If unset, it defaults to ldcontext.DefaultKind.
+	//
+	// An empty string value here represents the property being unset (so it will be omitted in
+	// serialization).
+	RolloutContextKind ldcontext.Kind
 }

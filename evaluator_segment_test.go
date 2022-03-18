@@ -346,7 +346,61 @@ func TestSegmentRulePercentageRollout(t *testing.T) {
 	}
 }
 
-func TestSegmentRuleRolloutForDefaultKindIsNonMatchForContextWithoutDefaultKind(t *testing.T) {
+func TestSegmentRuleRolloutFailureConditions(t *testing.T) {
+	t.Run("conditions that produce zero bucket value causing a match", func(t *testing.T) {
+		// See comments in evaluator_segment.go about failure modes of computeBucketValue.
+		// In these tests, we're setting the weight to 1 so that the rule will only match
+		// if the bucket value is 0, which is incredibly unlikely to be a real hash value.
+
+		t.Run("bucketBy attribute not found", func(t *testing.T) {
+			segment := buildSegment().Salt("salty").
+				AddRule(ldbuilders.NewSegmentRuleBuilder().
+					Clauses(makeClauseToMatchAnyContextOfAnyKind()).
+					BucketBy("unknown-attribute").
+					Weight(1)).
+				Build()
+
+			context := ldcontext.New("key")
+			assertSegmentMatch(t, segment, context, true)
+		})
+
+		t.Run("bucketBy attribute has invalid value type", func(t *testing.T) {
+			segment := buildSegment().Salt("salty").
+				AddRule(ldbuilders.NewSegmentRuleBuilder().
+					Clauses(makeClauseToMatchAnyContextOfAnyKind()).
+					BucketBy("attr1").
+					Weight(1)).
+				Build()
+
+			context := ldcontext.NewBuilder("key").SetBool("attr1", true).Build()
+			assertSegmentMatch(t, segment, context, true)
+		})
+	})
+
+	t.Run("conditions that force a non-match", func(t *testing.T) {
+		t.Run("context kind not found", func(t *testing.T) {
+			segment := buildSegment().
+				AddRule(ldbuilders.NewSegmentRuleBuilder().
+					Clauses(makeClauseToMatchAnyContextOfAnyKind()).
+					Weight(100000)). // this would normally always be a match
+				Salt("salty").
+				Build()
+
+			t.Run("single-kind context", func(t *testing.T) {
+				context := ldcontext.NewWithKind("org", "userKeyA")
+				assertSegmentMatch(t, segment, context, false)
+			})
+
+			t.Run("multi-kind context", func(t *testing.T) {
+				context := ldcontext.NewMulti(ldcontext.NewWithKind("org", "userKeyA"),
+					ldcontext.NewWithKind("other", "userKeyA"))
+				assertSegmentMatch(t, segment, context, false)
+			})
+		})
+	})
+}
+
+func TestSegmentRuleRolloutGetsAttributesFromSpecifiedContextKind(t *testing.T) {
 	segment := buildSegment().
 		AddRule(ldbuilders.NewSegmentRuleBuilder().
 			Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorContains, ldvalue.String("x"))).
@@ -364,19 +418,6 @@ func TestSegmentRuleRolloutForDefaultKindIsNonMatchForContextWithoutDefaultKind(
 			ldcontext.NewWithKind("other", "userKeyA"))
 		assertSegmentMatch(t, segment, context, false)
 	})
-}
-
-func TestSegmentRuleIsNonMatchForInvalidBucketByReference(t *testing.T) {
-	segment := buildSegment().
-		AddRule(ldbuilders.NewSegmentRuleBuilder().
-			Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorContains, ldvalue.String("x"))).
-			BucketByRef(ldattr.NewRef("///")).
-			Weight(30000)).
-		Salt("salty").
-		Build()
-
-	context := ldcontext.NewBuilder("x").Name("userKeyA").Build() // bucket value = 0.14574753
-	assertSegmentMatch(t, segment, context, false)
 }
 
 func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {

@@ -141,10 +141,29 @@ func (es *evaluationScope) segmentRuleMatchesContext(
 	}
 
 	// All of the clauses are met. Check to see if the user buckets in
+	// Note: passing r.RolloutContextKind to computeBucketValue here ensures that 1. we will get any necessary
+	// context attributes from the right context if the evaluation context is multi-kind, and 2. if the desired
+	// context kind is not available,
 	// TEMPORARY - instead of ldcontext.DefaultKind here, we will eventually have a Kind field in the segment
-	bucket, err := es.computeBucketValue(false, ldvalue.OptionalInt{}, ldcontext.DefaultKind, key, r.BucketBy, salt)
+	bucket, failReason, err := es.computeBucketValue(
+		false,                 // this is not an experiment
+		ldvalue.OptionalInt{}, // seed parameter is only used in experiments, never in segment rollouts
+		r.RolloutContextKind,
+		key,
+		r.BucketBy,
+		salt,
+	)
 	if err != nil {
+		// err is only non-nil for problems serious enough to indicate a malformed segment configuration
 		return false, err
+	}
+	if failReason == bucketingFailureContextLacksDesiredKind {
+		// This particular bucketing failure condition is specified to cause an automatic non-match for the rule.
+		// Other kinds of bucketing failures (such as an unknown bucketBy attribute) do not cause a non-match;
+		// they just cause the bucket value to be zero, which in this code path will result in a match. The latter
+		// behavior isn't logically consistent, but is preserved for historical reasons since changing it would
+		// change existing evaluation results.
+		return false, nil
 	}
 	weight := float32(r.Weight.IntValue()) / 100000.0
 	return bucket < weight, nil
