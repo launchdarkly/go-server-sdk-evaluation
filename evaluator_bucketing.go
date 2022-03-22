@@ -73,8 +73,8 @@ func (es *evaluationScope) computeBucketValue(
 	if !ok {
 		return 0, bucketingFailureContextLacksDesiredKind, nil
 	}
-	uValue, ok := selectedContext.GetValueForRef(attr)
-	if !ok {
+	uValue := selectedContext.GetValueForRef(attr)
+	if uValue.IsNull() { // attributes can't be null, so null means it doesn't exist
 		return 0, bucketingFailureAttributeNotFound, nil
 	}
 	switch {
