@@ -1,11 +1,12 @@
 package ldmodel
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v3/ldtime"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 
-	"gopkg.in/launchdarkly/go-jsonstream.v1/jreader"
+	"github.com/launchdarkly/go-jsonstream/v2/jreader"
 )
 
 func unmarshalFeatureFlagFromBytes(data []byte) (FeatureFlag, error) {
@@ -58,6 +59,8 @@ func readFeatureFlag(r *jreader.Reader, flag *FeatureFlag) {
 			readPrerequisites(r, &flag.Prerequisites)
 		case "targets":
 			readTargets(r, &flag.Targets)
+		case "contextTargets":
+			readTargets(r, &flag.ContextTargets)
 		case "rules":
 			readFlagRules(r, &flag.Rules)
 		case "fallthrough":
@@ -115,6 +118,8 @@ func readTargets(r *jreader.Reader, out *[]Target) {
 		var t Target
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
+			case "contextKind":
+				t.ContextKind = ldcontext.Kind(r.String())
 			case "values":
 				readStringList(r, &t.Values)
 			case "variation":
@@ -127,7 +132,7 @@ func readTargets(r *jreader.Reader, out *[]Target) {
 
 func readFlagRules(r *jreader.Reader, out *[]FlagRule) {
 	for arr := r.ArrayOrNull(); arr.Next(); {
-		rule := FlagRule{Clauses: []Clause{}}
+		rule := FlagRule{}
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "id":
@@ -151,8 +156,10 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 		var clause Clause
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
+			case "contextKind":
+				clause.ContextKind = ldcontext.Kind(r.String())
 			case "attribute":
-				clause.Attribute = lduser.UserAttribute(r.String())
+				readAttrRef(r, &clause.Attribute)
 			case "op":
 				clause.Op = Operator(r.String())
 			case "values":
@@ -186,6 +193,8 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 		switch string(obj.Name()) {
 		case "kind":
 			out.Kind = RolloutKind(r.String())
+		case "contextKind":
+			out.ContextKind = ldcontext.Kind(r.String())
 		case "variations":
 			for arr := r.Array(); arr.Next(); {
 				var wv WeightedVariation
@@ -202,9 +211,11 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 				out.Variations = append(out.Variations, wv)
 			}
 		case "bucketBy":
-			out.BucketBy = lduser.UserAttribute(r.String())
+			readAttrRef(r, &out.BucketBy)
 		case "seed":
-			out.Seed = ldvalue.NewOptionalInt(r.Int())
+			if n, ok := r.IntOrNull(); ok {
+				out.Seed = ldvalue.NewOptionalInt(n)
+			}
 		}
 	}
 }
@@ -237,9 +248,13 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 			readStringList(r, &segment.Included)
 		case "excluded":
 			readStringList(r, &segment.Excluded)
+		case "includedContexts":
+			readSegmentTargets(r, &segment.IncludedContexts)
+		case "excludedContexts":
+			readSegmentTargets(r, &segment.ExcludedContexts)
 		case "rules":
 			for rulesArr := r.ArrayOrNull(); rulesArr.Next(); {
-				rule := SegmentRule{Weight: -1}
+				rule := SegmentRule{}
 				for ruleObj := r.Object(); ruleObj.Next(); {
 					switch string(ruleObj.Name()) {
 					case "id":
@@ -247,9 +262,13 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 					case "clauses":
 						readClauses(r, &rule.Clauses)
 					case "weight":
-						rule.Weight = r.Int()
+						if v, ok := r.IntOrNull(); ok {
+							rule.Weight = ldvalue.NewOptionalInt(v)
+						}
 					case "bucketBy":
-						rule.BucketBy = lduser.UserAttribute(r.String())
+						readAttrRef(r, &rule.BucketBy)
+					case "rolloutContextKind":
+						rule.RolloutContextKind = ldcontext.Kind(r.String())
 					}
 				}
 				segment.Rules = append(segment.Rules, rule)
@@ -258,7 +277,24 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 			segment.Salt = r.String()
 		case "unbounded":
 			segment.Unbounded = r.Bool()
+		case "unboundedContextKind":
+			segment.UnboundedContextKind = ldcontext.Kind(r.String())
 		}
+	}
+}
+
+func readSegmentTargets(r *jreader.Reader, out *[]SegmentTarget) {
+	for arr := r.ArrayOrNull(); arr.Next(); {
+		var t SegmentTarget
+		for obj := r.Object(); obj.Next(); {
+			switch string(obj.Name()) {
+			case "contextKind":
+				t.ContextKind = ldcontext.Kind(r.String())
+			case "values":
+				readStringList(r, &t.Values)
+			}
+		}
+		*out = append(*out, t)
 	}
 }
 
@@ -273,5 +309,23 @@ func readValueList(r *jreader.Reader, out *[]ldvalue.Value) {
 		var v ldvalue.Value
 		v.ReadFromJSONReader(r)
 		*out = append(*out, v)
+	}
+}
+
+func readAttrRef(r *jreader.Reader, out *ldattr.Ref) {
+	if s, _ := r.StringOrNull(); s != "" {
+		*out = ldattr.NewRef(s)
+		// NewRef takes care of parsing and validating a string that could either be a simple attribute
+		// name ("email") or a slash-delimited path reference ("/addresses/0/street"). Storing the
+		// ldattr.Ref in the Clause, rather than just a string, saves us the work of having to do the
+		// parsing and validation again each time we evaluate a flag.
+		// If the string was invalid as an attribute reference (e.g. "///"), the result is that *out
+		// retains the original string (so if we re-serialize it, we get what we started with), but
+		// also retains state saying it is invalid (see ldattr.Ref.Err())-- so any attempt to use it
+		// to look up a context value results in an immediate "not found".
+	} else {
+		*out = ldattr.Ref{}
+		// "" is not a valid parameter to NewRef, but that has historically been a value LD may send
+		// for these fields so we are treating "" as equivalent to null to mean "undefined".
 	}
 }

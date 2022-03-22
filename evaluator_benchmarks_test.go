@@ -4,33 +4,23 @@ import (
 	"fmt"
 	"testing"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldbuilders"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
+
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
-func BenchmarkEvaluationTempDebuggingTest(b *testing.B) {
-	cases := []evalBenchmarkCase{
-		{
-			numRules:          1,
-			numClauses:        1,
-			operator:          ldmodel.OperatorIn,
-			shouldMatchClause: true,
-			prereqsWidth:      5,
-			prereqsDepth:      1,
-		},
-	}
-	benchmarkEval(b, cases, func(env *evalBenchmarkEnv) {
-		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
-		if !evalBenchmarkResult.Value.BoolValue() { // verify that we got a match
-			b.FailNow()
-		}
-	})
-}
+// Note about heap allocations:
+//
+// Benchmarks whose names end in "NoAlloc" are expected _not_ to cause any heap allocations (not counting
+// setup work done before ResetTimer()). This is enforced by the Makefile's benchmarks target.
+//
+// See notes about heap allocations in CONTRIBUTING.md.
 
-var evalBenchmarkResult ldreason.EvaluationDetail
+var evalBenchmarkResult Result
+var evalBenchmarkErr error
 
 const evalBenchmarkSegmentKey = "segment-key"
 
@@ -38,12 +28,12 @@ func discardPrerequisiteEvents(params PrerequisiteFlagEvent) {}
 
 type evalBenchmarkEnv struct {
 	evaluator        Evaluator
-	user             lduser.User
+	user             ldcontext.Context
 	targetFlag       *ldmodel.FeatureFlag
 	otherFlags       map[string]*ldmodel.FeatureFlag
 	targetSegment    *ldmodel.Segment
 	targetFeatureKey string
-	targetUsers      []lduser.User
+	targetUsers      []ldcontext.Context
 }
 
 type evalBenchmarkCase struct {
@@ -82,38 +72,38 @@ func (env *evalBenchmarkEnv) setUp(bc evalBenchmarkCase) {
 	}
 	env.evaluator = NewEvaluator(dataProvider)
 
-	env.targetUsers = make([]lduser.User, bc.numTargets)
+	env.targetUsers = make([]ldcontext.Context, bc.numTargets)
 	for i := 0; i < bc.numTargets; i++ {
-		env.targetUsers[i] = lduser.NewUser(makeEvalBenchmarkTargetUserKey(i))
+		env.targetUsers[i] = ldcontext.New(makeEvalBenchmarkTargetUserKey(i))
 	}
 }
 
-func makeEvalBenchmarkUser(bc evalBenchmarkCase) lduser.User {
+func makeEvalBenchmarkUser(bc evalBenchmarkCase) ldcontext.Context {
 	if bc.shouldMatchClause {
-		builder := lduser.NewUserBuilder("user-match")
+		builder := ldcontext.NewBuilder("user-match")
 		switch bc.operator {
 		case ldmodel.OperatorGreaterThan:
-			builder.Custom("numAttr", ldvalue.Int(10000))
+			builder.SetInt("numAttr", 10000)
 		case ldmodel.OperatorContains:
 			builder.Name("name-0")
 		case ldmodel.OperatorMatches:
-			builder.Custom("stringAttr", ldvalue.String("stringAttr-0"))
+			builder.SetString("stringAttr", "stringAttr-0")
 		case ldmodel.OperatorAfter:
-			builder.Custom("dateAttr", ldvalue.String("2999-12-31T00:00:00.000-00:00"))
+			builder.SetString("dateAttr", "2999-12-31T00:00:00.000-00:00")
 		case ldmodel.OperatorSemVerEqual:
-			builder.Custom("semVerAttr", ldvalue.String("1.0.0"))
+			builder.SetString("semVerAttr", "1.0.0")
 		case ldmodel.OperatorIn:
-			builder.Custom("stringAttr", ldvalue.String("stringAttr-0"))
+			builder.SetString("stringAttr", "stringAttr-0")
 		}
 		return builder.Build()
 	}
 	// default is that the user will not be matched by any clause or target
-	return lduser.NewUserBuilder("user-nomatch").
+	return ldcontext.NewBuilder("user-nomatch").
 		Name("name-nomatch").
-		Custom("stringAttr", ldvalue.String("stringAttr-nomatch")).
-		Custom("numAttr", ldvalue.Int(0)).
-		Custom("dateAttr", ldvalue.String("1980-01-01T00:00:00.000-00:00")).
-		Custom("semVerAttr", ldvalue.String("0.0.5")).
+		SetString("stringAttr", "stringAttr-nomatch").
+		SetInt("numAttr", 0).
+		SetString("dateAttr", "1980-01-01T00:00:00.000-00:00").
+		SetString("semVerAttr", "0.0.5").
 		Build()
 }
 
@@ -130,77 +120,79 @@ func benchmarkEval(b *testing.B, cases []evalBenchmarkCase, action func(*evalBen
 	}
 }
 
-func BenchmarkEvaluationFallthrough(b *testing.B) {
+func BenchmarkEvaluationFallthroughNoAlloc(b *testing.B) {
 	benchmarkEval(b, makeEvalBenchmarkCases(false), func(env *evalBenchmarkEnv) {
 		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
-		if evalBenchmarkResult.Value.BoolValue() { // verify that we did not get a match
+		if evalBenchmarkResult.Detail.Value.BoolValue() { // verify that we did not get a match
 			b.FailNow()
 		}
 	})
 }
 
-func BenchmarkEvaluationRuleMatch(b *testing.B) {
+func BenchmarkEvaluationRuleMatchNoAlloc(b *testing.B) {
 	benchmarkEval(b, makeEvalBenchmarkCases(true), func(env *evalBenchmarkEnv) {
 		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
-		if !evalBenchmarkResult.Value.BoolValue() { // verify that we got a match
+		if !evalBenchmarkResult.Detail.Value.BoolValue() { // verify that we got a match
 			b.FailNow()
 		}
 	})
 }
 
-func BenchmarkEvaluationUserFoundInTargets(b *testing.B) {
+func BenchmarkEvaluationUserFoundInTargetsNoAlloc(b *testing.B) {
 	// This attempts to match a user from the middle of the target list. As long as the flag has been
 	// preprocessed, which it always should be in normal usage, this is a simple map lookup and should
 	// not increase linearly with the length of the list.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := env.targetUsers[len(env.targetUsers)/2]
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
-		if !evalBenchmarkResult.Value.BoolValue() {
+		if !evalBenchmarkResult.Detail.Value.BoolValue() {
 			b.FailNow()
 		}
 	})
 }
 
-func BenchmarkEvaluationUsersNotFoundInTargets(b *testing.B) {
+func BenchmarkEvaluationUsersNotFoundInTargetsNoAlloc(b *testing.B) {
 	// This attempts to match a user who is not in the list.  As long as the flag has been preprocessed,
 	// which it always should be in normal usage, this is a simple map lookup and should not increase
 	// linearly with the length of the list.
 	benchmarkEval(b, makeTargetMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
-		if evalBenchmarkResult.Value.BoolValue() {
+		if evalBenchmarkResult.Detail.Value.BoolValue() {
 			b.FailNow()
 		}
 	})
 }
 
-func BenchmarkEvaluationUserIncludedInSegment(b *testing.B) {
-	// This attempts to match a user from the middle of the segment's include list. Currently, the execution
-	// time is roughly linear based on the length of the list, since we are iterating it.
+func BenchmarkEvaluationUserIncludedInSegmentNoAlloc(b *testing.B) {
+	// This attempts to match a user from the middle of the segment's include list. As long as the segment
+	// has been preprocessed, which it should always be in normal usage, this is a simple map lookup and
+	// should not increase linearly with the length of the list.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		user := lduser.NewUser(env.targetSegment.Included[len(env.targetSegment.Included)/2])
+		user := ldcontext.New(env.targetSegment.Included[len(env.targetSegment.Included)/2])
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
-		if !evalBenchmarkResult.Value.BoolValue() {
+		if !evalBenchmarkResult.Detail.Value.BoolValue() {
 			b.FailNow()
 		}
 	})
 }
 
-func BenchmarkEvaluationUserExcludedFromSegment(b *testing.B) {
-	// This attempts to match a user who is explicitly excluded from the segment. Currently, the execution
-	// time is roughly linear based on the length of the include and exclude lists, since we are iterating them.
+func BenchmarkEvaluationUserExcludedFromSegmentNoAlloc(b *testing.B) {
+	// This attempts to match a user who is explicitly excluded from the segment.  As long as the segment
+	// has been preprocessed, which it should always be in normal usage, this is a simple map lookup and
+	// should not increase linearly with the length of the list.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
-		user := lduser.NewUser(env.targetSegment.Excluded[len(env.targetSegment.Excluded)/2])
+		user := ldcontext.New(env.targetSegment.Excluded[len(env.targetSegment.Excluded)/2])
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
-		if evalBenchmarkResult.Value.BoolValue() {
+		if evalBenchmarkResult.Detail.Value.BoolValue() {
 			b.FailNow()
 		}
 	})
 }
 
-func BenchmarkEvaluationUserMatchedBySegmentRule(b *testing.B) {
+func BenchmarkEvaluationUserMatchedBySegmentRuleNoAlloc(b *testing.B) {
 	benchmarkEval(b, makeSegmentRuleMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
-		if !evalBenchmarkResult.Value.BoolValue() {
+		if !evalBenchmarkResult.Detail.Value.BoolValue() {
 			b.FailNow()
 		}
 	})
@@ -283,28 +275,32 @@ func makeEvalBenchmarkClauses(numClauses int, extraClauseValues int, op ldmodel.
 	for i := 0; i < numClauses; i++ {
 		clause := ldmodel.Clause{Op: op}
 		var value ldvalue.Value
+		var name string
 		switch op {
 		case ldmodel.OperatorGreaterThan:
-			clause.Attribute = "numAttr"
+			name = "numAttr"
 			value = ldvalue.Int(i)
 		case ldmodel.OperatorContains:
-			clause.Attribute = "name"
+			name = "name"
 			value = ldvalue.String("name-0")
 		case ldmodel.OperatorMatches:
-			clause.Attribute = "stringAttr"
+			name = "stringAttr"
 			value = ldvalue.String("stringAttr-0")
 		case ldmodel.OperatorAfter:
-			clause.Attribute = "dateAttr"
+			name = "dateAttr"
 			value = ldvalue.String("2000-01-01T00:00:00.000-00:00")
 		case ldmodel.OperatorSemVerEqual:
-			clause.Attribute = "semVerAttr"
+			name = "semVerAttr"
 			value = ldvalue.String("1.0.0")
 		case ldmodel.OperatorSegmentMatch:
 			value = ldvalue.String(evalBenchmarkSegmentKey)
 		default:
 			clause.Op = ldmodel.OperatorIn
-			clause.Attribute = "stringAttr"
+			name = "stringAttr"
 			value = ldvalue.String("stringAttr-0")
+		}
+		if name != "" {
+			clause.Attribute = ldattr.NewNameRef(name)
 		}
 		if extraClauseValues == 0 {
 			clause.Values = []ldvalue.Value{value}

@@ -1,15 +1,16 @@
 package evaluation
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
+
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
 // Evaluator is the engine for evaluating feature flags.
 type Evaluator interface {
-	// Evaluate evaluates a feature flag for the specified user.
+	// Evaluate evaluates a feature flag for the specified context.
 	//
 	// The flag is passed by reference only for efficiency; the evaluator will never modify any flag
 	// properties. Passing a nil flag will result in a panic.
@@ -20,9 +21,9 @@ type Evaluator interface {
 	// parameter can be nil if you do not need to track prerequisite evaluations.
 	Evaluate(
 		flag *ldmodel.FeatureFlag,
-		user lduser.User,
+		context ldcontext.Context,
 		prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
-	) ldreason.EvaluationDetail
+	) Result
 }
 
 // PrerequisiteFlagEventRecorder is a function that Evaluator.Evaluate() will call to record the
@@ -33,17 +34,17 @@ type PrerequisiteFlagEventRecorder func(PrerequisiteFlagEvent)
 type PrerequisiteFlagEvent struct {
 	// TargetFlagKey is the key of the feature flag that had a prerequisite.
 	TargetFlagKey string
-	// User is the user that the flag was evaluated for. We pass this back to the caller, even though the caller
+	// Context is the context that the flag was evaluated for. We pass this back to the caller, even though the caller
 	// already passed it to us in the Evaluate parameters, so that the caller can provide a stateless function for
 	// PrerequisiteFlagEventRecorder rather than a closure (since closures are less efficient).
-	User lduser.User
+	Context ldcontext.Context
 	// PrerequisiteFlag is the full configuration of the prerequisite flag. We need to pass the full flag here rather
 	// than just the key because the flag's properties (such as TrackEvents) can affect how events are generated.
 	// This is passed by reference for efficiency only, and will never be nil; the PrerequisiteFlagEventRecorder
 	// must not modify the flag's properties.
 	PrerequisiteFlag *ldmodel.FeatureFlag
 	// PrerequisiteResult is the result of evaluating the prerequisite flag.
-	PrerequisiteResult ldreason.EvaluationDetail
+	PrerequisiteResult Result
 }
 
 // DataProvider is an abstraction for querying feature flags and user segments from a data store.
@@ -70,28 +71,38 @@ type DataProvider interface {
 	GetSegment(key string) *ldmodel.Segment
 }
 
-// BigSegmentProvider is an abstraction for querying user membership in big segments. The caller
+// BigSegmentProvider is an abstraction for querying membership in big segments. The caller
 // provides an implementation of this interface to NewEvaluatorWithBigSegments.
 type BigSegmentProvider interface {
-	// GetUserMembership queries a snapshot of the current segment state for a specific user.
+	// GetMembership queries a snapshot of the current segment state for a specific context
+	// key.
 	//
-	// The underlying big segment store implementation will use a hash of the user key, rather
+	// The underlying big segment store implementation will use a hash of the context key, rather
 	// than the raw key. But computing the hash is the responsibility of the BigSegmentProvider
 	// implementation rather than the evaluator, because there may already have a cached result for
 	// that user, and we don't want to have to compute a hash repeatedly just to query a cache.
 	//
+	// Any given big segment is specific to one context kind, so we do not specify a context kind
+	// here; it is OK for the membership results to include different context kinds for the same
+	// key. That is, if for instance the context {kind: "user", key: "x"} is included in big segment
+	// S1, and the context {kind: "org", key: "x"} is included in big segment S2, then the query
+	// result for key "x" will show that it is included in both S1 and S2; even though those "x"
+	// keys are really for two unrelated context kinds, we will always know which kind we mean if
+	// we are specifically checking either S1 or S2, because S1 is defined as only applying to the
+	// "user" kind and S2 is defined as only applying to the "org" kind.
+	//
 	// If the returned BigSegmentMembership is nil, it is treated the same as an implementation
-	// whose IsUserIncluded and IsUserExcluded methods always return false.
-	GetUserMembership(
-		userKey string,
+	// whose CheckMembership method always returns an empty value.
+	GetMembership(
+		contextKey string,
 	) (BigSegmentMembership, ldreason.BigSegmentsStatus)
 }
 
-// BigSegmentMembership is the return type of BigSegmentProvider.GetUserMembership(). It is
-// associated with a single user, and provides the ability to check whether that user is included
-// in or excluded from any number of big segments.
+// BigSegmentMembership is the return type of BigSegmentProvider.GetContextMembership(). It is
+// associated with a single context kind and context key, and provides the ability to check whether
+// that context is included in or excluded from any number of big segments.
 //
-// This is an immutable snapshot of the state for this user at the time GetBigSegmentMembership
+// This is an immutable snapshot of the state for this context at the time GetBigSegmentMembership
 // was called. Calling CheckMembership should not cause the state to be queried again. The object
 // should be safe for concurrent access by multiple goroutines.
 //

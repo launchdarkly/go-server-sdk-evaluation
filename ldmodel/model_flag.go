@@ -1,10 +1,10 @@
 package ldmodel
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldreason"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v3/ldtime"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
 // FeatureFlag describes an individual feature flag.
@@ -23,11 +23,16 @@ type FeatureFlag struct {
 	//
 	// If any prerequisite is not met, the flag behaves as if targeting is turned off.
 	Prerequisites []Prerequisite
-	// Targets contains sets of individually targeted users.
+	// Targets contains sets of individually targeted users for the default context kind (user).
 	//
 	// Targets take precedence over Rules: if a user is matched by any Target, the Rules are ignored.
 	// Targets are ignored if targeting is turned off.
 	Targets []Target
+	// ContextTargets contains sets of individually targeted users for specific context kinds.
+	//
+	// Targets take precedence over Rules: if a user is matched by any Target, the Rules are ignored.
+	// Targets are ignored if targeting is turned off.
+	ContextTargets []Target
 	// Rules is a list of rules that may match a user.
 	//
 	// If a user is matched by a Rule, all subsequent Rules in the list are skipped. Rules are ignored
@@ -90,67 +95,6 @@ type FeatureFlag struct {
 	Deleted bool
 }
 
-// GetKey returns the string key for the flag.
-//
-// This method exists in order to conform to interfaces used internally by the SDK.
-func (f *FeatureFlag) GetKey() string {
-	return f.Key
-}
-
-// GetVersion returns the version of the flag.
-//
-// This method exists in order to conform to interfaces used internally by the SDK.
-func (f *FeatureFlag) GetVersion() int {
-	return f.Version
-}
-
-// IsFullEventTrackingEnabled returns true if the flag has been configured to always generate detailed event data.
-//
-// This method exists in order to conform to interfaces used internally by the SDK
-// (go-sdk-events.v1/FlagEventProperties). It simply returns TrackEvents.
-func (f *FeatureFlag) IsFullEventTrackingEnabled() bool {
-	return f.TrackEvents
-}
-
-// GetDebugEventsUntilDate returns zero normally, but if event debugging has been temporarily enabled for the flag,
-// it returns the time at which debugging mode should expire.
-//
-// This method exists in order to conform to interfaces used internally by the SDK
-// (go-sdk-events.v1/FlagEventProperties). It simply returns DebugEventsUntilDate.
-func (f *FeatureFlag) GetDebugEventsUntilDate() ldtime.UnixMillisecondTime {
-	return f.DebugEventsUntilDate
-}
-
-// IsExperimentationEnabled returns true if, based on the EvaluationReason returned by the flag evaluation, an event for
-// that evaluation should have full tracking enabled and always report the reason even if the application didn't
-// explicitly request this. For instance, this is true if a rule was matched that had tracking enabled for that specific
-// rule.
-//
-// This differs from IsFullEventTrackingEnabled() in that it is dependent on the result of a specific evaluation; also,
-// IsFullEventTrackingEnabled() being true does not imply that the event should always contain a reason, whereas
-// IsExperimentationEnabled() being true does force the reason to be included.
-//
-// This method exists in order to conform to interfaces used internally by the SDK
-// (go-sdk-events.v1/FlagEventProperties).
-func (f *FeatureFlag) IsExperimentationEnabled(reason ldreason.EvaluationReason) bool {
-	// If the reason says we're in an experiment, we are. Otherwise, apply
-	// the legacy rule exclusion logic.
-	if reason.IsInExperiment() {
-		return true
-	}
-
-	switch reason.GetKind() {
-	case ldreason.EvalReasonFallthrough:
-		return f.TrackEventsFallthrough
-	case ldreason.EvalReasonRuleMatch:
-		i := reason.GetRuleIndex()
-		if i >= 0 && i < len(f.Rules) {
-			return f.Rules[i].TrackEvents
-		}
-	}
-	return false
-}
-
 // FlagRule describes a single rule within a feature flag.
 //
 // A rule consists of a set of ANDed matching conditions (Clause) for a user, along with either a fixed
@@ -210,6 +154,12 @@ type Rollout struct {
 	// Kind specifies whether this rollout is a simple percentage rollout or represents an experiment. Experiments have
 	// different behaviour for tracking and variation bucketing.
 	Kind RolloutKind
+	// ContextKind is the context kind that this rollout will use to get any necessary context attributes.
+	//
+	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
+	// treated as ldcontext.DefaultKind. An empty string value here represents the property being unset
+	// (so it will be omitted in serialization).
+	ContextKind ldcontext.Kind
 	// Variations is a list of the variations in the percentage rollout and what percentage of users
 	// to include in each.
 	//
@@ -218,13 +168,15 @@ type Rollout struct {
 	// the weights are [1000, 1000, 1000] they will be treated as if they were [1000, 1000, 98000]).
 	Variations []WeightedVariation
 	// BucketBy specifies which user attribute should be used to distinguish between users in a rollout.
+	// This only works for simple rollouts; it is ignored for experiments.
 	//
-	// The default (when BucketBy is empty) is lduser.KeyAttribute, the user's primary key. If you wish to
+	// The default (when BucketBy is empty) is ldattr.KeyAttr, the user's primary key. If you wish to
 	// treat users with different keys as the same for rollout purposes as long as they have the same
-	// "country" attribute, you would set this to "country" (lduser.CountryAttribute).
+	// "country" attribute, you would set this to "country".
 	//
-	// Rollouts always take the user's "secondary key" attribute into account as well if the user has one.
-	BucketBy lduser.UserAttribute
+	// Simple rollouts always take the user's "secondary key" attribute into account as well if the user
+	// has one. Experiments ignore the secondary key.
+	BucketBy ldattr.Ref
 	// Seed, if present, specifies the seed for the hashing algorithm this rollout will use to bucket users, so that
 	// rollouts with the same Seed will assign the same users to the same buckets.
 	// If unspecified, the seed will default to a combination of the flag key and flag-level Salt.
@@ -238,13 +190,23 @@ func (r Rollout) IsExperiment() bool {
 
 // Clause describes an individual clause within a FlagRule or SegmentRule.
 type Clause struct {
-	// Attribute specifies the user attribute that is being tested.
+	// ContextKind is the context kind that this clause applies to.
 	//
-	// This is required for all Operator types except SegmentMatch.
+	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
+	// treated as ldcontext.DefaultKind. An empty string value here represents the property being unset (so
+	// it will be omitted in serialization).
 	//
-	// If the user's value for this attribute is a JSON array, then the test specified in the Clause is
+	// If the value of Attribute is "kind", then ContextKind is ignored because the nature of the context kind
+	// test is described in a richer way by Operator and Values.
+	ContextKind ldcontext.Kind
+	// Attribute specifies the context attribute that is being tested.
+	//
+	// This is required for all Operator types except SegmentMatch. If Op is SegmentMatch then Attribute
+	// is ignored (and will normally be an empty ldattr.Ref{}).
+	//
+	// If the context's value for this attribute is a JSON array, then the test specified in the Clause is
 	// repeated for each value in the array until a match is found or there are no more values.
-	Attribute lduser.UserAttribute
+	Attribute ldattr.Ref
 	// Op specifies the type of test to perform.
 	Op Operator
 	// Values is a list of values to be compared to the user attribute.
@@ -282,12 +244,18 @@ type WeightedVariation struct {
 
 // Target describes a set of users who will receive a specific variation.
 type Target struct {
+	// ContextKind is the context kind that this target list applies to.
+	//
+	// LaunchDarkly will normally always set this property, but if it is empty/omitted, it should be
+	// treated as ldcontext.DefaultKind. An empty string value here represents the property being unset (so
+	// it will be omitted in serialization).
+	ContextKind ldcontext.Kind
 	// Values is the set of user keys included in this Target.
 	Values []string
 	// Variation is the index of the variation to be returned if the user matches one of these keys. This
 	// is always a real variation index; it cannot be undefined.
 	Variation int
-	// preprocessedData is created by PreprocessFlag() to speed up target matching.
+	// preprocessed is created by PreprocessFlag() to speed up target matching.
 	preprocessed targetPreprocessedData
 }
 

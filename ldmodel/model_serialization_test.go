@@ -4,489 +4,160 @@ import (
 	"encoding/json"
 	"testing"
 
-	"gopkg.in/launchdarkly/go-jsonstream.v1/jreader"
-	"gopkg.in/launchdarkly/go-jsonstream.v1/jwriter"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
+	"github.com/launchdarkly/go-jsonstream/v2/jreader"
+	"github.com/launchdarkly/go-jsonstream/v2/jwriter"
+	m "github.com/launchdarkly/go-test-helpers/v2/matchers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var flagWithAllProperties = FeatureFlag{
-	Key: "flag-key",
-	On:  true,
-	Prerequisites: []Prerequisite{
-		Prerequisite{
-			Key:       "prereq-key",
-			Variation: 1,
-		},
-	},
-	Targets: []Target{
-		Target{
-			Values:       []string{"user-key"},
-			Variation:    2,
-			preprocessed: targetPreprocessedData{valuesMap: map[string]bool{"user-key": true}}, // this is set by PreprocessFlag()
-		},
-	},
-	Rules: []FlagRule{
-		FlagRule{
-			ID: "rule-id1",
-			Clauses: []Clause{
-				Clause{
-					Attribute: lduser.NameAttribute,
-					Op:        OperatorIn,
-					Values:    []ldvalue.Value{ldvalue.String("clause-value")},
-					Negate:    true,
-				},
-			},
-			VariationOrRollout: VariationOrRollout{
-				Variation: ldvalue.NewOptionalInt(1),
-			},
-			TrackEvents: true,
-		},
-		FlagRule{
-			ID:      "rule-id2",
-			Clauses: []Clause{},
-			VariationOrRollout: VariationOrRollout{
-				Rollout: Rollout{
-					Kind: RolloutKindRollout,
-					Variations: []WeightedVariation{
-						WeightedVariation{
-							Weight:    100000,
-							Variation: 3,
-						},
-					},
-					BucketBy: lduser.NameAttribute,
-				},
-			},
-		},
-		FlagRule{
-			ID:      "rule-id3",
-			Clauses: []Clause{},
-			VariationOrRollout: VariationOrRollout{
-				Rollout: Rollout{
-					Kind: RolloutKindExperiment,
-					Variations: []WeightedVariation{
-						WeightedVariation{
-							Weight:    10000,
-							Variation: 1,
-						},
-						WeightedVariation{
-							Weight:    10000,
-							Variation: 2,
-						},
-						WeightedVariation{
-							Weight:    80000,
-							Variation: 3,
-							Untracked: true,
-						},
-					},
-					BucketBy: lduser.NameAttribute,
-					Seed:     ldvalue.NewOptionalInt(42),
-				},
-			},
-			TrackEvents: true,
-		},
-	},
-	Fallthrough: VariationOrRollout{
-		Rollout: Rollout{
-			Variations: []WeightedVariation{
-				WeightedVariation{
-					Weight:    100000,
-					Variation: 3,
-				},
-			},
-		},
-	},
-	OffVariation: ldvalue.NewOptionalInt(3),
-	Variations:   []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
-	ClientSideAvailability: ClientSideAvailability{
-		UsingEnvironmentID: true,
-		UsingMobileKey:     true,
-		Explicit:           true,
-	},
-	Salt:                   "flag-salt",
-	TrackEvents:            true,
-	TrackEventsFallthrough: true,
-	DebugEventsUntilDate:   ldtime.UnixMillisecondTime(1000),
-	Version:                99,
-	Deleted:                true,
-}
+type testMarshalFlagFn func(FeatureFlag) ([]byte, error)
+type testUnmarshalFlagFn func([]byte) (FeatureFlag, error)
 
-var flagWithAllPropertiesJSON = map[string]interface{}{
-	"key": "flag-key",
-	"on":  true,
-	"prerequisites": []interface{}{
-		map[string]interface{}{
-			"key":       "prereq-key",
-			"variation": float64(1),
-		},
-	},
-	"targets": []interface{}{
-		map[string]interface{}{
-			"values":    []interface{}{"user-key"},
-			"variation": float64(2),
-		},
-	},
-	"rules": []interface{}{
-		map[string]interface{}{
-			"id": "rule-id1",
-			"clauses": []interface{}{
-				map[string]interface{}{
-					"attribute": "name",
-					"op":        "in",
-					"values":    []interface{}{"clause-value"},
-					"negate":    true,
-				},
-			},
-			"variation":   float64(1),
-			"trackEvents": true,
-		},
-		map[string]interface{}{
-			"id":      "rule-id2",
-			"clauses": []interface{}{},
-			"rollout": map[string]interface{}{
-				"kind": "rollout",
-				"variations": []interface{}{
-					map[string]interface{}{
-						"weight":    float64(100000),
-						"variation": float64(3),
-					},
-				},
-				"bucketBy": "name",
-			},
-			"trackEvents": false,
-		},
-		map[string]interface{}{
-			"id":      "rule-id3",
-			"clauses": []interface{}{},
-			"rollout": map[string]interface{}{
-				"kind":     "experiment",
-				"bucketBy": "name",
-				"variations": []interface{}{
-					map[string]interface{}{
-						"weight":    float64(10000),
-						"variation": float64(1),
-					},
-					map[string]interface{}{
-						"weight":    float64(10000),
-						"variation": float64(2),
-					},
-					map[string]interface{}{
-						"weight":    float64(80000),
-						"variation": float64(3),
-						"untracked": true,
-					},
-				},
-				"seed": float64(42),
-			},
-			"trackEvents": true,
-		},
-	},
-	"fallthrough": map[string]interface{}{
-		"rollout": map[string]interface{}{
-			"variations": []interface{}{
-				map[string]interface{}{
-					"weight":    float64(100000),
-					"variation": float64(3),
-				},
-			},
-		},
-	},
-	"offVariation": float64(3),
-	"variations":   []interface{}{false, float64(9), "other"},
-	"clientSideAvailability": map[string]interface{}{
-		"usingEnvironmentId": true,
-		"usingMobileKey":     true,
-	},
-	"clientSide":             true,
-	"salt":                   "flag-salt",
-	"trackEvents":            true,
-	"trackEventsFallthrough": true,
-	"debugEventsUntilDate":   float64(1000),
-	"version":                float64(99),
-	"deleted":                true,
-}
+type testMarshalSegmentFn func(Segment) ([]byte, error)
+type testUnmarshalSegmentFn func([]byte) (Segment, error)
 
-var flagWithMinimalProperties = FeatureFlag{
-	Key:         "flag-key",
-	Fallthrough: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)},
-	Variations:  []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(9), ldvalue.String("other")},
-	ClientSideAvailability: ClientSideAvailability{
-		UsingMobileKey: true,
-		Explicit:       false,
-	},
-	Salt:    "flag-salt",
-	Version: 99,
-}
-
-var flagWithMinimalPropertiesJSON = map[string]interface{}{
-	"key":          "flag-key",
-	"on":           false,
-	"offVariation": nil,
-	"fallthrough": map[string]interface{}{
-		"variation": float64(1),
-	},
-	"variations":             []interface{}{false, float64(9), "other"},
-	"targets":                []interface{}{},
-	"rules":                  []interface{}{},
-	"prerequisites":          []interface{}{},
-	"clientSide":             false,
-	"salt":                   "flag-salt",
-	"trackEvents":            false,
-	"trackEventsFallthrough": false,
-	"debugEventsUntilDate":   nil,
-	"version":                float64(99),
-	"deleted":                false,
-}
-
-var segmentWithAllProperties = Segment{
-	Key:      "segment-key",
-	Included: []string{"user1"},
-	Excluded: []string{"user2"},
-	preprocessed: segmentPreprocessedData{
-		includeMap: map[string]bool{"user1": true},
-		excludeMap: map[string]bool{"user2": true},
-	},
-	Rules: []SegmentRule{
-		SegmentRule{
-			ID: "rule-id",
-			Clauses: []Clause{
-				Clause{
-					Attribute: lduser.NameAttribute,
-					Op:        OperatorIn,
-					Values:    []ldvalue.Value{ldvalue.String("clause-value")},
-					Negate:    true,
-				},
-			},
-			Weight: -1,
-		},
-		SegmentRule{
-			Weight:   50000,
-			BucketBy: lduser.NameAttribute,
-		},
-	},
-	Salt:       "segment-salt",
-	Unbounded:  true,
-	Version:    99,
-	Generation: ldvalue.NewOptionalInt(51),
-	Deleted:    true,
-}
-
-var segmentWithAllPropertiesJSON = map[string]interface{}{
-	"key":      "segment-key",
-	"included": []interface{}{"user1"},
-	"excluded": []interface{}{"user2"},
-	"rules": []interface{}{
-		map[string]interface{}{
-			"id": "rule-id",
-			"clauses": []interface{}{
-				map[string]interface{}{
-					"attribute": "name",
-					"op":        "in",
-					"values":    []interface{}{"clause-value"},
-					"negate":    true,
-				},
-			},
-		},
-		map[string]interface{}{
-			"id":       "",
-			"clauses":  []interface{}{},
-			"weight":   float64(50000),
-			"bucketBy": "name",
-		},
-	},
-	"salt":       "segment-salt",
-	"unbounded":  true,
-	"version":    float64(99),
-	"generation": float64(51),
-	"deleted":    true,
-}
-
-var segmentWithMinimalProperties = Segment{
-	Key:     "segment-key",
-	Salt:    "segment-salt",
-	Version: 99,
-}
-
-var segmentWithMinimalPropertiesJSON = map[string]interface{}{
-	"key":        "segment-key",
-	"included":   []interface{}{},
-	"excluded":   []interface{}{},
-	"rules":      []interface{}{},
-	"salt":       "segment-salt",
-	"version":    float64(99),
-	"generation": nil,
-	"deleted":    false,
-}
-
-func parseJsonMap(t *testing.T, bytes []byte) map[string]interface{} {
-	var ret map[string]interface{}
-	require.NoError(t, json.Unmarshal(bytes, &ret))
-	return ret
-}
-
-func toJSON(x interface{}) []byte {
-	bytes, err := json.Marshal(x)
-	if err != nil {
-		panic(err)
+func doMarshalFlagTest(t *testing.T, marshalFn testMarshalFlagFn) {
+	for _, p := range makeFlagSerializationTestParams() {
+		t.Run(p.name, func(t *testing.T) {
+			bytes, err := marshalFn(p.flag)
+			require.NoError(t, err)
+			expected := mergeDefaultProperties(json.RawMessage(p.jsonString), flagTopLevelDefaultProperties)
+			m.In(t).Assert(json.RawMessage(bytes), m.JSONEqual(expected))
+		})
 	}
-	return bytes
 }
 
-func TestMarshalFlagWithAllProperties(t *testing.T) {
-	bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flagWithAllProperties)
-	require.NoError(t, err)
-	json := parseJsonMap(t, bytes)
-	assert.Equal(t, flagWithAllPropertiesJSON, json)
+func doMarshalSegmentTest(t *testing.T, marshalFn testMarshalSegmentFn) {
+	for _, p := range makeSegmentSerializationTestParams() {
+		t.Run(p.name, func(t *testing.T) {
+			bytes, err := marshalFn(p.segment)
+			require.NoError(t, err)
+			expected := mergeDefaultProperties(json.RawMessage(p.jsonString), segmentTopLevelDefaultProperties)
+			m.In(t).Assert(json.RawMessage(bytes), m.JSONEqual(expected))
+		})
+	}
 }
 
-func TestMarshalFlagWithMinimalProperties(t *testing.T) {
-	bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flagWithMinimalProperties)
-	require.NoError(t, err)
-	json := parseJsonMap(t, bytes)
-	assert.Equal(t, flagWithMinimalPropertiesJSON, json)
-}
+func doUnmarshalFlagTest(t *testing.T, unmarshalFn testUnmarshalFlagFn) {
+	for _, p := range makeFlagSerializationTestParams() {
+		t.Run(p.name, func(t *testing.T) {
+			flag, err := unmarshalFn([]byte(p.jsonString))
+			require.NoError(t, err)
 
-func TestMarshalFlagToJSONWriter(t *testing.T) {
-	w := jwriter.NewWriter()
-	MarshalFeatureFlagToJSONWriter(flagWithAllProperties, &w)
-	require.NoError(t, w.Error())
-	json := parseJsonMap(t, w.Bytes())
-	assert.Equal(t, flagWithAllPropertiesJSON, json)
-}
-
-func TestUnmarshalFlagWithAllProperties(t *testing.T) {
-	bytes := toJSON(flagWithAllPropertiesJSON)
-	flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(bytes)
-	require.NoError(t, err)
-	assert.Equal(t, flagWithAllProperties, flag)
-}
-
-func TestUnmarshalFlagWithMinimalProperties(t *testing.T) {
-	bytes := toJSON(flagWithMinimalPropertiesJSON)
-	flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(bytes)
-	require.NoError(t, err)
-	assert.Equal(t, flagWithMinimalProperties, flag)
-}
-
-func TestUnmarshalFlagFromJSONReader(t *testing.T) {
-	bytes := toJSON(flagWithAllPropertiesJSON)
-	r := jreader.NewReader(bytes)
-	flag := UnmarshalFeatureFlagFromJSONReader(&r)
-	require.NoError(t, r.Error())
-	assert.Equal(t, flagWithAllProperties, flag)
-}
-
-func TestUnmarshalFlagClientSideAvailability(t *testing.T) {
-	// As described in ClientSideAvailability, there was a schema change regarding these properties
-	// that is not fully accounted for by Go's standard zero-value behavior.
-
-	t.Run("old schema without clientSide, or with clientSide false", func(t *testing.T) {
-		jsonMap1 := map[string]interface{}{
-			"key": "flag-key",
-		}
-		flag1, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(toJSON(jsonMap1))
-		require.NoError(t, err)
-		assert.Equal(t, ClientSideAvailability{
-			Explicit:           false,
-			UsingEnvironmentID: false, // defaults to false, like all booleans...
-			UsingMobileKey:     true,  // ...except this one which defaults to true
-		}, flag1.ClientSideAvailability)
-
-		jsonMap2 := map[string]interface{}{
-			"key":        "flag-key",
-			"clientSide": false,
-		}
-		flag2, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(toJSON(jsonMap2))
-		require.NoError(t, err)
-		assert.Equal(t, flag1, flag2)
-	})
-
-	t.Run("old schema with clientSide true", func(t *testing.T) {
-		jsonMap := map[string]interface{}{
-			"key":        "flag-key",
-			"clientSide": true,
-		}
-		flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(toJSON(jsonMap))
-		require.NoError(t, err)
-		assert.Equal(t, ClientSideAvailability{
-			Explicit:           false,
-			UsingEnvironmentID: true,
-			UsingMobileKey:     true,
-		}, flag.ClientSideAvailability)
-	})
-
-	t.Run("new schema", func(t *testing.T) {
-		for _, usingMobile := range []bool{false, true} {
-			for _, usingEnvID := range []bool{false, true} {
-				jsonMap := map[string]interface{}{
-					"key": "flag-key",
-					"clientSideAvailability": map[string]interface{}{
-						"usingMobileKey":     usingMobile,
-						"usingEnvironmentId": usingEnvID,
-					},
-				}
-				flag, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag(toJSON(jsonMap))
-				require.NoError(t, err)
-				assert.Equal(t, ClientSideAvailability{
-					Explicit:           true,
-					UsingEnvironmentID: usingEnvID,
-					UsingMobileKey:     usingMobile,
-				}, flag.ClientSideAvailability)
+			expectedFlag := p.flag
+			PreprocessFlag(&expectedFlag)
+			if !p.isCustomClientSideAvailability {
+				expectedFlag.ClientSideAvailability = ClientSideAvailability{UsingMobileKey: true} // this is the default
 			}
-		}
+			assert.Equal(t, expectedFlag, flag)
+
+			for _, altJSON := range p.jsonAltInputs {
+				t.Run(altJSON, func(t *testing.T) {
+					flag, err := unmarshalFn([]byte(altJSON))
+					require.NoError(t, err)
+					assert.Equal(t, expectedFlag, flag)
+				})
+			}
+		})
+	}
+}
+
+func doUnmarshalSegmentTest(t *testing.T, unmarshalFn testUnmarshalSegmentFn) {
+	for _, p := range makeSegmentSerializationTestParams() {
+		t.Run(p.name, func(t *testing.T) {
+			segment, err := unmarshalFn([]byte(p.jsonString))
+			require.NoError(t, err)
+
+			expectedSegment := p.segment
+			PreprocessSegment(&expectedSegment)
+
+			assert.Equal(t, expectedSegment, segment)
+
+			for _, altJSON := range p.jsonAltInputs {
+				t.Run(altJSON, func(t *testing.T) {
+					segment, err := unmarshalFn([]byte(altJSON))
+					require.NoError(t, err)
+					assert.Equal(t, expectedSegment, segment)
+				})
+			}
+		})
+	}
+}
+
+func TestMarshalFlagWithJSONMarshal(t *testing.T) {
+	doMarshalFlagTest(t, func(flag FeatureFlag) ([]byte, error) {
+		return json.Marshal(flag)
 	})
 }
 
-func TestMarshalFlagClientSideAvailability(t *testing.T) {
-	// As described in ClientSideAvailability, there was a schema change regarding these properties
-	// that is not fully accounted for by Go's standard zero-value behavior.
+func TestMarshalFlagWithDefaultSerialization(t *testing.T) {
+	doMarshalFlagTest(t, NewJSONDataModelSerialization().MarshalFeatureFlag)
+}
 
-	t.Run("old schema with clientSide false", func(t *testing.T) {
-		flag := FeatureFlag{
-			ClientSideAvailability: ClientSideAvailability{Explicit: false, UsingEnvironmentID: false},
-		}
-		bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flag)
-		require.NoError(t, err)
-		jsonMap := parseJsonMap(t, bytes)
-		assert.Equal(t, false, jsonMap["clientSide"])
-		assert.Nil(t, jsonMap["clientSideAvailability"])
+func TestMarshalFlagWithJSONWriter(t *testing.T) {
+	doMarshalFlagTest(t, func(flag FeatureFlag) ([]byte, error) {
+		w := jwriter.NewWriter()
+		MarshalFeatureFlagToJSONWriter(flag, &w)
+		return w.Bytes(), w.Error()
 	})
+}
 
-	t.Run("old schema with clientSide true", func(t *testing.T) {
-		flag := FeatureFlag{
-			ClientSideAvailability: ClientSideAvailability{Explicit: false, UsingEnvironmentID: true},
-		}
-		bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flag)
-		require.NoError(t, err)
-		jsonMap := parseJsonMap(t, bytes)
-		assert.Equal(t, true, jsonMap["clientSide"])
-		assert.Nil(t, jsonMap["clientSideAvailability"])
+func TestUnmarshalFlagWithJSONUnmarshal(t *testing.T) {
+	doUnmarshalFlagTest(t, func(data []byte) (FeatureFlag, error) {
+		var flag FeatureFlag
+		err := json.Unmarshal(data, &flag)
+		return flag, err
 	})
+}
 
-	t.Run("new schema", func(t *testing.T) {
-		for _, usingMobile := range []bool{false, true} {
-			for _, usingEnvID := range []bool{false, true} {
-				flag := FeatureFlag{
-					ClientSideAvailability: ClientSideAvailability{
-						Explicit:           true,
-						UsingEnvironmentID: usingEnvID,
-						UsingMobileKey:     usingMobile,
-					},
-				}
-				bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(flag)
-				require.NoError(t, err)
-				jsonMap := parseJsonMap(t, bytes)
-				assert.Equal(t, usingEnvID, jsonMap["clientSide"])
-				assert.Equal(t, map[string]interface{}{
-					"usingMobileKey":     usingMobile,
-					"usingEnvironmentId": usingEnvID,
-				}, jsonMap["clientSideAvailability"])
-			}
-		}
+func TestUnmarshalFlagWithDefaultSerialization(t *testing.T) {
+	doUnmarshalFlagTest(t, NewJSONDataModelSerialization().UnmarshalFeatureFlag)
+}
+
+func TestUnmarshalFlagWithJSONReader(t *testing.T) {
+	doUnmarshalFlagTest(t, func(data []byte) (FeatureFlag, error) {
+		r := jreader.NewReader(data)
+		flag := UnmarshalFeatureFlagFromJSONReader(&r)
+		return flag, r.Error()
+	})
+}
+
+func TestMarshalSegmentWithJSONMarshal(t *testing.T) {
+	doMarshalSegmentTest(t, func(segment Segment) ([]byte, error) {
+		return json.Marshal(segment)
+	})
+}
+
+func TestMarshalSegmentWithDefaultSerialization(t *testing.T) {
+	doMarshalSegmentTest(t, NewJSONDataModelSerialization().MarshalSegment)
+}
+
+func TestMarshalSegmentWithJSONWriter(t *testing.T) {
+	doMarshalSegmentTest(t, func(segment Segment) ([]byte, error) {
+		w := jwriter.NewWriter()
+		MarshalSegmentToJSONWriter(segment, &w)
+		return w.Bytes(), w.Error()
+	})
+}
+func TestUnmarshalSegmentWithJSONUnmarshal(t *testing.T) {
+	doUnmarshalSegmentTest(t, func(data []byte) (Segment, error) {
+		var segment Segment
+		err := json.Unmarshal(data, &segment)
+		return segment, err
+	})
+}
+
+func TestUnmarshalSegmentWithDefaultSerialization(t *testing.T) {
+	doUnmarshalSegmentTest(t, NewJSONDataModelSerialization().UnmarshalSegment)
+}
+
+func TestUnmarshalSegmentWithJSONReader(t *testing.T) {
+	doUnmarshalSegmentTest(t, func(data []byte) (Segment, error) {
+		r := jreader.NewReader(data)
+		segment := UnmarshalSegmentFromJSONReader(&r)
+		return segment, r.Error()
 	})
 }
 
@@ -498,98 +169,10 @@ func TestUnmarshalFlagErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestMarshalSegmentWithAllProperties(t *testing.T) {
-	bytes, err := NewJSONDataModelSerialization().MarshalSegment(segmentWithAllProperties)
-	require.NoError(t, err)
-	json := parseJsonMap(t, bytes)
-	assert.Equal(t, segmentWithAllPropertiesJSON, json)
-}
-
-func TestMarshalSegmentWithMinimalProperties(t *testing.T) {
-	bytes, err := NewJSONDataModelSerialization().MarshalSegment(segmentWithMinimalProperties)
-	require.NoError(t, err)
-	json := parseJsonMap(t, bytes)
-	assert.Equal(t, segmentWithMinimalPropertiesJSON, json)
-}
-
-func TestMarshalSegmentToJSONWriter(t *testing.T) {
-	w := jwriter.NewWriter()
-	MarshalSegmentToJSONWriter(segmentWithAllProperties, &w)
-	require.NoError(t, w.Error())
-	json := parseJsonMap(t, w.Bytes())
-	assert.Equal(t, segmentWithAllPropertiesJSON, json)
-}
-
-func TestUnmarshalSegmentWithAllProperties(t *testing.T) {
-	bytes, err := json.Marshal(segmentWithAllPropertiesJSON)
-	require.NoError(t, err)
-	segment, err := NewJSONDataModelSerialization().UnmarshalSegment(bytes)
-	require.NoError(t, err)
-	assert.Equal(t, segmentWithAllProperties, segment)
-	assert.Equal(t, segmentWithAllProperties.Key, segment.GetKey())
-	assert.Equal(t, segmentWithAllProperties.Version, segment.GetVersion())
-	assert.Equal(t, segmentWithAllProperties.Deleted, segment.IsDeleted())
-}
-
-func TestUnmarshalSegmentWithMinimalProperties(t *testing.T) {
-	bytes, err := json.Marshal(segmentWithMinimalPropertiesJSON)
-	require.NoError(t, err)
-	segment, err := NewJSONDataModelSerialization().UnmarshalSegment(bytes)
-	require.NoError(t, err)
-	assert.Equal(t, segmentWithMinimalProperties, segment)
-	assert.Equal(t, segmentWithMinimalProperties.Key, segment.GetKey())
-	assert.Equal(t, segmentWithMinimalProperties.Version, segment.GetVersion())
-	assert.Equal(t, segmentWithMinimalProperties.Deleted, segment.IsDeleted())
-}
-
-func TestUnmarshalSegmentFromJSONReader(t *testing.T) {
-	bytes := toJSON(segmentWithAllPropertiesJSON)
-	r := jreader.NewReader(bytes)
-	segment := UnmarshalSegmentFromJSONReader(&r)
-	require.NoError(t, r.Error())
-	assert.Equal(t, segmentWithAllProperties, segment)
-}
-
 func TestUnmarshalSegmentErrors(t *testing.T) {
 	_, err := NewJSONDataModelSerialization().UnmarshalSegment([]byte(`{`))
 	assert.Error(t, err)
 
 	_, err = NewJSONDataModelSerialization().UnmarshalSegment([]byte(`{"key":[]}`))
 	assert.Error(t, err)
-}
-
-func TestJSONMarshalUsesSameSerialization(t *testing.T) {
-	f1, _ := NewJSONDataModelSerialization().MarshalFeatureFlag(flagWithMinimalProperties)
-	f2, _ := json.Marshal(flagWithMinimalProperties)
-	assert.Equal(t, f1, f2)
-
-	s1, _ := NewJSONDataModelSerialization().MarshalSegment(segmentWithMinimalProperties)
-	s2, _ := json.Marshal(segmentWithMinimalProperties)
-	assert.Equal(t, s1, s2)
-}
-
-func TestJSONUnmarshalUsesSameSerialization(t *testing.T) {
-	fbytes, _ := json.Marshal(flagWithMinimalPropertiesJSON)
-	f1, _ := NewJSONDataModelSerialization().UnmarshalFeatureFlag(fbytes)
-	var f2 FeatureFlag
-	_ = json.Unmarshal(fbytes, &f2)
-	assert.Equal(t, f1, f2)
-
-	sbytes, _ := json.Marshal(segmentWithMinimalPropertiesJSON)
-	s1, _ := NewJSONDataModelSerialization().UnmarshalSegment(sbytes)
-	var s2 Segment
-	_ = json.Unmarshal(sbytes, &s2)
-	assert.Equal(t, s1, s2)
-}
-
-func TestNullableFieldsAllowExplicitNulls(t *testing.T) {
-	json1 := `{"key":"flag","fallthrough":{"variation":1,"rollout":null}}`
-	f1, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag([]byte(json1))
-	assert.NoError(t, err)
-	assert.Equal(t, Rollout{}, f1.Fallthrough.Rollout)
-
-	json2 := `{"key":"flag","rules":[{"variation":1,"rollout":null}]}`
-	f2, err := NewJSONDataModelSerialization().UnmarshalFeatureFlag([]byte(json2))
-	assert.NoError(t, err)
-	assert.Equal(t, Rollout{}, f2.Rules[0].Rollout)
 }

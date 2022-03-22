@@ -1,9 +1,10 @@
 package ldbuilders
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
 )
 
 // SegmentBuilder provides a builder pattern for Segment.
@@ -46,6 +47,20 @@ func (b *SegmentBuilder) Included(keys ...string) *SegmentBuilder {
 	return b
 }
 
+// IncludedContextKind adds a target list to the segment's IncludedContexts.
+func (b *SegmentBuilder) IncludedContextKind(kind ldcontext.Kind, keys ...string) *SegmentBuilder {
+	b.segment.IncludedContexts = append(b.segment.IncludedContexts,
+		ldmodel.SegmentTarget{ContextKind: kind, Values: keys})
+	return b
+}
+
+// ExcludedContextKind adds a target to the segment's ExcludedContexts.
+func (b *SegmentBuilder) ExcludedContextKind(kind ldcontext.Kind, keys ...string) *SegmentBuilder {
+	b.segment.ExcludedContexts = append(b.segment.ExcludedContexts,
+		ldmodel.SegmentTarget{ContextKind: kind, Values: keys})
+	return b
+}
+
 // Version sets the segment's Version property.
 func (b *SegmentBuilder) Version(value int) *SegmentBuilder {
 	b.segment.Version = value
@@ -65,6 +80,12 @@ func (b *SegmentBuilder) Unbounded(value bool) *SegmentBuilder {
 	return b
 }
 
+// UnboundedContextKind sets the segment's UnboundedContextKind property.
+func (b *SegmentBuilder) UnboundedContextKind(kind ldcontext.Kind) *SegmentBuilder {
+	b.segment.UnboundedContextKind = kind
+	return b
+}
+
 // Generation sets the segment's Generation property.
 func (b *SegmentBuilder) Generation(value int) *SegmentBuilder {
 	b.segment.Generation = ldvalue.NewOptionalInt(value)
@@ -73,9 +94,7 @@ func (b *SegmentBuilder) Generation(value int) *SegmentBuilder {
 
 // NewSegmentRuleBuilder creates a SegmentRuleBuilder.
 func NewSegmentRuleBuilder() *SegmentRuleBuilder {
-	return &SegmentRuleBuilder{rule: ldmodel.SegmentRule{
-		Weight: -1,
-	}}
+	return &SegmentRuleBuilder{}
 }
 
 // Build returns the configured SegmentRule.
@@ -83,8 +102,15 @@ func (b *SegmentRuleBuilder) Build() ldmodel.SegmentRule {
 	return b.rule
 }
 
-// BucketBy sets the rule's BucketBy property.
-func (b *SegmentRuleBuilder) BucketBy(attr lduser.UserAttribute) *SegmentRuleBuilder {
+// BucketBy sets the rule's BucketBy property. The attr parameter is assumed to be a simple attribute name,
+// rather than a path reference.
+func (b *SegmentRuleBuilder) BucketBy(attr string) *SegmentRuleBuilder {
+	b.rule.BucketBy = ldattr.NewNameRef(attr)
+	return b
+}
+
+// BucketByRef sets the rule's BucketBy property using the ldattr.Ref type.
+func (b *SegmentRuleBuilder) BucketByRef(attr ldattr.Ref) *SegmentRuleBuilder {
 	b.rule.BucketBy = attr
 	return b
 }
@@ -103,6 +129,6 @@ func (b *SegmentRuleBuilder) ID(id string) *SegmentRuleBuilder {
 
 // Weight sets the rule's Weight property.
 func (b *SegmentRuleBuilder) Weight(value int) *SegmentRuleBuilder {
-	b.rule.Weight = value
+	b.rule.Weight = ldvalue.NewOptionalInt(value)
 	return b
 }

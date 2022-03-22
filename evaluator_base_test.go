@@ -2,12 +2,20 @@ package evaluation
 
 import (
 	"fmt"
+	"testing"
 
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldbuilders"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldbuilders"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
+	"github.com/stretchr/testify/assert"
 )
+
+func assertResultDetail(t *testing.T, expected ldreason.EvaluationDetail, result Result) {
+	assert.Equal(t, expected, result.Detail)
+}
 
 type simpleDataProvider struct {
 	getFlag    func(string) *ldmodel.FeatureFlag
@@ -91,27 +99,24 @@ func basicEvaluator() Evaluator {
 	return NewEvaluator(basicDataProvider())
 }
 
-type prereqEventSink struct {
-	events []PrerequisiteFlagEvent
+func makeClauseToMatchContext(context ldcontext.Context) ldmodel.Clause {
+	return ldbuilders.ClauseWithKind(context.Kind(), ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(context.Key()))
 }
 
-func (p *prereqEventSink) record(event PrerequisiteFlagEvent) {
-	p.events = append(p.events, event)
+func makeClauseToMatchAnyContextOfKind(kind ldcontext.Kind) ldmodel.Clause {
+	return ldbuilders.Negate(ldbuilders.ClauseWithKind(kind, ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String("")))
 }
 
-func makeClauseToMatchUser(user lduser.User) ldmodel.Clause {
-	return ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorIn, ldvalue.String(user.GetKey()))
+func makeClauseToMatchAnyContextOfAnyKind() ldmodel.Clause {
+	return ldbuilders.Negate(ldbuilders.Clause(ldattr.KindAttr, ldmodel.OperatorIn, ldvalue.String("")))
 }
 
-func makeClauseToNotMatchUser(user lduser.User) ldmodel.Clause {
-	return ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorIn, ldvalue.String("not-"+user.GetKey()))
-}
-
-func makeFlagToMatchUser(user lduser.User, variationOrRollout ldmodel.VariationOrRollout) ldmodel.FeatureFlag {
+func makeFlagToMatchContext(user ldcontext.Context, variationOrRollout ldmodel.VariationOrRollout) ldmodel.FeatureFlag {
 	return ldbuilders.NewFlagBuilder("feature").
 		On(true).
 		OffVariation(1).
-		AddRule(ldbuilders.NewRuleBuilder().ID("rule-id").VariationOrRollout(variationOrRollout).Clauses(makeClauseToMatchUser(user))).
+		AddRule(ldbuilders.NewRuleBuilder().ID("rule-id").VariationOrRollout(variationOrRollout).
+			Clauses(makeClauseToMatchContext(user))).
 		FallthroughVariation(0).
 		Variations(fallthroughValue, offValue, onValue).
 		Build()
@@ -120,18 +125,26 @@ func makeFlagToMatchUser(user lduser.User, variationOrRollout ldmodel.VariationO
 func makeRuleToMatchUserKeyPrefix(prefix string, variationOrRollout ldmodel.VariationOrRollout) *ldbuilders.RuleBuilder {
 	return ldbuilders.NewRuleBuilder().ID("rule-id").
 		VariationOrRollout(variationOrRollout).
-		Clauses(ldbuilders.Clause(lduser.KeyAttribute, ldmodel.OperatorStartsWith, ldvalue.String(prefix)))
+		Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorStartsWith, ldvalue.String(prefix)))
 }
 
-func booleanFlagWithClause(clause ldmodel.Clause) ldmodel.FeatureFlag {
+func makeBooleanFlagWithClauses(clauses ...ldmodel.Clause) ldmodel.FeatureFlag {
 	return ldbuilders.NewFlagBuilder("feature").
 		On(true).
-		AddRule(ldbuilders.NewRuleBuilder().Variation(1).Clauses(clause)).
+		AddRule(ldbuilders.NewRuleBuilder().Variation(1).Clauses(clauses...)).
 		Variations(ldvalue.Bool(false), ldvalue.Bool(true)).
 		FallthroughVariation(0).
 		Build()
 }
 
-func booleanFlagWithSegmentMatch(segmentKeys ...string) ldmodel.FeatureFlag {
-	return booleanFlagWithClause(ldbuilders.SegmentMatchClause(segmentKeys...))
+func makeBooleanFlagToMatchAnyOfSegments(segmentKeys ...string) ldmodel.FeatureFlag {
+	return makeBooleanFlagWithClauses(ldbuilders.SegmentMatchClause(segmentKeys...))
+}
+
+func makeBooleanFlagToMatchAllOfSegments(segmentKeys ...string) ldmodel.FeatureFlag {
+	var clauses []ldmodel.Clause
+	for _, segmentKey := range segmentKeys {
+		clauses = append(clauses, ldbuilders.SegmentMatchClause(segmentKey))
+	}
+	return makeBooleanFlagWithClauses(clauses...)
 }

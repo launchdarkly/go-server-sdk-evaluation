@@ -14,9 +14,7 @@ We encourage pull requests and other contributions from the community. Before su
  
 ### Prerequisites
  
-This project should be built against Go 1.13 or newer.
-
-Note that the public import path is `gopkg.in/launchdarkly/go-server-sdk-evaluation.v1` (using the [`gopkg.in`](https://labix.org/gopkg.in) service as a simple way to pin to a major version, when used by non-module projects).
+This project should be built against the lowest supported Go version as described in [README.md](./README.md).
 
 ### Building
 
@@ -50,6 +48,8 @@ It is important to keep unit test coverage as close to 100% as possible in this 
 
 The build will fail if there are any uncovered blocks of code, unless you explicitly add an override by placing a comment that starts with `// COVERAGE` somewhere within that block. Sometimes a gap in coverage is unavoidable, usually because the compiler requires us to provide a code path for some condition that in practice can't happen and can't be tested. Exclude these paths with a `// COVERAGE` comment.
 
+Many of the parameterized tests in this project are redundant with contract test cases in `sdk-test-harness`. This is deliberate. The contract tests cover a thorough set of permutations of evaluation inputs for the server-side SDKs in general, including the Go SDK-- but, since the `go-server-sdk-evaluation` code is also used outside of the SDK, it's desirable to have equally thorough test coverage within this project.
+
 ### Avoid heap allocations
 
 The Go SDK can be used in high-traffic application/service code where performance is critical. There are a number of coding principles to keep in mind for maximizing performance. The benchmarks that are run in CI are helpful in measuring the impact of code changes in this regard.
@@ -57,11 +57,13 @@ The Go SDK can be used in high-traffic application/service code where performanc
 Go's memory model uses a mix of stack and heap allocations, with the compiler transparently choosing the most appropriate strategy based on various type and scope rules. It is always preferable, when possible, to keep ephemeral values on the stack rather than on the heap to avoid creating extra work for the garbage collector.
 
 - The most obvious rule is that anything explicitly allocated by reference (`x := &SomeType{}`), or returned by reference (`return &x`), will be allocated on the heap. Avoid this unless the object has mutable state that must be shared.
-- Casting a value type to an interface causes it to be allocated on the heap, since an interface is really a combination of a type identifier and a hidden pointer.
+- Casting a value type to an interface causes it to be allocated on the heap, since an interface is really a combination of a type identifier and a hidden pointer. The exception is if the value is a renamed simple type such as a string.
 - A closure that references any variables outside of its scope (including the method receiver, if it is inside a method) causes an object to be allocated on the heap containing the values or addresses of those variables.
 - Treating a method as an anonymous function (`myFunc := someReceiver.SomeMethod`) is equivalent to a closure.
 
 Allocations are counted in the benchmark output: "5 allocs/op" means that a total of 5 heap objects were allocated during each run of the benchmark. This does not mean that the objects were retained, only that they were allocated at some point.
+
+For methods that should be guaranteed _not_ to do any heap allocations, the corresponding benchmarks should have names ending in `NoAlloc`. The `make benchmarks` target will automatically fail if allocations are detected in any benchmarks that have this name suffix.
 
 For a much (MUCH) more detailed breakdown of this behavior, you may use the option `GODEBUG=allocfreetrace=1` while running a unit test or benchmark. This provides the type and code location of literally every heap allocation during the run. The output is extremely verbose, so it is recommended that you:
 
@@ -72,3 +74,12 @@ For a much (MUCH) more detailed breakdown of this behavior, you may use the opti
 ```bash
 BENCHMARK=BenchmarkMySampleOperation make benchmark-allocs
 ```
+
+#### Cases where heap allocations are unavoidable
+
+The following scenarios necessarily involve some heap allocations, even though we would still like to minimize these.
+
+1. We query a prerequisite flag, or a segment, and the data provider (based on the SDK configuration) decides to do a database query instead of just getting data from memory. That's outside of the evaluation engine's control. All of the tests and benchmarks defined in this package use a simple in-memory data provider.
+2. We need to query big segments data. Big segments always involve a database.
+3. Recursive evaluations of prerequisites or segments exceed the preallocated stack depth (see the `preallocated`
+constants defined in `evaluator.go`).

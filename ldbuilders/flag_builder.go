@@ -1,10 +1,11 @@
 package ldbuilders
 
 import (
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldtime"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
-	"gopkg.in/launchdarkly/go-sdk-common.v2/ldvalue"
-	"gopkg.in/launchdarkly/go-server-sdk-evaluation.v1/ldmodel"
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v3/ldtime"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
 )
 
 // Bucket constructs a WeightedVariation with the specified variation index and weight.
@@ -24,12 +25,12 @@ func Rollout(buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
 }
 
 // Experiment constructs a VariationOrRollout representing an experiment with the specified buckets.
-func Experiment(seed int32, buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
+func Experiment(seed ldvalue.OptionalInt, buckets ...ldmodel.WeightedVariation) ldmodel.VariationOrRollout {
 	return ldmodel.VariationOrRollout{
 		Rollout: ldmodel.Rollout{
 			Kind:       ldmodel.RolloutKindExperiment,
 			Variations: buckets,
-			Seed:       ldvalue.NewOptionalInt(int(seed)),
+			Seed:       seed,
 		},
 	}
 }
@@ -79,6 +80,13 @@ func (b *FlagBuilder) AddRule(r *RuleBuilder) *FlagBuilder {
 // AddTarget adds a user target set.
 func (b *FlagBuilder) AddTarget(variationIndex int, keys ...string) *FlagBuilder {
 	b.flag.Targets = append(b.flag.Targets, ldmodel.Target{Values: keys, Variation: variationIndex})
+	return b
+}
+
+// AddContextTarget adds a target set for any context kind.
+func (b *FlagBuilder) AddContextTarget(kind ldcontext.Kind, variationIndex int, keys ...string) *FlagBuilder {
+	b.flag.ContextTargets = append(b.flag.ContextTargets,
+		ldmodel.Target{ContextKind: kind, Values: keys, Variation: variationIndex})
 	return b
 }
 
@@ -209,9 +217,40 @@ func (b *RuleBuilder) VariationOrRollout(vr ldmodel.VariationOrRollout) *RuleBui
 	return b
 }
 
-// Clause constructs a basic Clause.
-func Clause(attr lduser.UserAttribute, op ldmodel.Operator, values ...ldvalue.Value) ldmodel.Clause {
-	return ldmodel.Clause{Attribute: attr, Op: op, Values: values}
+// Clause constructs a basic Clause. The attr parameter is assumed to be a simple attribute name
+// rather than a path reference.
+func Clause(attr string, op ldmodel.Operator, values ...ldvalue.Value) ldmodel.Clause {
+	return ldmodel.Clause{Attribute: ldattr.NewNameRef(attr), Op: op, Values: values}
+}
+
+// ClauseWithKind is like Clause, but also specifies a context kind.
+func ClauseWithKind(
+	contextKind ldcontext.Kind,
+	attr string,
+	op ldmodel.Operator,
+	values ...ldvalue.Value,
+) ldmodel.Clause {
+	return ldmodel.Clause{
+		ContextKind: contextKind,
+		Attribute:   ldattr.NewNameRef(attr),
+		Op:          op,
+		Values:      values,
+	}
+}
+
+// ClauseRef constructs a basic Clause, using the ldattr.Ref type for the attribute reference.
+func ClauseRef(attrRef ldattr.Ref, op ldmodel.Operator, values ...ldvalue.Value) ldmodel.Clause {
+	return ldmodel.Clause{Attribute: attrRef, Op: op, Values: values}
+}
+
+// ClauseRefWithKind is like ClauseRef, but also specifies a context kind.
+func ClauseRefWithKind(
+	contextKind ldcontext.Kind,
+	attrRef ldattr.Ref,
+	op ldmodel.Operator,
+	values ...ldvalue.Value,
+) ldmodel.Clause {
+	return ldmodel.Clause{ContextKind: contextKind, Attribute: attrRef, Op: op, Values: values}
 }
 
 // Negate returns the same Clause with the Negated property set to true.

@@ -1,7 +1,7 @@
 package ldmodel
 
 import (
-	"gopkg.in/launchdarkly/go-jsonstream.v1/jwriter"
+	"github.com/launchdarkly/go-jsonstream/v2/jwriter"
 )
 
 // For backward compatibility, we are only allowed to drop out properties that have default values if
@@ -38,14 +38,8 @@ func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
 	}
 	prereqsArr.End()
 
-	targetsArr := obj.Name("targets").Array()
-	for _, t := range flag.Targets {
-		targetObj := targetsArr.Object()
-		targetObj.Name("variation").Int(t.Variation)
-		writeStringArray(&targetObj, "values", t.Values)
-		targetObj.End()
-	}
-	targetsArr.End()
+	writeTargets(&obj, flag.Targets, "targets")
+	writeTargets(&obj, flag.ContextTargets, "contextTargets")
 
 	rulesArr := obj.Name("rules").Array()
 	for _, r := range flag.Rules {
@@ -102,6 +96,20 @@ func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
 	obj.End()
 }
 
+func writeTargets(obj *jwriter.ObjectState, targets []Target, name string) {
+	targetsArr := obj.Name(name).Array()
+	for _, t := range targets {
+		targetObj := targetsArr.Object()
+		if t.ContextKind != "" {
+			targetObj.Name("contextKind").String(string(t.ContextKind))
+		}
+		targetObj.Name("variation").Int(t.Variation)
+		writeStringArray(&targetObj, "values", t.Values)
+		targetObj.End()
+	}
+	targetsArr.End()
+}
+
 func marshalSegment(segment Segment) ([]byte, error) {
 	w := jwriter.NewWriter()
 	marshalSegmentToWriter(segment, &w)
@@ -114,6 +122,8 @@ func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
 	obj.Name("key").String(segment.Key)
 	writeStringArray(&obj, "included", segment.Included)
 	writeStringArray(&obj, "excluded", segment.Excluded)
+	writeSegmentTargets(&obj, segment.IncludedContexts, "includedContexts")
+	writeSegmentTargets(&obj, segment.ExcludedContexts, "excludedContexts")
 	obj.Name("salt").String(segment.Salt)
 
 	rulesArr := obj.Name("rules").Array()
@@ -121,19 +131,34 @@ func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
 		ruleObj := rulesArr.Object()
 		ruleObj.Name("id").String(r.ID)
 		writeClauses(w, &ruleObj, r.Clauses)
-		ruleObj.Maybe("weight", r.Weight >= 0).Int(r.Weight)
-		ruleObj.Maybe("bucketBy", r.BucketBy != "").String(string(r.BucketBy))
+		ruleObj.Maybe("weight", r.Weight.IsDefined()).Int(r.Weight.IntValue())
+		ruleObj.Maybe("bucketBy", r.BucketBy.String() != "").String(r.BucketBy.String())
+		ruleObj.Maybe("rolloutContextKind", r.RolloutContextKind != "").String(string(r.RolloutContextKind))
 		ruleObj.End()
 	}
 	rulesArr.End()
 
 	obj.Maybe("unbounded", segment.Unbounded).Bool(segment.Unbounded)
+	obj.Maybe("unboundedContextKind", segment.UnboundedContextKind != "").String(string(segment.UnboundedContextKind))
 
 	obj.Name("version").Int(segment.Version)
 	segment.Generation.WriteToJSONWriter(obj.Name("generation"))
 	obj.Name("deleted").Bool(segment.Deleted)
 
 	obj.End()
+}
+
+func writeSegmentTargets(obj *jwriter.ObjectState, targets []SegmentTarget, name string) {
+	targetsArr := obj.Name(name).Array()
+	for _, t := range targets {
+		targetObj := targetsArr.Object()
+		if t.ContextKind != "" {
+			targetObj.Name("contextKind").String(string(t.ContextKind))
+		}
+		writeStringArray(&targetObj, "values", t.Values)
+		targetObj.End()
+	}
+	targetsArr.End()
 }
 
 func writeStringArray(obj *jwriter.ObjectState, name string, values []string) {
@@ -149,6 +174,7 @@ func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrR
 	if len(vr.Rollout.Variations) > 0 {
 		rolloutObj := obj.Name("rollout").Object()
 		rolloutObj.Maybe("kind", vr.Rollout.Kind != "").String(string(vr.Rollout.Kind))
+		rolloutObj.Maybe("contextKind", vr.Rollout.ContextKind != "").String(string(vr.Rollout.ContextKind))
 		variationsArr := rolloutObj.Name("variations").Array()
 		for _, wv := range vr.Rollout.Variations {
 			variationObj := variationsArr.Object()
@@ -159,7 +185,7 @@ func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrR
 		}
 		variationsArr.End()
 		rolloutObj.Maybe("seed", vr.Rollout.Seed.IsDefined()).Int(vr.Rollout.Seed.IntValue())
-		rolloutObj.Maybe("bucketBy", vr.Rollout.BucketBy != "").String(string(vr.Rollout.BucketBy))
+		rolloutObj.Maybe("bucketBy", vr.Rollout.BucketBy.String() != "").String(vr.Rollout.BucketBy.String())
 		rolloutObj.End()
 	}
 }
@@ -168,7 +194,10 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 	clausesArr := obj.Name("clauses").Array()
 	for _, c := range clauses {
 		clauseObj := clausesArr.Object()
-		clauseObj.Name("attribute").String(string(c.Attribute))
+		if c.ContextKind != "" {
+			clauseObj.Name("contextKind").String(string(c.ContextKind))
+		}
+		clauseObj.Name("attribute").String(c.Attribute.String())
 		clauseObj.Name("op").String(string(c.Op))
 		valuesArr := clauseObj.Name("values").Array()
 		for _, v := range c.Values {
