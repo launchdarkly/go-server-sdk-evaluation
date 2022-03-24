@@ -154,12 +154,13 @@ func readFlagRules(r *jreader.Reader, out *[]FlagRule) {
 func readClauses(r *jreader.Reader, out *[]Clause) {
 	for arr := r.ArrayOrNull(); arr.Next(); {
 		var clause Clause
+		var attrStr string
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "contextKind":
 				clause.ContextKind = ldcontext.Kind(r.String())
 			case "attribute":
-				readAttrRef(r, &clause.Attribute)
+				attrStr, _ = r.StringOrNull()
 			case "op":
 				clause.Op = Operator(r.String())
 			case "values":
@@ -168,6 +169,7 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 				clause.Negate = r.Bool()
 			}
 		}
+		setAttrNameOrRef(attrStr, clause.ContextKind, &clause.Attribute)
 		*out = append(*out, clause)
 	}
 }
@@ -189,6 +191,7 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 		*out = Rollout{}
 		return
 	}
+	var bucketByStr string
 	for obj.Next() {
 		switch string(obj.Name()) {
 		case "kind":
@@ -211,13 +214,14 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 				out.Variations = append(out.Variations, wv)
 			}
 		case "bucketBy":
-			readAttrRef(r, &out.BucketBy)
+			bucketByStr, _ = r.StringOrNull()
 		case "seed":
 			if n, ok := r.IntOrNull(); ok {
 				out.Seed = ldvalue.NewOptionalInt(n)
 			}
 		}
 	}
+	setAttrNameOrRef(bucketByStr, out.ContextKind, &out.BucketBy)
 }
 
 func readClientSideAvailability(r *jreader.Reader, out *ClientSideAvailability) {
@@ -255,6 +259,7 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 		case "rules":
 			for rulesArr := r.ArrayOrNull(); rulesArr.Next(); {
 				rule := SegmentRule{}
+				var bucketByStr string
 				for ruleObj := r.Object(); ruleObj.Next(); {
 					switch string(ruleObj.Name()) {
 					case "id":
@@ -266,11 +271,12 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 							rule.Weight = ldvalue.NewOptionalInt(v)
 						}
 					case "bucketBy":
-						readAttrRef(r, &rule.BucketBy)
+						bucketByStr, _ = r.StringOrNull()
 					case "rolloutContextKind":
 						rule.RolloutContextKind = ldcontext.Kind(r.String())
 					}
 				}
+				setAttrNameOrRef(bucketByStr, rule.RolloutContextKind, &rule.BucketBy)
 				segment.Rules = append(segment.Rules, rule)
 			}
 		case "salt":
@@ -312,20 +318,21 @@ func readValueList(r *jreader.Reader, out *[]ldvalue.Value) {
 	}
 }
 
-func readAttrRef(r *jreader.Reader, out *ldattr.Ref) {
-	if s, _ := r.StringOrNull(); s != "" {
-		*out = ldattr.NewRef(s)
-		// NewRef takes care of parsing and validating a string that could either be a simple attribute
-		// name ("email") or a slash-delimited path reference ("/addresses/0/street"). Storing the
-		// ldattr.Ref in the Clause, rather than just a string, saves us the work of having to do the
-		// parsing and validation again each time we evaluate a flag.
-		// If the string was invalid as an attribute reference (e.g. "///"), the result is that *out
-		// retains the original string (so if we re-serialize it, we get what we started with), but
-		// also retains state saying it is invalid (see ldattr.Ref.Err())-- so any attempt to use it
-		// to look up a context value results in an immediate "not found".
-	} else {
+func setAttrNameOrRef(value string, contextKind ldcontext.Kind, out *ldattr.Ref) {
+	switch {
+	case value == "":
 		*out = ldattr.Ref{}
-		// "" is not a valid parameter to NewRef, but that has historically been a value LD may send
-		// for these fields so we are treating "" as equivalent to null to mean "undefined".
+		// Note that we're not distinguishing here between an empty string and an omitted property;
+		// "" would not be valid parameter to NewRef, and historically been a value LD may send for
+		// these fields so we are treating either "" or null as "undefined".
+
+	case contextKind == "":
+		// If the context kind was not specified in this clause/rollout/etc., then this is old-style
+		// data and we must interpret the attribute property as a plain attribute name, not an attribute
+		// reference (in other words, a leading slash would be just part of the name).
+		*out = ldattr.NewNameRef(value)
+
+	default:
+		*out = ldattr.NewRef(value)
 	}
 }
