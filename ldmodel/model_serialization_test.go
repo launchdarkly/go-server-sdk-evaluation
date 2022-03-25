@@ -141,6 +141,7 @@ func TestMarshalSegmentWithJSONWriter(t *testing.T) {
 		return w.Bytes(), w.Error()
 	})
 }
+
 func TestUnmarshalSegmentWithJSONUnmarshal(t *testing.T) {
 	doUnmarshalSegmentTest(t, func(data []byte) (Segment, error) {
 		var segment Segment
