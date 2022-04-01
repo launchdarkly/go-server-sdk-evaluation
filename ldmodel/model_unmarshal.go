@@ -330,7 +330,7 @@ func setAttrNameOrRef(value string, contextKind ldcontext.Kind, out *ldattr.Ref)
 		// If the context kind was not specified in this clause/rollout/etc., then this is old-style
 		// data and we must interpret the attribute property as a plain attribute name, not an attribute
 		// reference (in other words, a leading slash would be just part of the name).
-		*out = ldattr.NewNameRef(value)
+		*out = ldattr.NewLiteralRef(value)
 
 	default:
 		*out = ldattr.NewRef(value)

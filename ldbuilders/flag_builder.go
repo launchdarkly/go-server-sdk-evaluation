@@ -220,7 +220,7 @@ func (b *RuleBuilder) VariationOrRollout(vr ldmodel.VariationOrRollout) *RuleBui
 // Clause constructs a basic Clause. The attr parameter is assumed to be a simple attribute name
 // rather than a path reference.
 func Clause(attr string, op ldmodel.Operator, values ...ldvalue.Value) ldmodel.Clause {
-	return ldmodel.Clause{Attribute: ldattr.NewNameRef(attr), Op: op, Values: values}
+	return ldmodel.Clause{Attribute: ldattr.NewLiteralRef(attr), Op: op, Values: values}
 }
 
 // ClauseWithKind is like Clause, but also specifies a context kind.
@@ -232,7 +232,7 @@ func ClauseWithKind(
 ) ldmodel.Clause {
 	return ldmodel.Clause{
 		ContextKind: contextKind,
-		Attribute:   ldattr.NewNameRef(attr),
+		Attribute:   ldattr.NewLiteralRef(attr),
 		Op:          op,
 		Values:      values,
 	}

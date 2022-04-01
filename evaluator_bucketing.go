@@ -65,9 +65,9 @@ func (es *evaluationScope) computeBucketValue(
 	hashInput.AppendByte('.')
 
 	if isExperiment || !attr.IsDefined() { // always bucket by key in an experiment
-		attr = ldattr.NewNameRef(ldattr.KeyAttr)
+		attr = ldattr.NewLiteralRef(ldattr.KeyAttr)
 	} else if attr.Err() != nil {
-		return 0, bucketingFailureInvalidAttrRef, attr.Err()
+		return 0, bucketingFailureInvalidAttrRef, badAttrRefError(attr.String())
 	}
 	selectedContext, ok := getApplicableContextByKind(&es.context, contextKind)
 	if !ok {

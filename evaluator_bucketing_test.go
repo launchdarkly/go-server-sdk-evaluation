@@ -99,7 +99,7 @@ func TestRolloutBucketing(t *testing.T) {
 
 			t.Run("by custom string attribute", func(t *testing.T) {
 				rollout := baseRollout
-				rollout.BucketBy = ldattr.NewNameRef("attr1")
+				rollout.BucketBy = ldattr.NewLiteralRef("attr1")
 
 				for _, p := range makeBucketingTestParams() {
 					t.Run(p.description(), func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestRolloutBucketing(t *testing.T) {
 
 			t.Run("by custom int attribute", func(t *testing.T) {
 				rollout := baseRollout
-				rollout.BucketBy = ldattr.NewNameRef("attr1")
+				rollout.BucketBy = ldattr.NewLiteralRef("attr1")
 
 				for _, p := range makeBucketingTestParamsWithNumericStringValues() {
 					t.Run(p.description(), func(t *testing.T) {
@@ -246,7 +246,7 @@ func TestExperimentBucketing(t *testing.T) {
 			t.Run(p.description(), func(t *testing.T) {
 				context := ldcontext.NewBuilder(p.contextValue).SetString("attr1", p.contextValue+"xyz").Build()
 				experiment := baseExperiment
-				experiment.BucketBy = ldattr.NewNameRef("attr1")
+				experiment.BucketBy = ldattr.NewLiteralRef("attr1")
 
 				checkResult(t, p, context, experiment) // did not change expectedBucketValue, still passes
 			})
@@ -310,7 +310,7 @@ func TestComputeBucketValueInvalidConditions(t *testing.T) {
 
 	t.Run("bucket by nonexistent attribute", func(t *testing.T) {
 		context := ldcontext.New("key")
-		bucket, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewNameRef("unknownAttr"), salt)
+		bucket, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewLiteralRef("unknownAttr"), salt)
 		assert.NoError(t, err)
 		assert.Equal(t, bucketingFailureAttributeNotFound, failReason)
 		assert.Equal(t, float32(0), bucket)
@@ -318,7 +318,7 @@ func TestComputeBucketValueInvalidConditions(t *testing.T) {
 
 	t.Run("bucket by non-integer numeric attribute", func(t *testing.T) {
 		context := ldcontext.NewBuilder("key").SetFloat64("floatAttr", 999.999).Build()
-		bucket, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewNameRef("floatAttr"), salt)
+		bucket, failReason, err := makeEvalScope(context).computeBucketValue(false, noSeed, "", flagKey, ldattr.NewLiteralRef("floatAttr"), salt)
 		assert.NoError(t, err)
 		assert.Equal(t, bucketingFailureAttributeValueWrongType, failReason)
 		assert.Equal(t, float32(0), bucket)
