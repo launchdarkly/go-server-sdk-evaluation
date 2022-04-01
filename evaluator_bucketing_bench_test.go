@@ -48,7 +48,7 @@ func BenchmarkComputeBucketValueNoAlloc(b *testing.B) {
 
 			var bucketBy ldattr.Ref
 			if p.customAttr.IsDefined() {
-				bucketBy = ldattr.NewNameRef("attr1")
+				bucketBy = ldattr.NewLiteralRef("attr1")
 			}
 
 			b.ResetTimer()
