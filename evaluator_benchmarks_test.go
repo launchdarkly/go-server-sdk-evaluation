@@ -300,7 +300,7 @@ func makeEvalBenchmarkClauses(numClauses int, extraClauseValues int, op ldmodel.
 			value = ldvalue.String("stringAttr-0")
 		}
 		if name != "" {
-			clause.Attribute = ldattr.NewNameRef(name)
+			clause.Attribute = ldattr.NewLiteralRef(name)
 		}
 		if extraClauseValues == 0 {
 			clause.Values = []ldvalue.Value{value}

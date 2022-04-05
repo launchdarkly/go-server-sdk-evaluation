@@ -54,7 +54,7 @@ func (e emptyAttrRefError) errorKind() ldreason.EvalErrorKind {
 type badAttrRefError string
 
 func (e badAttrRefError) Error() string {
-	return fmt.Sprintf("invalid context attribute reference %q", string(e))
+	return fmt.Sprintf("invalid attribute reference %q", string(e))
 }
 
 func (e badAttrRefError) errorKind() ldreason.EvalErrorKind {

@@ -410,7 +410,7 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			name: "rule bucketBy",
 			segment: Segment{
 				Rules: []SegmentRule{
-					{Weight: ldvalue.NewOptionalInt(100000), BucketBy: ldattr.NewNameRef("name")},
+					{Weight: ldvalue.NewOptionalInt(100000), BucketBy: ldattr.NewLiteralRef("name")},
 				},
 			},
 			jsonString: `{"rules": [ {"id": "", "weight": 100000, "bucketBy": "name", "clauses": []} ]}`,
@@ -493,7 +493,7 @@ func makeClauseSerializationTestParams() []clauseSerializationTestParams {
 		{
 			name: "simple",
 			clause: Clause{
-				Attribute: ldattr.NewNameRef("key"),
+				Attribute: ldattr.NewLiteralRef("key"),
 				Op:        OperatorIn,
 				Values:    []ldvalue.Value{ldvalue.String("a")},
 			},
@@ -504,7 +504,7 @@ func makeClauseSerializationTestParams() []clauseSerializationTestParams {
 			name: "with kind",
 			clause: Clause{
 				ContextKind: ldcontext.Kind("org"),
-				Attribute:   ldattr.NewNameRef("key"),
+				Attribute:   ldattr.NewLiteralRef("key"),
 				Op:          OperatorIn,
 				Values:      []ldvalue.Value{ldvalue.String("a")},
 			},
@@ -523,7 +523,7 @@ func makeClauseSerializationTestParams() []clauseSerializationTestParams {
 		{
 			name: "attribute is treated as plain name and not path when kind is omitted",
 			clause: Clause{
-				Attribute: ldattr.NewNameRef("/attr1/subprop"), // note NewNameRef, not NewRef
+				Attribute: ldattr.NewLiteralRef("/attr1/subprop"), // note NewLiteralRef, not NewRef
 				Op:        OperatorIn,
 				Values:    []ldvalue.Value{ldvalue.String("a")},
 			},
@@ -551,7 +551,7 @@ func makeClauseSerializationTestParams() []clauseSerializationTestParams {
 		{
 			name: "negated",
 			clause: Clause{
-				Attribute: ldattr.NewNameRef("key"),
+				Attribute: ldattr.NewLiteralRef("key"),
 				Op:        OperatorIn,
 				Values:    []ldvalue.Value{ldvalue.String("a")},
 				Negate:    true,
@@ -582,7 +582,7 @@ func makeRolloutSerializationTestParams() []rolloutSerializationTestParams {
 		{
 			name: "with bucketBy",
 			rollout: Rollout{
-				BucketBy:   ldattr.NewNameRef("name"),
+				BucketBy:   ldattr.NewLiteralRef("name"),
 				Variations: basicVariations,
 			},
 			jsonString: `{"bucketBy": "name", "variations": ` + basicVariationsJSON + `}`,
@@ -599,7 +599,7 @@ func makeRolloutSerializationTestParams() []rolloutSerializationTestParams {
 		{
 			name: "bucketBy is treated as plain name and not path when kind is omitted",
 			rollout: Rollout{
-				BucketBy:   ldattr.NewNameRef("/attr1/subprop"), // note, NewNameRef rather than NewRef
+				BucketBy:   ldattr.NewLiteralRef("/attr1/subprop"), // note, NewLiteralRef rather than NewRef
 				Variations: basicVariations,
 			},
 			jsonString: `{"bucketBy": "/attr1/subprop", "variations": ` + basicVariationsJSON + `}`,
