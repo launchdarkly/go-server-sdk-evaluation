@@ -69,8 +69,8 @@ func (es *evaluationScope) computeBucketValue(
 	} else if attr.Err() != nil {
 		return 0, bucketingFailureInvalidAttrRef, badAttrRefError(attr.String())
 	}
-	selectedContext, ok := getApplicableContextByKind(&es.context, contextKind)
-	if !ok {
+	selectedContext := es.context.IndividualContextByKind(contextKind)
+	if !selectedContext.IsDefined() {
 		return 0, bucketingFailureContextLacksDesiredKind, nil
 	}
 	uValue := selectedContext.GetValueForRef(attr)
