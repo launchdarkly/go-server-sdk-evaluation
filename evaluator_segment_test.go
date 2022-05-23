@@ -464,7 +464,7 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 					BucketByRef(ldattr.NewRef("///")).
 					Weight(30000)).
 				Build(),
-			message: "invalid context attribute reference",
+			message: "invalid attribute reference",
 		},
 	} {
 		t.Run(p.name, func(t *testing.T) {
