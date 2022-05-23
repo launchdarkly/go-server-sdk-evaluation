@@ -305,7 +305,7 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 }
 
 func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.OptionalInt {
-	if context, ok := getApplicableContextByKind(&es.context, t.ContextKind); ok {
+	if context := es.context.IndividualContextByKind(t.ContextKind); context.IsDefined() {
 		if ldmodel.EvaluatorAccessors.TargetFindKey(t, context.Key()) {
 			return ldvalue.NewOptionalInt(t.Variation)
 		}
@@ -369,31 +369,9 @@ func (es *evaluationScope) logEvaluationError(err error) {
 	)
 }
 
-func getApplicableContextByKind(baseContext *ldcontext.Context, kind ldcontext.Kind) (ldcontext.Context, bool) {
-	if kind == "" {
-		kind = ldcontext.DefaultKind
-	}
-	if baseContext.Multiple() {
-		return baseContext.MultiKindByName(kind)
-	}
-	if baseContext.Kind() == kind {
-		return *baseContext, true
-	}
-	return ldcontext.Context{}, false
-}
-
 func getApplicableContextKeyByKind(baseContext *ldcontext.Context, kind ldcontext.Kind) (string, bool) {
-	if kind == "" {
-		kind = ldcontext.DefaultKind
-	}
-	if baseContext.Multiple() {
-		if mc, ok := baseContext.MultiKindByName(kind); ok {
-			return mc.Key(), true
-		}
-		return "", false
-	}
-	if baseContext.Kind() == kind {
-		return baseContext.Key(), true
+	if mc := baseContext.IndividualContextByKind(kind); mc.IsDefined() {
+		return mc.Key(), true
 	}
 	return "", false
 }
