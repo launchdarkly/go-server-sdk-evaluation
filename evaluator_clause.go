@@ -48,7 +48,7 @@ func clauseMatchesContextNoSegments(c *ldmodel.Clause, context *ldcontext.Contex
 	if !actualContext.IsDefined() {
 		return false, nil
 	}
-	uValue := actualContext.GetValueForRef(c.Attribute)
+	uValue := ldmodel.EvaluatorAccessors.ClauseGetContextAttributeValue(c, &actualContext)
 	if uValue.IsNull() {
 		// if the user attribute is null/missing, it's an automatic non-match - regardless of c.Negate
 		return false, nil
