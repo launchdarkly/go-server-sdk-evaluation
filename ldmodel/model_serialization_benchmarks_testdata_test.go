@@ -30,7 +30,7 @@ var flagWithAllProperties = FeatureFlag{
 			ID: "rule-id1",
 			Clauses: []Clause{
 				{
-					Attribute: ldattr.NewNameRef("name"),
+					Attribute: ldattr.NewLiteralRef("name"),
 					Op:        OperatorIn,
 					Values:    []ldvalue.Value{ldvalue.String("clause-value")},
 					Negate:    true,
@@ -53,7 +53,7 @@ var flagWithAllProperties = FeatureFlag{
 							Variation: 3,
 						},
 					},
-					BucketBy: ldattr.NewNameRef("name"),
+					BucketBy: ldattr.NewLiteralRef("name"),
 				},
 			},
 		},
@@ -78,7 +78,7 @@ var flagWithAllProperties = FeatureFlag{
 							Untracked: true,
 						},
 					},
-					BucketBy: ldattr.NewNameRef("name"),
+					BucketBy: ldattr.NewLiteralRef("name"),
 					Seed:     ldvalue.NewOptionalInt(42),
 				},
 			},
@@ -250,7 +250,7 @@ var segmentWithAllProperties = Segment{
 			ID: "rule-id",
 			Clauses: []Clause{
 				{
-					Attribute: ldattr.NewNameRef("name"),
+					Attribute: ldattr.NewLiteralRef("name"),
 					Op:        OperatorIn,
 					Values:    []ldvalue.Value{ldvalue.String("clause-value")},
 					Negate:    true,
@@ -259,7 +259,7 @@ var segmentWithAllProperties = Segment{
 		},
 		{
 			Weight:   ldvalue.NewOptionalInt(50000),
-			BucketBy: ldattr.NewNameRef("name"),
+			BucketBy: ldattr.NewLiteralRef("name"),
 		},
 	},
 	Salt:       "segment-salt",

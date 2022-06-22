@@ -44,11 +44,11 @@ func clauseMatchesContextNoSegments(c *ldmodel.Clause, context *ldcontext.Contex
 	if c.Attribute.String() == ldattr.KindAttr {
 		return maybeNegate(c.Negate, clauseMatchByKind(c, context)), nil
 	}
-	actualContext, ok := getApplicableContextByKind(context, c.ContextKind)
-	if !ok {
+	actualContext := context.IndividualContextByKind(c.ContextKind)
+	if !actualContext.IsDefined() {
 		return false, nil
 	}
-	uValue, _ := actualContext.GetValueForRef(c.Attribute)
+	uValue := ldmodel.EvaluatorAccessors.ClauseGetContextAttributeValue(c, &actualContext)
 	if uValue.IsNull() {
 		// if the user attribute is null/missing, it's an automatic non-match - regardless of c.Negate
 		return false, nil
@@ -126,8 +126,8 @@ func clauseMatchByKind(c *ldmodel.Clause, context *ldcontext.Context) bool {
 	// of all individual kinds in the context. That is, for a multi-kind context with kinds of "org"
 	// and "user", it is a match if either of those strings is a match with Operator and Values.
 	if context.Multiple() {
-		for i := 0; i < context.MultiKindCount(); i++ {
-			if individualContext, ok := context.MultiKindByIndex(i); ok {
+		for i := 0; i < context.IndividualContextCount(); i++ {
+			if individualContext := context.IndividualContextByIndex(i); individualContext.IsDefined() {
 				ctxValue := ldvalue.String(string(individualContext.Kind()))
 				if matchAny(c, ctxValue) {
 					return true

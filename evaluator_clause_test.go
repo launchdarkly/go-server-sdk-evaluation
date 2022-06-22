@@ -66,6 +66,12 @@ func TestClauseMatch(t *testing.T) {
 			shouldMatch: true,
 		},
 		{
+			name:        "built-in: anonymous (really transient)",
+			clause:      ldbuilders.Clause("anonymous", ldmodel.OperatorIn, ldvalue.Bool(true)),
+			context:     ldcontext.NewBuilder("a").Transient(true).Build(),
+			shouldMatch: true,
+		},
+		{
 			name:        "custom",
 			clause:      ldbuilders.Clause("attr1", ldmodel.OperatorIn, ldvalue.String("b")),
 			context:     ldcontext.NewBuilder("a").SetString("attr1", "b").Build(),

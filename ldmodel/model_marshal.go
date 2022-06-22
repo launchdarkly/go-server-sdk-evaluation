@@ -2,6 +2,8 @@ package ldmodel
 
 import (
 	"github.com/launchdarkly/go-jsonstream/v2/jwriter"
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 )
 
 // For backward compatibility, we are only allowed to drop out properties that have default values if
@@ -132,7 +134,7 @@ func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
 		ruleObj.Name("id").String(r.ID)
 		writeClauses(w, &ruleObj, r.Clauses)
 		ruleObj.Maybe("weight", r.Weight.IsDefined()).Int(r.Weight.IntValue())
-		ruleObj.Maybe("bucketBy", r.BucketBy.String() != "").String(r.BucketBy.String())
+		writeAttrRef(ruleObj.Maybe("bucketBy", r.BucketBy.IsDefined()), &r.BucketBy, r.RolloutContextKind)
 		ruleObj.Maybe("rolloutContextKind", r.RolloutContextKind != "").String(string(r.RolloutContextKind))
 		ruleObj.End()
 	}
@@ -185,7 +187,8 @@ func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrR
 		}
 		variationsArr.End()
 		rolloutObj.Maybe("seed", vr.Rollout.Seed.IsDefined()).Int(vr.Rollout.Seed.IntValue())
-		rolloutObj.Maybe("bucketBy", vr.Rollout.BucketBy.String() != "").String(vr.Rollout.BucketBy.String())
+		writeAttrRef(rolloutObj.Maybe("bucketBy", vr.Rollout.BucketBy.IsDefined()),
+			&vr.Rollout.BucketBy, vr.Rollout.ContextKind)
 		rolloutObj.End()
 	}
 }
@@ -197,7 +200,16 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 		if c.ContextKind != "" {
 			clauseObj.Name("contextKind").String(string(c.ContextKind))
 		}
-		clauseObj.Name("attribute").String(c.Attribute.String())
+
+		clauseObj.Name("attribute")
+		if !c.Attribute.IsDefined() {
+			// See comments in unmarshaling logic - for consistency with LD service behavior, we serialize
+			// this as an empty string even if it was undefined
+			w.String("")
+		} else {
+			writeAttrRef(w, &c.Attribute, c.ContextKind)
+		}
+
 		clauseObj.Name("op").String(string(c.Op))
 		valuesArr := clauseObj.Name("values").Array()
 		for _, v := range c.Values {
@@ -208,4 +220,17 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 		clauseObj.End()
 	}
 	clausesArr.End()
+}
+
+func writeAttrRef(w *jwriter.Writer, ref *ldattr.Ref, contextKind ldcontext.Kind) {
+	if contextKind == "" {
+		// If there was no context kind, then we received this as old-style data in which the attribute is
+		// interpreted as a plain name rather than an attribute reference. However, ref.String() will always
+		// return an attribute reference which could contain escape characters. We should instead get the
+		// unescaped attribute name, which AttrRef represents as the first element in a single-element path.
+		s, _ := ref.Component(0)
+		w.String(s)
+	} else {
+		w.String(ref.String())
+	}
 }

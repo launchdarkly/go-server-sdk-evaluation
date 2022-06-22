@@ -6,6 +6,7 @@ import (
 
 	"github.com/launchdarkly/go-semver"
 
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
@@ -19,6 +20,7 @@ type segmentPreprocessedData struct {
 }
 
 type clausePreprocessedData struct {
+	realAttr  ldattr.Ref // we set this to "transient" if the original attribute was "anonymous"
 	values    []clausePreprocessedValue
 	valuesMap map[jsonPrimitiveValueKey]struct{}
 }
@@ -40,6 +42,19 @@ type jsonPrimitiveValueKey struct {
 
 func (j jsonPrimitiveValueKey) isValid() bool {
 	return j.valueType != ldvalue.NullType
+}
+
+func resolveAttributeAliases(attrRef ldattr.Ref) ldattr.Ref {
+	if attrRef.Depth() == 1 {
+		if name, _ := attrRef.Component(0); name == "anonymous" {
+			// "anonymous" in the old user schema is the same as "transient" in the context schema.
+			// Since old-style users are always converted to contexts before evaluations happen,
+			// the "anonymous" attribute will never exist, but existing flag rules might still be
+			// referencing it.
+			return ldattr.NewLiteralRef(ldattr.TransientAttr)
+		}
+	}
+	return attrRef
 }
 
 // PreprocessFlag precomputes internal data structures based on the flag configuration, to speed up
@@ -86,6 +101,12 @@ func PreprocessSegment(s *Segment) {
 
 func preprocessClause(c Clause) clausePreprocessedData {
 	ret := clausePreprocessedData{}
+
+	// If the attribute is an alias for another attribute, set realAttr now so we can skip this
+	// check during evaluations. We don't actually modify c.Attribute in place because we want
+	// the properties to be stable if we re-serialize the clause to JSON.
+	ret.realAttr = resolveAttributeAliases(c.Attribute)
+
 	switch c.Op {
 	case OperatorIn:
 		// This is a special case where the clause is testing for an exact match against any of the

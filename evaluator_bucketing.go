@@ -3,8 +3,8 @@ package evaluation
 import (
 	"crypto/sha1" //nolint:gosec // SHA1 is cryptographically weak but we are not using it to hash any credentials
 	"encoding/hex"
-	"io"
-	"strconv"
+
+	"github.com/launchdarkly/go-server-sdk-evaluation/v2/internal"
 
 	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
@@ -13,6 +13,8 @@ import (
 
 const (
 	longScale = float32(0xFFFFFFFFFFFFFFF)
+
+	initialHashInputBufferSize = 100
 )
 
 type bucketingFailureReason int
@@ -47,54 +49,60 @@ func (es *evaluationScope) computeBucketValue(
 	attr ldattr.Ref,
 	salt string,
 ) (float32, bucketingFailureReason, error) {
-	var prefix string
+	hashInput := internal.LocalBuffer{Data: make([]byte, 0, initialHashInputBufferSize)}
+	// As long as the total length of the append operations below doesn't exceed the initial size,
+	// this byte slice will stay on the stack. But since some of the data we're appending comes from
+	// context attributes created by the application, we can't rule out that they will be longer than
+	// that, in which case the buffer is reallocated automatically.
+
 	if seed.IsDefined() {
-		prefix = strconv.Itoa(seed.IntValue())
+		hashInput.AppendInt(seed.IntValue())
 	} else {
-		prefix = key + "." + salt
+		hashInput.AppendString(key)
+		hashInput.AppendByte('.')
+		hashInput.AppendString(salt)
 	}
+	hashInput.AppendByte('.')
 
 	if isExperiment || !attr.IsDefined() { // always bucket by key in an experiment
-		attr = ldattr.NewNameRef(ldattr.KeyAttr)
+		attr = ldattr.NewLiteralRef(ldattr.KeyAttr)
 	} else if attr.Err() != nil {
-		return 0, bucketingFailureInvalidAttrRef, attr.Err()
+		return 0, bucketingFailureInvalidAttrRef, badAttrRefError(attr.String())
 	}
-	selectedContext, ok := getApplicableContextByKind(&es.context, contextKind)
-	if !ok {
+	selectedContext := es.context.IndividualContextByKind(contextKind)
+	if !selectedContext.IsDefined() {
 		return 0, bucketingFailureContextLacksDesiredKind, nil
 	}
-	uValue, ok := selectedContext.GetValueForRef(attr)
-	if !ok {
+	uValue := selectedContext.GetValueForRef(attr)
+	if uValue.IsNull() { // attributes can't be null, so null means it doesn't exist
 		return 0, bucketingFailureAttributeNotFound, nil
 	}
-	idHash, ok := bucketableStringValue(uValue)
-	if !ok {
+	switch {
+	case uValue.IsString():
+		hashInput.AppendString(uValue.StringValue())
+	case uValue.IsInt():
+		hashInput.AppendInt(uValue.IntValue())
+	default:
+		// Non-integer numbers, and values of any other JSON type, can't be used for bucketing because they have no
+		// single reliable representation as a string.
 		return 0, bucketingFailureAttributeValueWrongType, nil
 	}
 
 	if !isExperiment { // secondary key is not supported in experiments
 		if secondary := selectedContext.Secondary(); secondary.IsDefined() {
-			idHash = idHash + "." + secondary.StringValue()
+			hashInput.AppendByte('.')
+			hashInput.AppendString(secondary.StringValue())
 		}
 	}
 
-	h := sha1.New() // nolint:gas // just used for insecure hashing
-	_, _ = io.WriteString(h, prefix+"."+idHash)
-	hash := hex.EncodeToString(h.Sum(nil))[:15]
+	hashOutputBytes := sha1.Sum(hashInput.Data) // nolint:gas // just used for insecure hashing
+	hexEncodedChars := make([]byte, 64)
+	hex.Encode(hexEncodedChars, hashOutputBytes[:])
+	hash := hexEncodedChars[:15]
 
-	intVal, _ := strconv.ParseInt(hash, 16, 64)
+	intVal, _ := internal.ParseHexUint64(hash)
 
 	bucket := float32(intVal) / longScale
 
 	return bucket, 0, nil
-}
-
-func bucketableStringValue(uValue ldvalue.Value) (string, bool) {
-	if uValue.Type() == ldvalue.StringType {
-		return uValue.StringValue(), true
-	}
-	if uValue.IsInt() {
-		return strconv.Itoa(uValue.IntValue()), true
-	}
-	return "", false
 }

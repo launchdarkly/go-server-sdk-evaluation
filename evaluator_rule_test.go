@@ -89,7 +89,7 @@ func TestMalformedFlagErrorForBadClauseProperties(t *testing.T) {
 			name:    "invalid attribute reference",
 			context: basicContext,
 			clause:  ldbuilders.ClauseRef(ldattr.NewRef("///"), ldmodel.OperatorIn, ldvalue.String("a")),
-			message: "invalid context attribute reference",
+			message: "invalid attribute reference",
 		},
 	} {
 		t.Run(p.name, func(t *testing.T) {

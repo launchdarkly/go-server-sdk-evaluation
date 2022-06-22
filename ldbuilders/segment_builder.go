@@ -105,7 +105,7 @@ func (b *SegmentRuleBuilder) Build() ldmodel.SegmentRule {
 // BucketBy sets the rule's BucketBy property. The attr parameter is assumed to be a simple attribute name,
 // rather than a path reference.
 func (b *SegmentRuleBuilder) BucketBy(attr string) *SegmentRuleBuilder {
-	b.rule.BucketBy = ldattr.NewNameRef(attr)
+	b.rule.BucketBy = ldattr.NewLiteralRef(attr)
 	return b
 }
 
@@ -124,6 +124,12 @@ func (b *SegmentRuleBuilder) Clauses(clauses ...ldmodel.Clause) *SegmentRuleBuil
 // ID sets the rule's ID property.
 func (b *SegmentRuleBuilder) ID(id string) *SegmentRuleBuilder {
 	b.rule.ID = id
+	return b
+}
+
+// RolloutContextKind sets the rule's RolloutContextKind property.
+func (b *SegmentRuleBuilder) RolloutContextKind(kind ldcontext.Kind) *SegmentRuleBuilder {
+	b.rule.RolloutContextKind = kind
 	return b
 }
 

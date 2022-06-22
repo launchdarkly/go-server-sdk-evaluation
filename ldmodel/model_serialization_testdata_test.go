@@ -25,6 +25,20 @@ type segmentSerializationTestParams struct {
 	jsonAltInputs []string // if specified, unmarshaling test will verify that these parse to the same result
 }
 
+type clauseSerializationTestParams struct {
+	name          string
+	clause        Clause
+	jsonString    string
+	jsonAltInputs []string
+}
+
+type rolloutSerializationTestParams struct {
+	name          string
+	rollout       Rollout
+	jsonString    string
+	jsonAltInputs []string
+}
+
 var flagTopLevelDefaultProperties = map[string]interface{}{
 	"key":                    "",
 	"deleted":                false,
@@ -57,82 +71,8 @@ var segmentTopLevelDefaultProperties = map[string]interface{}{
 	"salt":             "",
 }
 
-var simpleRollout = Rollout{
-	Variations: []WeightedVariation{{Variation: 0, Weight: 100000}},
-}
-
-const simpleRolloutJSON = `{"variations": [{"variation": 0, "weight": 100000}]}`
-
-var rolloutWithContextKind = Rollout{
-	ContextKind: ldcontext.Kind("org"),
-	Variations:  []WeightedVariation{{Variation: 0, Weight: 100000}},
-}
-
-const rolloutWithContextKindJSON = `{"contextKind": "org", "variations": [{"variation": 0, "weight": 100000}]}`
-
-var rolloutWithBucketBy = Rollout{
-	BucketBy:   ldattr.NewNameRef("name"),
-	Variations: []WeightedVariation{{Variation: 0, Weight: 100000}},
-}
-
-const rolloutWithBucketByJSON = `{"bucketBy": "name", "variations": [{"variation": 0, "weight": 100000}]}`
-
-var simpleExperiment = Rollout{
-	Kind:       RolloutKindExperiment,
-	Variations: []WeightedVariation{{Variation: 0, Weight: 100000}},
-}
-
-const simpleExperimentJSON = `{"kind": "experiment", "variations": [{"variation": 0, "weight": 100000}]}`
-const experimentWithSeedNullJSON = `{"kind": "experiment", "seed": null, "variations": [{"variation": 0, "weight": 100000}]}`
-
-var experimentWithSeed = Rollout{
-	Kind:       RolloutKindExperiment,
-	Seed:       ldvalue.NewOptionalInt(12345),
-	Variations: []WeightedVariation{{Variation: 0, Weight: 100000}},
-}
-
-const experimentWithSeedJSON = `{"kind": "experiment", "seed": 12345, "variations": [{"variation": 0, "weight": 100000}]}`
-
-var experimentWithUntracked = Rollout{
-	Kind: RolloutKindExperiment,
-	Variations: []WeightedVariation{
-		{Variation: 0, Weight: 75000},
-		{Variation: 1, Weight: 25000, Untracked: true},
-	},
-}
-
-const experimentWithUntrackedJSON = `{"kind": "experiment", "variations": [` +
-	`{"variation": 0, "weight": 75000}, {"variation": 1, "weight": 25000, "untracked": true}]}`
-
-var simpleClause = Clause{
-	Attribute: ldattr.NewNameRef("key"),
-	Op:        OperatorIn,
-	Values:    []ldvalue.Value{ldvalue.String("a")},
-}
-
-const simpleClauseJSON = `{"attribute": "key", "op": "in", "values": ["a"], "negate": false}`
-const simpleClauseMinimalJSON = `{"attribute": "key", "op": "in", "values": ["a"]}`
-
-var clauseWithKind = Clause{
-	ContextKind: ldcontext.Kind("org"),
-	Attribute:   ldattr.NewNameRef("key"),
-	Op:          OperatorIn,
-	Values:      []ldvalue.Value{ldvalue.String("a")},
-}
-
-const clauseWithKindJSON = `{"contextKind": "org", "attribute": "key", "op": "in", "values": ["a"], "negate": false}`
-
-var negatedClause = Clause{
-	Attribute: ldattr.NewNameRef("key"),
-	Op:        OperatorIn,
-	Values:    []ldvalue.Value{ldvalue.String("a")},
-	Negate:    true,
-}
-
-const negatedClauseJSON = `{"attribute": "key", "op": "in", "values": ["a"], "negate": true}`
-
 func makeFlagSerializationTestParams() []flagSerializationTestParams {
-	return []flagSerializationTestParams{
+	ret := []flagSerializationTestParams{
 		{
 			name:       "defaults",
 			flag:       FeatureFlag{},
@@ -192,47 +132,6 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			jsonAltInputs: []string{`{"fallthrough": {"variation": 1, "rollout": null}}`},
 		},
 		{
-			name:          "fallthrough rollout",
-			flag:          FeatureFlag{Fallthrough: VariationOrRollout{Rollout: simpleRollout}},
-			jsonString:    `{"fallthrough": {"rollout": ` + simpleRolloutJSON + `}}`,
-			jsonAltInputs: []string{`{"fallthrough": {"variation": null, "rollout": ` + simpleRolloutJSON + `}}`},
-		},
-		{
-			name:          "fallthrough experiment",
-			flag:          FeatureFlag{Fallthrough: VariationOrRollout{Rollout: simpleExperiment}},
-			jsonString:    `{"fallthrough": {"rollout": ` + simpleExperimentJSON + `}}`,
-			jsonAltInputs: []string{`{"fallthrough": {"rollout": ` + experimentWithSeedNullJSON + `}}`},
-		},
-		{
-			name:       "fallthrough experiment with seed",
-			flag:       FeatureFlag{Fallthrough: VariationOrRollout{Rollout: experimentWithSeed}},
-			jsonString: `{"fallthrough": {"rollout": ` + experimentWithSeedJSON + `}}`,
-		},
-		{
-			name:       "fallthrough experiment with untracked",
-			flag:       FeatureFlag{Fallthrough: VariationOrRollout{Rollout: experimentWithUntracked}},
-			jsonString: `{"fallthrough": {"rollout": ` + experimentWithUntrackedJSON + `}}`,
-		},
-		{
-			name:       "fallthrough rollout contextKind",
-			flag:       FeatureFlag{Fallthrough: VariationOrRollout{Rollout: rolloutWithContextKind}},
-			jsonString: `{"fallthrough": {"rollout": ` + rolloutWithContextKindJSON + `}}`,
-		},
-		{
-			name:       "fallthrough rollout bucketBy",
-			flag:       FeatureFlag{Fallthrough: VariationOrRollout{Rollout: rolloutWithBucketBy}},
-			jsonString: `{"fallthrough": {"rollout": ` + rolloutWithBucketByJSON + `}}`,
-		},
-		{
-			name: "fallthrough rollout bucketBy invalid ref",
-			// Here we verify that an invalid attribute ref doesn't make parsing fail and is preserved in reserialization
-			flag: FeatureFlag{Fallthrough: VariationOrRollout{Rollout: Rollout{
-				BucketBy:   ldattr.NewRef("///"),
-				Variations: []WeightedVariation{{Variation: 0, Weight: 100000}},
-			}}},
-			jsonString: `{"fallthrough": {"rollout": {"bucketBy": "///", "variations": [{"variation": 0, "weight": 100000}]}}}`,
-		},
-		{
 			name: "prerequisites",
 			flag: FeatureFlag{
 				Prerequisites: []Prerequisite{
@@ -270,16 +169,6 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			jsonAltInputs: []string{`{"rules": [ {"variation": 1} ]}`},
 		},
 		{
-			name: "minimal rule with rollout",
-			flag: FeatureFlag{
-				Rules: []FlagRule{
-					{VariationOrRollout: VariationOrRollout{Rollout: simpleRollout}},
-				},
-			},
-			jsonString:    `{"rules": [ {"rollout": ` + simpleRolloutJSON + `, "clauses": [], "trackEvents": false} ]}`,
-			jsonAltInputs: []string{`{"rules": [ {"rollout": ` + simpleRolloutJSON + `} ]}`},
-		},
-		{
 			name: "rule ID",
 			flag: FeatureFlag{
 				Rules: []FlagRule{
@@ -296,76 +185,6 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 				},
 			},
 			jsonString: `{"rules": [ {"variation": 1, "clauses": [], "trackEvents": true} ]}`,
-		},
-		{
-			name: "minimal rule clause",
-			flag: FeatureFlag{
-				Rules: []FlagRule{
-					{
-						VariationOrRollout: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)},
-						Clauses:            []Clause{simpleClause},
-					},
-				},
-			},
-			jsonString:    `{"rules": [ {"variation": 1, "clauses": [` + simpleClauseJSON + `], "trackEvents": false }]}`,
-			jsonAltInputs: []string{`{"rules": [ {"variation": 1, "clauses": [` + simpleClauseMinimalJSON + `] }]}`},
-		},
-		{
-			name: "rule clause with kind",
-			flag: FeatureFlag{
-				Rules: []FlagRule{
-					{
-						VariationOrRollout: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)},
-						Clauses:            []Clause{clauseWithKind},
-					},
-				},
-			},
-			jsonString: `{"rules": [ {"variation": 1, "clauses": [` + clauseWithKindJSON + `], "trackEvents": false }]}`,
-		},
-		{
-			name: "rule clause negate",
-			flag: FeatureFlag{
-				Rules: []FlagRule{
-					{
-						VariationOrRollout: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)},
-						Clauses:            []Clause{negatedClause},
-					},
-				},
-			},
-			jsonString: `{"rules": [ {"variation": 1, "clauses": [` + negatedClauseJSON + `], "trackEvents": false} ]}`,
-		},
-		{
-			name: "rule clause with segmentMatch",
-			flag: FeatureFlag{
-				Rules: []FlagRule{
-					{
-						VariationOrRollout: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)},
-						Clauses: []Clause{
-							{Op: OperatorSegmentMatch, Values: []ldvalue.Value{ldvalue.String("a")}},
-						},
-					},
-				},
-			},
-			jsonString: `{"rules": [ {"variation": 1, "clauses": ` +
-				`[ {"attribute": "", "op": "segmentMatch", "values": ["a"], "negate": false} ]` +
-				`, "trackEvents": false} ]}`, // note, attribute is serialized as "" in this case, not omitted
-		},
-		{
-			name: "rule clause with invalid attribute ref",
-			// Here we verify that an invalid attribute ref doesn't make parsing fail and is preserved in reserialization
-			flag: FeatureFlag{
-				Rules: []FlagRule{
-					{
-						VariationOrRollout: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)},
-						Clauses: []Clause{
-							{Attribute: ldattr.NewRef("///"), Op: OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}},
-						},
-					},
-				},
-			},
-			jsonString: `{"rules": [ {"variation": 1, "clauses": ` +
-				`[ {"attribute": "///", "op": "in", "values": ["a"], "negate": false} ]` +
-				`, "trackEvents": false} ]}`,
 		},
 		{
 			name: "clientSide",
@@ -456,10 +275,64 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			jsonString: `{"debugEventsUntilDate": 1000}`,
 		},
 	}
+
+	makeFlagJSONForClause := func(clauseJSON string) string {
+		return `{"rules": [ {"variation": 1, "clauses": [` + clauseJSON + `], "trackEvents": false }]}`
+	}
+	for _, cp := range makeClauseSerializationTestParams() {
+		fp := flagSerializationTestParams{
+			name: "rule clause " + cp.name,
+			flag: FeatureFlag{
+				Rules: []FlagRule{
+					{
+						VariationOrRollout: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)},
+						Clauses:            []Clause{cp.clause},
+					},
+				},
+			},
+			jsonString: makeFlagJSONForClause(cp.jsonString),
+		}
+		for _, alt := range cp.jsonAltInputs {
+			fp.jsonAltInputs = append(fp.jsonAltInputs, makeFlagJSONForClause(alt))
+		}
+		ret = append(ret, fp)
+	}
+
+	makeFlagJSONForFallthroughRollout := func(rolloutJSON string) string {
+		return `{"fallthrough": {"rollout": ` + rolloutJSON + `}}`
+	}
+	makeFlagJSONForRuleRollout := func(rolloutJSON string) string {
+		return `{"rules": [ {"rollout": ` + rolloutJSON + `, "clauses": [], "trackEvents": false} ]}`
+	}
+	for _, rp := range makeRolloutSerializationTestParams() {
+		fp1 := flagSerializationTestParams{
+			name: "fallthrough rollout " + rp.name,
+			flag: FeatureFlag{
+				Fallthrough: VariationOrRollout{Rollout: rp.rollout},
+			},
+			jsonString: makeFlagJSONForFallthroughRollout(rp.jsonString),
+		}
+		for _, alt := range rp.jsonAltInputs {
+			fp1.jsonAltInputs = append(fp1.jsonAltInputs, makeFlagJSONForFallthroughRollout(alt))
+		}
+		fp2 := flagSerializationTestParams{
+			name: "rule rollout " + rp.name,
+			flag: FeatureFlag{
+				Rules: []FlagRule{{VariationOrRollout: VariationOrRollout{Rollout: rp.rollout}}},
+			},
+			jsonString: makeFlagJSONForRuleRollout(rp.jsonString),
+		}
+		for _, alt := range rp.jsonAltInputs {
+			fp2.jsonAltInputs = append(fp2.jsonAltInputs, makeFlagJSONForRuleRollout(alt))
+		}
+		ret = append(ret, fp1, fp2)
+	}
+
+	return ret
 }
 
 func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
-	return []segmentSerializationTestParams{
+	ret := []segmentSerializationTestParams{
 		{
 			name:       "defaults",
 			segment:    Segment{},
@@ -537,7 +410,7 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			name: "rule bucketBy",
 			segment: Segment{
 				Rules: []SegmentRule{
-					{Weight: ldvalue.NewOptionalInt(100000), BucketBy: ldattr.NewNameRef("name")},
+					{Weight: ldvalue.NewOptionalInt(100000), BucketBy: ldattr.NewLiteralRef("name")},
 				},
 			},
 			jsonString: `{"rules": [ {"id": "", "weight": 100000, "bucketBy": "name", "clauses": []} ]}`,
@@ -547,10 +420,14 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			// Here we verify that an invalid attribute ref doesn't make parsing fail and is preserved in reserialization
 			segment: Segment{
 				Rules: []SegmentRule{
-					{Weight: ldvalue.NewOptionalInt(100000), BucketBy: ldattr.NewRef("///")},
+					{
+						RolloutContextKind: ldcontext.Kind("user"),
+						Weight:             ldvalue.NewOptionalInt(100000),
+						BucketBy:           ldattr.NewRef("///"),
+					},
 				},
 			},
-			jsonString: `{"rules": [ {"id": "", "weight": 100000, "bucketBy": "///", "clauses": []} ]}`,
+			jsonString: `{"rules": [ {"id": "", "weight": 100000, "rolloutContextKind": "user", "bucketBy": "///", "clauses": []} ]}`,
 		},
 		{
 			name: "rule rolloutContextKind",
@@ -571,50 +448,6 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			jsonString: `{"rules": [ {"id": "a", "clauses": []} ]}`,
 		},
 		{
-			name: "minimal rule clause",
-			segment: Segment{
-				Rules: []SegmentRule{
-					{Clauses: []Clause{simpleClause}},
-				},
-			},
-			jsonString:    `{"rules": [ {"id": "", "clauses": [` + simpleClauseJSON + `]} ]}`,
-			jsonAltInputs: []string{`{"rules": [ {"id": "", "clauses": [` + simpleClauseMinimalJSON + `]} ]}`},
-		},
-		{
-			name: "rule clause with kind",
-			segment: Segment{
-				Rules: []SegmentRule{
-					{Clauses: []Clause{clauseWithKind}},
-				},
-			},
-			jsonString: `{"rules": [ {"id": "", "clauses": [` + clauseWithKindJSON + `]} ]}`,
-		},
-		{
-			name: "rule clause negated",
-			segment: Segment{
-				Rules: []SegmentRule{
-					{Clauses: []Clause{negatedClause}},
-				},
-			},
-			jsonString: `{"rules": [ {"id": "", "clauses": [` + negatedClauseJSON + `]} ]}`,
-		},
-		{
-			name: "rule clause with invalid attribute ref",
-			// Here we verify that an invalid attribute ref doesn't make parsing fail and is preserved in reserialization
-			segment: Segment{
-				Rules: []SegmentRule{
-					{
-						Clauses: []Clause{
-							{Attribute: ldattr.NewRef("///"), Op: OperatorIn, Values: []ldvalue.Value{ldvalue.String("a")}},
-						},
-					},
-				},
-			},
-			jsonString: `{"rules": [ {"id": "", "clauses": ` +
-				`[ {"attribute": "///", "op": "in", "values": ["a"], "negate": false} ]` +
-				`} ]}`,
-		},
-		{
 			name:       "unbounded and generation",
 			segment:    Segment{Unbounded: true, Generation: ldvalue.NewOptionalInt(1)},
 			jsonString: `{"unbounded": true, "generation": 1}`,
@@ -628,6 +461,187 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			name:       "salt",
 			segment:    Segment{Salt: "segment-salt"},
 			jsonString: `{"salt": "segment-salt"}`,
+		},
+	}
+
+	makeSegmentJSONForClause := func(clauseJSON string) string {
+		return `{"rules": [ {"id": "", "clauses": [` + clauseJSON + `]} ]}`
+	}
+	for _, cp := range makeClauseSerializationTestParams() {
+		sp := segmentSerializationTestParams{
+			name: "segment rule clause " + cp.name,
+			segment: Segment{
+				Rules: []SegmentRule{
+					{
+						Clauses: []Clause{cp.clause},
+					},
+				},
+			},
+			jsonString: makeSegmentJSONForClause(cp.jsonString),
+		}
+		for _, alt := range cp.jsonAltInputs {
+			sp.jsonAltInputs = append(sp.jsonAltInputs, makeSegmentJSONForClause(alt))
+		}
+		ret = append(ret, sp)
+	}
+
+	return ret
+}
+
+func makeClauseSerializationTestParams() []clauseSerializationTestParams {
+	return []clauseSerializationTestParams{
+		{
+			name: "simple",
+			clause: Clause{
+				Attribute: ldattr.NewLiteralRef("key"),
+				Op:        OperatorIn,
+				Values:    []ldvalue.Value{ldvalue.String("a")},
+			},
+			jsonString:    `{"attribute": "key", "op": "in", "values": ["a"], "negate": false}`,
+			jsonAltInputs: []string{`{"attribute": "key", "op": "in", "values": ["a"]}`},
+		},
+		{
+			name: "with kind",
+			clause: Clause{
+				ContextKind: ldcontext.Kind("org"),
+				Attribute:   ldattr.NewLiteralRef("key"),
+				Op:          OperatorIn,
+				Values:      []ldvalue.Value{ldvalue.String("a")},
+			},
+			jsonString: `{"contextKind": "org", "attribute": "key", "op": "in", "values": ["a"], "negate": false}`,
+		},
+		{
+			name: "with kind and complex attribute ref",
+			clause: Clause{
+				ContextKind: ldcontext.Kind("user"),
+				Attribute:   ldattr.NewRef("/attr1/subprop"),
+				Op:          OperatorIn,
+				Values:      []ldvalue.Value{ldvalue.String("a")},
+			},
+			jsonString: `{"contextKind": "user", "attribute": "/attr1/subprop", "op": "in", "values": ["a"], "negate": false}`,
+		},
+		{
+			name: "attribute is treated as plain name and not path when kind is omitted",
+			clause: Clause{
+				Attribute: ldattr.NewLiteralRef("/attr1/subprop"), // note NewLiteralRef, not NewRef
+				Op:        OperatorIn,
+				Values:    []ldvalue.Value{ldvalue.String("a")},
+			},
+			jsonString: `{"attribute": "/attr1/subprop", "op": "in", "values": ["a"], "negate": false}`,
+		},
+		{
+			name: "invalid attribute ref",
+			clause: Clause{
+				ContextKind: ldcontext.Kind("user"),
+				Attribute:   ldattr.NewRef("///"),
+				Op:          OperatorIn,
+				Values:      []ldvalue.Value{ldvalue.String("a")},
+			},
+			jsonString: `{"contextKind": "user", "attribute": "///", "op": "in", "values": ["a"], "negate": false}`,
+		},
+		{
+			name: "with segmentMatch operator",
+			clause: Clause{
+				Op:     OperatorSegmentMatch,
+				Values: []ldvalue.Value{ldvalue.String("a")},
+			},
+			jsonString: `{"attribute": "", "op": "segmentMatch", "values": ["a"], "negate": false}`,
+			// note, attribute is serialized as "" in this case, not omitted
+		},
+		{
+			name: "negated",
+			clause: Clause{
+				Attribute: ldattr.NewLiteralRef("key"),
+				Op:        OperatorIn,
+				Values:    []ldvalue.Value{ldvalue.String("a")},
+				Negate:    true,
+			},
+			jsonString: `{"attribute": "key", "op": "in", "values": ["a"], "negate": true}`,
+		},
+	}
+}
+
+func makeRolloutSerializationTestParams() []rolloutSerializationTestParams {
+	basicVariations := []WeightedVariation{{Variation: 1, Weight: 100000}}
+	basicVariationsJSON := `[{"variation": 1, "weight": 100000}]`
+
+	return []rolloutSerializationTestParams{
+		{
+			name:       "simple",
+			rollout:    Rollout{Variations: basicVariations},
+			jsonString: `{"variations": ` + basicVariationsJSON + `}`,
+		},
+		{
+			name: "with context kind",
+			rollout: Rollout{
+				ContextKind: ldcontext.Kind("org"),
+				Variations:  basicVariations,
+			},
+			jsonString: `{"contextKind": "org", "variations": ` + basicVariationsJSON + `}`,
+		},
+		{
+			name: "with bucketBy",
+			rollout: Rollout{
+				BucketBy:   ldattr.NewLiteralRef("name"),
+				Variations: basicVariations,
+			},
+			jsonString: `{"bucketBy": "name", "variations": ` + basicVariationsJSON + `}`,
+		},
+		{
+			name: "with contextKind and complex bucketBy ref",
+			rollout: Rollout{
+				ContextKind: ldcontext.Kind("user"),
+				BucketBy:    ldattr.NewRef("/attr1/subprop"),
+				Variations:  basicVariations,
+			},
+			jsonString: `{"contextKind": "user", "bucketBy": "/attr1/subprop", "variations": ` + basicVariationsJSON + `}`,
+		},
+		{
+			name: "bucketBy is treated as plain name and not path when kind is omitted",
+			rollout: Rollout{
+				BucketBy:   ldattr.NewLiteralRef("/attr1/subprop"), // note, NewLiteralRef rather than NewRef
+				Variations: basicVariations,
+			},
+			jsonString: `{"bucketBy": "/attr1/subprop", "variations": ` + basicVariationsJSON + `}`,
+		},
+		{
+			name: "invalid bucketBy ref",
+			rollout: Rollout{
+				ContextKind: ldcontext.Kind("user"),
+				BucketBy:    ldattr.NewRef("///"),
+				Variations:  basicVariations,
+			},
+			jsonString: `{"contextKind": "user", "bucketBy": "///", "variations": ` + basicVariationsJSON + `}`,
+		},
+		{
+			name: "simple experiment",
+			rollout: Rollout{
+				Kind:       RolloutKindExperiment,
+				Variations: basicVariations,
+			},
+			jsonString:    `{"kind": "experiment", "variations": ` + basicVariationsJSON + `}`,
+			jsonAltInputs: []string{`{"kind": "experiment", "seed": null, "variations": ` + basicVariationsJSON + `}`},
+		},
+		{
+			name: "experiment with seed",
+			rollout: Rollout{
+				Kind:       RolloutKindExperiment,
+				Seed:       ldvalue.NewOptionalInt(12345),
+				Variations: basicVariations,
+			},
+			jsonString: `{"kind": "experiment", "seed": 12345, "variations": ` + basicVariationsJSON + `}`,
+		},
+		{
+			name: "experiment with untracked",
+			rollout: Rollout{
+				Kind: RolloutKindExperiment,
+				Variations: []WeightedVariation{
+					{Variation: 0, Weight: 75000},
+					{Variation: 1, Weight: 25000, Untracked: true},
+				},
+			},
+			jsonString: `{"kind": "experiment", "variations": [` +
+				`{"variation": 0, "weight": 75000}, {"variation": 1, "weight": 25000, "untracked": true}]}`,
 		},
 	}
 }

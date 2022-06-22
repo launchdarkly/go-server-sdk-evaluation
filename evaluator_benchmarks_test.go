@@ -12,6 +12,13 @@ import (
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
+// Note about heap allocations:
+//
+// Benchmarks whose names end in "NoAlloc" are expected _not_ to cause any heap allocations (not counting
+// setup work done before ResetTimer()). This is enforced by the Makefile's benchmarks target.
+//
+// See notes about heap allocations in CONTRIBUTING.md.
+
 var evalBenchmarkResult Result
 var evalBenchmarkErr error
 
@@ -113,7 +120,7 @@ func benchmarkEval(b *testing.B, cases []evalBenchmarkCase, action func(*evalBen
 	}
 }
 
-func BenchmarkEvaluationFallthrough(b *testing.B) {
+func BenchmarkEvaluationFallthroughNoAlloc(b *testing.B) {
 	benchmarkEval(b, makeEvalBenchmarkCases(false), func(env *evalBenchmarkEnv) {
 		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if evalBenchmarkResult.Detail.Value.BoolValue() { // verify that we did not get a match
@@ -122,7 +129,7 @@ func BenchmarkEvaluationFallthrough(b *testing.B) {
 	})
 }
 
-func BenchmarkEvaluationRuleMatch(b *testing.B) {
+func BenchmarkEvaluationRuleMatchNoAlloc(b *testing.B) {
 	benchmarkEval(b, makeEvalBenchmarkCases(true), func(env *evalBenchmarkEnv) {
 		evalBenchmarkResult = env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Detail.Value.BoolValue() { // verify that we got a match
@@ -131,7 +138,7 @@ func BenchmarkEvaluationRuleMatch(b *testing.B) {
 	})
 }
 
-func BenchmarkEvaluationUserFoundInTargets(b *testing.B) {
+func BenchmarkEvaluationUserFoundInTargetsNoAlloc(b *testing.B) {
 	// This attempts to match a user from the middle of the target list. As long as the flag has been
 	// preprocessed, which it always should be in normal usage, this is a simple map lookup and should
 	// not increase linearly with the length of the list.
@@ -144,7 +151,7 @@ func BenchmarkEvaluationUserFoundInTargets(b *testing.B) {
 	})
 }
 
-func BenchmarkEvaluationUsersNotFoundInTargets(b *testing.B) {
+func BenchmarkEvaluationUsersNotFoundInTargetsNoAlloc(b *testing.B) {
 	// This attempts to match a user who is not in the list.  As long as the flag has been preprocessed,
 	// which it always should be in normal usage, this is a simple map lookup and should not increase
 	// linearly with the length of the list.
@@ -156,9 +163,10 @@ func BenchmarkEvaluationUsersNotFoundInTargets(b *testing.B) {
 	})
 }
 
-func BenchmarkEvaluationUserIncludedInSegment(b *testing.B) {
-	// This attempts to match a user from the middle of the segment's include list. Currently, the execution
-	// time is roughly linear based on the length of the list, since we are iterating it.
+func BenchmarkEvaluationUserIncludedInSegmentNoAlloc(b *testing.B) {
+	// This attempts to match a user from the middle of the segment's include list. As long as the segment
+	// has been preprocessed, which it should always be in normal usage, this is a simple map lookup and
+	// should not increase linearly with the length of the list.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := ldcontext.New(env.targetSegment.Included[len(env.targetSegment.Included)/2])
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
@@ -168,9 +176,10 @@ func BenchmarkEvaluationUserIncludedInSegment(b *testing.B) {
 	})
 }
 
-func BenchmarkEvaluationUserExcludedFromSegment(b *testing.B) {
-	// This attempts to match a user who is explicitly excluded from the segment. Currently, the execution
-	// time is roughly linear based on the length of the include and exclude lists, since we are iterating them.
+func BenchmarkEvaluationUserExcludedFromSegmentNoAlloc(b *testing.B) {
+	// This attempts to match a user who is explicitly excluded from the segment.  As long as the segment
+	// has been preprocessed, which it should always be in normal usage, this is a simple map lookup and
+	// should not increase linearly with the length of the list.
 	benchmarkEval(b, makeSegmentIncludeExcludeBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		user := ldcontext.New(env.targetSegment.Excluded[len(env.targetSegment.Excluded)/2])
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, user, discardPrerequisiteEvents)
@@ -180,7 +189,7 @@ func BenchmarkEvaluationUserExcludedFromSegment(b *testing.B) {
 	})
 }
 
-func BenchmarkEvaluationUserMatchedBySegmentRule(b *testing.B) {
+func BenchmarkEvaluationUserMatchedBySegmentRuleNoAlloc(b *testing.B) {
 	benchmarkEval(b, makeSegmentRuleMatchBenchmarkCases(), func(env *evalBenchmarkEnv) {
 		evalBenchmarkResult := env.evaluator.Evaluate(env.targetFlag, env.user, discardPrerequisiteEvents)
 		if !evalBenchmarkResult.Detail.Value.BoolValue() {
@@ -291,7 +300,7 @@ func makeEvalBenchmarkClauses(numClauses int, extraClauseValues int, op ldmodel.
 			value = ldvalue.String("stringAttr-0")
 		}
 		if name != "" {
-			clause.Attribute = ldattr.NewNameRef(name)
+			clause.Attribute = ldattr.NewLiteralRef(name)
 		}
 		if extraClauseValues == 0 {
 			clause.Values = []ldvalue.Value{value}
