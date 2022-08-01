@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 	"github.com/launchdarkly/go-semver"
 )
@@ -135,22 +134,6 @@ func (e EvaluatorAccessorMethods) ClauseGetValueAsTimestamp(clause *Clause, inde
 		return TypeConversions.ValueToTimestamp(clause.Values[index])
 	}
 	return time.Time{}, false
-}
-
-// ClauseGetContextAttributeValue retrieves an attribute from a Context corresponding to the clause's
-// Attribute-- unless we have determined that the attribute is really an alias for another attribute.
-func (e EvaluatorAccessorMethods) ClauseGetContextAttributeValue(
-	clause *Clause,
-	context *ldcontext.Context,
-) ldvalue.Value {
-	if clause == nil || context == nil {
-		return ldvalue.Null()
-	}
-	if clause.preprocessed.realAttr.IsDefined() {
-		return context.GetValueForRef(clause.preprocessed.realAttr)
-		// This allows us to skip the extra comparison step below
-	}
-	return context.GetValueForRef(resolveAttributeAliases(clause.Attribute))
 }
 
 // SegmentFindKeyInExcluded returns true if the specified key is in this Segment's

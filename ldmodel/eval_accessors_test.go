@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
-	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 
 	"github.com/stretchr/testify/assert"
@@ -139,37 +137,6 @@ func TestClauseGetValueAsTimestamp(t *testing.T) {
 	t.Run("nil pointer", func(t *testing.T) {
 		_, ok := EvaluatorAccessors.ClauseGetValueAsTimestamp(nil, 0)
 		assert.False(t, ok)
-	})
-}
-
-func TestClauseGetContextAttributeValue(t *testing.T) {
-	for _, withPreprocessing := range []bool{false, true} {
-		t.Run(fmt.Sprintf("preprocessed: %t", withPreprocessing), func(t *testing.T) {
-			t.Run("anonymous is aliased to transient", func(t *testing.T) {
-				clause := Clause{Op: OperatorIn, Attribute: ldattr.NewLiteralRef("anonymous")}
-				if withPreprocessing {
-					clause.preprocessed = preprocessClause(clause)
-				}
-				context := ldcontext.NewBuilder("key").Transient(true).Build()
-				assert.Equal(t, ldvalue.Bool(true), EvaluatorAccessors.ClauseGetContextAttributeValue(&clause, &context))
-			})
-
-			t.Run("non-aliased attribute", func(t *testing.T) {
-				clause := Clause{Op: OperatorIn, Attribute: ldattr.NewLiteralRef("name")}
-				if withPreprocessing {
-					clause.preprocessed = preprocessClause(clause)
-				}
-				context := ldcontext.NewBuilder("key").Name("x").Build()
-				assert.Equal(t, ldvalue.String("x"), EvaluatorAccessors.ClauseGetContextAttributeValue(&clause, &context))
-			})
-		})
-	}
-
-	t.Run("nil pointer", func(t *testing.T) {
-		clause := Clause{Attribute: ldattr.NewLiteralRef("name"), Op: OperatorIn}
-		context := ldcontext.New("x")
-		assert.Equal(t, ldvalue.Null(), EvaluatorAccessors.ClauseGetContextAttributeValue(nil, &context))
-		assert.Equal(t, ldvalue.Null(), EvaluatorAccessors.ClauseGetContextAttributeValue(&clause, nil))
 	})
 }
 

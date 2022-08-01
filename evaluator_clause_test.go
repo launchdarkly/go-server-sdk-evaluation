@@ -60,15 +60,9 @@ func TestClauseMatch(t *testing.T) {
 			shouldMatch: true,
 		},
 		{
-			name:        "built-in: transient",
-			clause:      ldbuilders.Clause(ldattr.TransientAttr, ldmodel.OperatorIn, ldvalue.Bool(true)),
-			context:     ldcontext.NewBuilder("a").Transient(true).Build(),
-			shouldMatch: true,
-		},
-		{
-			name:        "built-in: anonymous (really transient)",
-			clause:      ldbuilders.Clause("anonymous", ldmodel.OperatorIn, ldvalue.Bool(true)),
-			context:     ldcontext.NewBuilder("a").Transient(true).Build(),
+			name:        "built-in: anonymous",
+			clause:      ldbuilders.Clause(ldattr.AnonymousAttr, ldmodel.OperatorIn, ldvalue.Bool(true)),
+			context:     ldcontext.NewBuilder("a").Anonymous(true).Build(),
 			shouldMatch: true,
 		},
 		{
@@ -124,9 +118,9 @@ func TestClauseMatch(t *testing.T) {
 			shouldMatch: false,
 		},
 		{
-			name:        "built-in: transient",
-			clause:      ldbuilders.Clause(ldattr.TransientAttr, ldmodel.OperatorIn, ldvalue.Bool(true)),
-			context:     ldcontext.NewBuilder("a").Transient(false).Build(),
+			name:        "built-in: anonymous",
+			clause:      ldbuilders.Clause(ldattr.AnonymousAttr, ldmodel.OperatorIn, ldvalue.Bool(true)),
+			context:     ldcontext.NewBuilder("a").Anonymous(false).Build(),
 			shouldMatch: false,
 		},
 		{
