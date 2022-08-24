@@ -10,9 +10,9 @@ import "strconv"
 // LocalBuffer exports this field so it can be initialized to a slice which, if allowed by Go's escape
 // analysis, can remain on the stack as long as its capacity is not exceeded. For example:
 //
-//     buf := LocalBuffer{Data: make([]byte, 0, 100)}
-//     buf.AppendString("some data") // etc.
-//     result := buf.Data
+//	buf := LocalBuffer{Data: make([]byte, 0, 100)}
+//	buf.AppendString("some data") // etc.
+//	result := buf.Data
 //
 // In the example, as long as no more than 100 bytes are written to the buffer, there are no heap
 // allocations. As soon as the capacity is exceeded, the byte slice is moved to the heap and its
