@@ -336,7 +336,7 @@ func (es *evaluationScope) variationOrRolloutResult(
 
 	isExperiment := r.Rollout.IsExperiment()
 
-	bucketVal, _, err := es.computeBucketValue(isExperiment, r.Rollout.Seed, r.Rollout.ContextKind,
+	bucketVal, problem, err := es.computeBucketValue(isExperiment, r.Rollout.Seed, r.Rollout.ContextKind,
 		key, r.Rollout.BucketBy, salt)
 	if err != nil {
 		return -1, false, err
@@ -346,7 +346,11 @@ func (es *evaluationScope) variationOrRolloutResult(
 	for _, bucket := range r.Rollout.Variations {
 		sum += float32(bucket.Weight) / 100000.0
 		if bucketVal < sum {
-			return bucket.Variation, isExperiment && !bucket.Untracked, nil
+			resultInExperiment := isExperiment && !bucket.Untracked
+			if problem == bucketingFailureContextLacksDesiredKind {
+				resultInExperiment = false
+			}
+			return bucket.Variation, resultInExperiment, nil
 		}
 	}
 

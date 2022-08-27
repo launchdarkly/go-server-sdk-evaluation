@@ -232,6 +232,20 @@ func TestExperimentBucketing(t *testing.T) {
 		}
 	})
 
+	t.Run("when context kind is not found, first bucket is chosen but inExperiment is false", func(t *testing.T) {
+		context := ldcontext.NewWithKind("rightkind", "key")
+		experiment := baseExperiment
+
+		variationIndex, inExperiment, err := makeEvalScope(context).variationOrRolloutResult(
+			ldmodel.VariationOrRollout{Rollout: experiment},
+			"flagkey",
+			"salt",
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, baseExperiment.Variations[0].Variation, variationIndex)
+		assert.False(t, inExperiment)
+	})
+
 	t.Run("secondary key is ignored", func(t *testing.T) {
 		for _, p := range makeBucketingTestParamsForExperiments() {
 			t.Run(p.description(), func(t *testing.T) {
