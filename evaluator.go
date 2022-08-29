@@ -346,10 +346,8 @@ func (es *evaluationScope) variationOrRolloutResult(
 	for _, bucket := range r.Rollout.Variations {
 		sum += float32(bucket.Weight) / 100000.0
 		if bucketVal < sum {
-			resultInExperiment := isExperiment && !bucket.Untracked
-			if problem == bucketingFailureContextLacksDesiredKind {
-				resultInExperiment = false
-			}
+			resultInExperiment := isExperiment && !bucket.Untracked &&
+				problem != bucketingFailureContextLacksDesiredKind
 			return bucket.Variation, resultInExperiment, nil
 		}
 	}
