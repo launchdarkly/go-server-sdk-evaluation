@@ -6,7 +6,7 @@ import (
 
 	"github.com/launchdarkly/go-jsonstream/v2/jreader"
 	"github.com/launchdarkly/go-jsonstream/v2/jwriter"
-	m "github.com/launchdarkly/go-test-helpers/v2/matchers"
+	"github.com/launchdarkly/go-test-helpers/v3/jsonhelpers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +24,7 @@ func doMarshalFlagTest(t *testing.T, marshalFn testMarshalFlagFn) {
 			bytes, err := marshalFn(p.flag)
 			require.NoError(t, err)
 			expected := mergeDefaultProperties(json.RawMessage(p.jsonString), flagTopLevelDefaultProperties)
-			m.In(t).Assert(json.RawMessage(bytes), m.JSONEqual(expected))
+			jsonhelpers.AssertEqual(t, expected, bytes)
 		})
 	}
 }
@@ -35,7 +35,7 @@ func doMarshalSegmentTest(t *testing.T, marshalFn testMarshalSegmentFn) {
 			bytes, err := marshalFn(p.segment)
 			require.NoError(t, err)
 			expected := mergeDefaultProperties(json.RawMessage(p.jsonString), segmentTopLevelDefaultProperties)
-			m.In(t).Assert(json.RawMessage(bytes), m.JSONEqual(expected))
+			jsonhelpers.AssertEqual(t, expected, bytes)
 		})
 	}
 }
