@@ -10,7 +10,7 @@ import (
 	"github.com/launchdarkly/go-sdk-common/v3/ldlogtest"
 	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
-	m "github.com/launchdarkly/go-test-helpers/v2/matchers"
+	m "github.com/launchdarkly/go-test-helpers/v3/matchers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

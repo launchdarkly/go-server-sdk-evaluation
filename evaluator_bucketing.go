@@ -95,7 +95,7 @@ func (es *evaluationScope) computeBucketValue(
 		}
 	}
 
-	hashOutputBytes := sha1.Sum(hashInput.Data) // nolint:gas // just used for insecure hashing
+	hashOutputBytes := sha1.Sum(hashInput.Data) //nolint:gas // just used for insecure hashing
 	hexEncodedChars := make([]byte, 64)
 	hex.Encode(hexEncodedChars, hashOutputBytes[:])
 	hash := hexEncodedChars[:15]

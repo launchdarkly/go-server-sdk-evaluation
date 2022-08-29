@@ -6,7 +6,7 @@ import (
 	"github.com/launchdarkly/go-sdk-common/v3/ldtime"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 
-	"github.com/launchdarkly/go-jsonstream/v2/jreader"
+	"github.com/launchdarkly/go-jsonstream/v3/jreader"
 )
 
 func unmarshalFeatureFlagFromBytes(data []byte) (FeatureFlag, error) {
