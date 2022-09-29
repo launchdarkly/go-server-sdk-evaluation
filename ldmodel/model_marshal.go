@@ -228,8 +228,7 @@ func writeAttrRef(w *jwriter.Writer, ref *ldattr.Ref, contextKind ldcontext.Kind
 		// interpreted as a plain name rather than an attribute reference. However, ref.String() will always
 		// return an attribute reference which could contain escape characters. We should instead get the
 		// unescaped attribute name, which AttrRef represents as the first element in a single-element path.
-		s, _ := ref.Component(0)
-		w.String(s)
+		w.String(ref.Component(0))
 	} else {
 		w.String(ref.String())
 	}
