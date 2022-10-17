@@ -11,16 +11,11 @@ import (
 func BenchmarkComputeBucketValueNoAlloc(b *testing.B) {
 	for _, p := range []struct {
 		name       string
-		secondary  string
 		customAttr ldvalue.Value
 		seed       ldvalue.OptionalInt
 	}{
 		{
 			name: "simple",
-		},
-		{
-			name:      "with secondary",
-			secondary: "123",
 		},
 		{
 			name: "with seed",
@@ -37,9 +32,6 @@ func BenchmarkComputeBucketValueNoAlloc(b *testing.B) {
 	} {
 		b.Run(p.name, func(b *testing.B) {
 			builder := ldcontext.NewBuilder("userKey")
-			if p.secondary != "" {
-				builder.Secondary(p.secondary)
-			}
 			if p.customAttr.IsDefined() {
 				builder.SetValue("attr1", p.customAttr)
 			}

@@ -21,6 +21,22 @@ func (o evaluatorOptionBigSegmentProvider) apply(e *evaluator) {
 	e.bigSegmentProvider = o.bigSegmentProvider
 }
 
+type evaluatorOptionEnableSecondaryKey struct{ enable bool }
+
+// EvaluatorOptionEnableSecondaryKey is an option for NewEvaluator that specifies whether
+// to enable the use of the ldcontext.Secondary meta-attribute in experiments that involve
+// rollouts or experiments. By default, this is not enabled in the current Go SDK and Rust
+// SDK, and the evaluation engines in other server-side SDKs do not recognize the secondary
+// key meta-attribute at all; but the Go and Rust evaluation engines need to be able to
+// recognize it when they are doing evaluations involving old-style user data.
+func EvaluatorOptionEnableSecondaryKey(enable bool) EvaluatorOption {
+	return evaluatorOptionEnableSecondaryKey{enable: enable}
+}
+
+func (o evaluatorOptionEnableSecondaryKey) apply(e *evaluator) {
+	e.enableSecondaryKey = o.enable
+}
+
 type evaluatorOptionErrorLogger struct{ errorLogger ldlog.BaseLogger }
 
 // EvaluatorOptionErrorLogger is an option for NewEvaluator that specifies a logger for
