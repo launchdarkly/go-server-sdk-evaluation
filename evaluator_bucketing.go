@@ -88,7 +88,7 @@ func (es *evaluationScope) computeBucketValue(
 		return 0, bucketingFailureAttributeValueWrongType, nil
 	}
 
-	if !isExperiment { // secondary key is not supported in experiments
+	if es.owner.enableSecondaryKey && !isExperiment { // secondary key is not supported in experiments
 		if secondary := selectedContext.Secondary(); secondary.IsDefined() {
 			hashInput.AppendByte('.')
 			hashInput.AppendString(secondary.StringValue())
