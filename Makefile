@@ -1,5 +1,5 @@
 
-GOLANGCI_LINT_VERSION=v1.48.0
+GOLANGCI_LINT_VERSION=v1.42.1
 
 LINTER=./bin/golangci-lint
 LINTER_VERSION_FILE=./bin/.golangci-lint-version-$(GOLANGCI_LINT_VERSION)
@@ -10,7 +10,7 @@ COVERAGE_PROFILE_RAW=./build/coverage_raw.out
 COVERAGE_PROFILE_RAW_HTML=./build/coverage_raw.html
 COVERAGE_PROFILE_FILTERED=./build/coverage.out
 COVERAGE_PROFILE_FILTERED_HTML=./build/coverage.html
-COVERAGE_ENFORCER_FLAGS=-package github.com/launchdarkly/go-server-sdk-evaluation/v2 -skipcode "// COVERAGE" -packagestats -filestats -showcode
+COVERAGE_ENFORCER_FLAGS=-package gopkg.in/launchdarkly/go-server-sdk-evaluation.v1 -skipcode "// COVERAGE" -packagestats -filestats -showcode
 
 TEST_BINARY=./go-server-sdk-evaluation.test
 ALLOCATIONS_LOG=./allocations.out
@@ -31,10 +31,10 @@ clean:
 	go clean
 
 test: build
-	go test -v -race -count 1 ./...
+	go test -race -v -count 1 ./...
 
 test-easyjson: build-easyjson
-	go test -v -race -count 1 $(EASYJSON_TAG) ./...
+	go test -race -v -count 1 $(EASYJSON_TAG) ./...
 
 test-coverage: $(COVERAGE_PROFILE_RAW)
 	go run github.com/launchdarkly-labs/go-coverage-enforcer@latest $(COVERAGE_ENFORCER_FLAGS) -outprofile $(COVERAGE_PROFILE_FILTERED) $(COVERAGE_PROFILE_RAW)
@@ -46,9 +46,7 @@ $(COVERAGE_PROFILE_RAW): $(ALL_SOURCES)
 	go test -coverprofile $(COVERAGE_PROFILE_RAW) ./... >/dev/null
 
 benchmarks: build
-	@mkdir -p ./build
-	go test -benchmem '-run=^$$' '-bench=.*' ./... | tee build/benchmarks.out
-	@if grep <build/benchmarks.out 'NoAlloc.*[1-9][0-9]* allocs/op'; then echo "Unexpected heap allocations detected in benchmarks!"; exit 1; fi
+	go test -benchmem '-run=^$$' '-bench=.*' ./...
 
 benchmarks-easyjson: build-easyjson
 	go test $(EASYJSON_TAG) -benchmem '-run=^$$' '-bench=.*' ./...
@@ -68,7 +66,7 @@ benchmark-allocs:
 
 $(LINTER_VERSION_FILE):
 	rm -f $(LINTER)
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | bash -s $(GOLANGCI_LINT_VERSION)
 	touch $(LINTER_VERSION_FILE)
 
 lint: $(LINTER_VERSION_FILE)
