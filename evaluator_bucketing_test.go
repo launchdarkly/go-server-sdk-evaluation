@@ -1,6 +1,7 @@
 package evaluation
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"testing"
@@ -20,8 +21,20 @@ import (
 
 var noSeed = ldvalue.OptionalInt{}
 
-func makeEvalScope(context ldcontext.Context) *evaluationScope {
-	return &evaluationScope{context: context}
+func makeEvalScope(context ldcontext.Context, evalOptions ...EvaluatorOption) *evaluationScope {
+	evaluator := NewEvaluatorWithOptions(basicDataProvider(), evalOptions...).(*evaluator)
+	return &evaluationScope{context: context, owner: evaluator}
+}
+
+func makeUserContextWithSecondaryKey(t *testing.T, key, secondary string) ldcontext.Context {
+	// It is deliberately not possible to set a secondary key via the regular context builder API.
+	// The secondary attribute can only be present when a context is parsed from user JSON in the
+	// old schema.
+	userJSON := ldvalue.ObjectBuild().SetString("key", key).SetString("secondary", secondary).Build().JSONString()
+	var context ldcontext.Context
+	err := json.Unmarshal([]byte(userJSON), &context)
+	require.NoError(t, err)
+	return context
 }
 
 func findBucketValueInVariationList(bucketValue float32, buckets []ldmodel.WeightedVariation) int {
@@ -123,23 +136,48 @@ func TestRolloutBucketing(t *testing.T) {
 				}
 			})
 
-			t.Run("secondary key changes result", func(t *testing.T) {
+			t.Run("secondary key changes result if secondary is explicitly enabled", func(t *testing.T) {
 				for _, p := range makeBucketingTestParams() {
 					t.Run(p.description(), func(t *testing.T) {
 						context1 := ldcontext.New(p.contextValue)
-						context2 := ldcontext.NewBuilder(p.contextValue).Secondary("some-secondary-key").Build()
+						context2 := makeUserContextWithSecondaryKey(t, p.contextValue, "some-secondary-key")
 
-						bucketValue1, failReason, err := makeEvalScope(context1).computeBucketValue(false, noSeed,
+						evalScope1 := makeEvalScope(context1, EvaluatorOptionEnableSecondaryKey(true))
+						bucketValue1, failReason, err := evalScope1.computeBucketValue(false, noSeed,
 							"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
 						assert.NoError(t, err)
 						assert.Equal(t, bucketingFailureReason(0), failReason)
 						assert.InEpsilon(t, p.expectedBucketValue, bucketValue1, 0.0000001)
 
-						bucketValue2, failReason, err := makeEvalScope(context2).computeBucketValue(false, noSeed,
+						evalScope2 := makeEvalScope(context2, EvaluatorOptionEnableSecondaryKey(true))
+						bucketValue2, failReason, err := evalScope2.computeBucketValue(false, noSeed,
 							"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
 						assert.NoError(t, err)
 						assert.Equal(t, bucketingFailureReason(0), failReason)
 						assert.NotEqual(t, bucketValue1, bucketValue2)
+					})
+				}
+			})
+
+			t.Run("secondary key does not change result if secondary is not explicitly enabled", func(t *testing.T) {
+				for _, p := range makeBucketingTestParams() {
+					t.Run(p.description(), func(t *testing.T) {
+						context1 := ldcontext.New(p.contextValue)
+						context2 := makeUserContextWithSecondaryKey(t, p.contextValue, "some-secondary-key")
+
+						evalScope1 := makeEvalScope(context1)
+						bucketValue1, failReason, err := evalScope1.computeBucketValue(false, noSeed,
+							"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
+						assert.NoError(t, err)
+						assert.Equal(t, bucketingFailureReason(0), failReason)
+						assert.InEpsilon(t, p.expectedBucketValue, bucketValue1, 0.0000001)
+
+						evalScope2 := makeEvalScope(context2)
+						bucketValue2, failReason, err := evalScope2.computeBucketValue(false, noSeed,
+							"", p.flagOrSegmentKey, ldattr.Ref{}, p.salt)
+						assert.NoError(t, err)
+						assert.Equal(t, bucketingFailureReason(0), failReason)
+						assert.Equal(t, bucketValue1, bucketValue2)
 					})
 				}
 			})
@@ -160,14 +198,18 @@ func TestExperimentBucketing(t *testing.T) {
 	// the behavior of experiments is expected to be different from the behavior of rollouts.
 
 	checkResult := func(t *testing.T, p bucketingTestParams, context ldcontext.Context, experiment ldmodel.Rollout) {
-		bucketValue, failReason, err := makeEvalScope(context).computeBucketValue(true, p.seed,
+		// Here we enable the secondary key behavior just to verify that it will still *not*
+		// be used in an experiment
+		evalScope := makeEvalScope(context, EvaluatorOptionEnableSecondaryKey(true))
+
+		bucketValue, failReason, err := evalScope.computeBucketValue(true, p.seed,
 			experiment.ContextKind, p.flagOrSegmentKey, experiment.BucketBy, p.salt)
 		assert.NoError(t, err)
 		assert.Equal(t, bucketingFailureReason(0), failReason)
 		assert.InEpsilon(t, p.expectedBucketValue, bucketValue, 0.0000001)
 
 		experiment.Seed = p.seed
-		variationIndex, inExperiment, err := makeEvalScope(context).variationOrRolloutResult(
+		variationIndex, inExperiment, err := evalScope.variationOrRolloutResult(
 			ldmodel.VariationOrRollout{Rollout: experiment},
 			p.flagOrSegmentKey,
 			p.salt,
@@ -246,10 +288,10 @@ func TestExperimentBucketing(t *testing.T) {
 		assert.False(t, inExperiment)
 	})
 
-	t.Run("secondary key is ignored", func(t *testing.T) {
+	t.Run("secondary key is ignored, even if enabled in the evaluator", func(t *testing.T) {
 		for _, p := range makeBucketingTestParamsForExperiments() {
 			t.Run(p.description(), func(t *testing.T) {
-				context := ldcontext.NewBuilder(p.contextValue).Secondary("shouldbeignored").Build()
+				context := makeUserContextWithSecondaryKey(t, p.contextValue, "shouldbeignored")
 				checkResult(t, p, context, baseExperiment) // did not change expectedBucketValue, still passes
 			})
 		}

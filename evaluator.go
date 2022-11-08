@@ -41,6 +41,7 @@ type evaluator struct {
 	dataProvider       DataProvider
 	bigSegmentProvider BigSegmentProvider
 	errorLogger        ldlog.BaseLogger
+	enableSecondaryKey bool
 }
 
 const ( // See Evaluate() regarding the use of these constants
