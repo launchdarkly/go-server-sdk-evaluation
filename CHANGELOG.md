@@ -2,6 +2,10 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.0.1] - 2022-12-01
+### Fixed:
+- Fixed a linter error. There are no functional changes.
+
 ## [2.0.0] - 2022-11-30
 This major version release of `go-server-sdk-evaluation` corresponds to the upcoming v6.0.0 release of the LaunchDarkly Go SDK (`go-server-sdk`), and cannot be used with earlier SDK versions. As before, this package is intended for internal use by the Go SDK, and by LaunchDarkly services; other use is unsupported.
 
