@@ -89,7 +89,8 @@ func (es *evaluationScope) computeBucketValue(
 	}
 
 	if es.owner.enableSecondaryKey && !isExperiment { // secondary key is not supported in experiments
-		if secondary := selectedContext.Secondary(); secondary.IsDefined() {
+		if secondary := selectedContext.Secondary(); secondary.IsDefined() { //nolint:staticcheck
+			// the nolint directive is because we're deliberately referencing the deprecated Secondary
 			hashInput.AppendByte('.')
 			hashInput.AppendString(secondary.StringValue())
 		}
