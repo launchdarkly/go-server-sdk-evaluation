@@ -2,6 +2,27 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.0.0] - 2022-11-30
+This major version release of `go-server-sdk-evaluation` corresponds to the upcoming v6.0.0 release of the LaunchDarkly Go SDK (`go-server-sdk`), and cannot be used with earlier SDK versions. As before, this package is intended for internal use by the Go SDK, and by LaunchDarkly services; other use is unsupported.
+
+### Added:
+- The data model types in `ldmodel` now include optional properties related to new context features, such as `contextKind`.
+- The evaluation engine now includes logic for using the new data model properties in evaluations.
+- `EvaluatorOptionEnableSecondaryKey` enables an opt-in behavior to enable the obsolete `secondary` user attribute in rollouts. This is only for use by internal LaunchDarkly service code that processes user data from older SDKs.
+
+### Changed:
+- The minimum Go version is now 1.18.
+- The package now uses a regular import path (`github.com/launchdarkly/go-server-sdk-evaluation/v2`) rather than a `gopkg.in` path (`gopkg.in/launchdarkly/go-server-sdk-evaluation.v1`).
+- The dependency on `gopkg.in/launchdarkly/go-sdk-common.v2` has been changed to `github.com/launchdarkly/go-sdk-common/v3`.
+- The evaluation engine now operates on the `ldcontext.Context` type rather than `lduser.User`.
+- Evaluator now returns a new `Result` type that includes more information for use in analytics events.
+- `SegmentRule.Weight` is now an `OptionalInt`, instead of an `int` that uses a negative value to mean "undefined".
+
+### Removed:
+- In `ldmodel` data model types, removed methods such as `GetKey()` whose purpose was to implement interfaces in other packages that have been removed.
+- Removed `FeatureFlag.IsExperimentationEnabled()`, which has been superseded by the `Result` type.
+- Removed all symbols that were deprecated as of the latest v1 release.
+
 ## [1.5.0] - 2022-01-05
 ### Added:
 - `NewEvaluatorWithOptions`, `EvaluatorOptionBigSegmentProvider`, `EvaluatorOptionErrorLogger`
