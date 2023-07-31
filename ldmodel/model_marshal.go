@@ -95,6 +95,22 @@ func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
 
 	obj.Name("deleted").Bool(flag.Deleted)
 
+	if flag.Migration != nil {
+		migrationObj := obj.Name("migration").Object()
+
+		if checkRatio, ok := flag.Migration.CheckRatio.Get(); ok {
+			migrationObj.Name("checkRatio").Int(checkRatio)
+		}
+
+		migrationObj.End()
+	}
+
+	if weight, ok := flag.SamplingRatio.Get(); ok {
+		obj.Name("samplingRatio").Int(weight)
+	}
+
+	obj.Name("excludeFromSummaries").Bool(flag.ExcludeFromSummaries)
+
 	obj.End()
 }
 

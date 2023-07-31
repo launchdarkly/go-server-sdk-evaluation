@@ -108,6 +108,11 @@ var flagWithAllProperties = FeatureFlag{
 	DebugEventsUntilDate:   ldtime.UnixMillisecondTime(1000),
 	Version:                99,
 	Deleted:                true,
+	SamplingRatio:          ldvalue.NewOptionalInt(1),
+	ExcludeFromSummaries:   true,
+	Migration: &MigrationFlagParameters{
+		CheckRatio: ldvalue.NewOptionalInt(10),
+	},
 }
 
 var flagWithAllPropertiesJSON = map[string]interface{}{
@@ -203,6 +208,11 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 	"debugEventsUntilDate":   float64(1000),
 	"version":                float64(99),
 	"deleted":                true,
+	"samplingRatio":          1,
+	"excludeFromSummaries":   true,
+	"migration": map[string]interface{}{
+		"checkRatio": 10,
+	},
 }
 
 var flagWithMinimalProperties = FeatureFlag{
