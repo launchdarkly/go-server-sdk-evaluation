@@ -18,8 +18,10 @@ func assertResultDetail(t *testing.T, expected ldreason.EvaluationDetail, result
 }
 
 type simpleDataProvider struct {
-	getFlag    func(string) *ldmodel.FeatureFlag
-	getSegment func(string) *ldmodel.Segment
+	getFlag           func(string) *ldmodel.FeatureFlag
+	getSegment        func(string) *ldmodel.Segment
+	getConfigOverride func(string) *ldmodel.ConfigOverride
+	getMetric         func(string) *ldmodel.Metric
 }
 
 func (s *simpleDataProvider) GetFeatureFlag(key string) *ldmodel.FeatureFlag {
@@ -28,6 +30,14 @@ func (s *simpleDataProvider) GetFeatureFlag(key string) *ldmodel.FeatureFlag {
 
 func (s *simpleDataProvider) GetSegment(key string) *ldmodel.Segment {
 	return s.getSegment(key)
+}
+
+func (s *simpleDataProvider) GetConfigOverride(key string) *ldmodel.ConfigOverride {
+	return s.getConfigOverride(key)
+}
+
+func (s *simpleDataProvider) GetMetric(key string) *ldmodel.Metric {
+	return s.getMetric(key)
 }
 
 func (s *simpleDataProvider) withStoredFlags(flags ...ldmodel.FeatureFlag) *simpleDataProvider {
@@ -41,7 +51,9 @@ func (s *simpleDataProvider) withStoredFlags(flags ...ldmodel.FeatureFlag) *simp
 			}
 			return s.getFlag(key)
 		},
-		getSegment: s.getSegment,
+		getSegment:        s.getSegment,
+		getConfigOverride: s.getConfigOverride,
+		getMetric:         s.getMetric,
 	}
 }
 

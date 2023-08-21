@@ -69,6 +69,16 @@ type DataProvider interface {
 	// The method returns nil if the segment was not found. The DataProvider should treat any deleted
 	// segment as "not found" even if the data store contains a deleted segment placeholder for it.
 	GetSegment(key string) *ldmodel.Segment
+	// GetConfigOverride attempts to retrieve a configuration override from the data store by key.
+	//
+	// The method returns nil if the override was not found. The DataProvider should treat any deleted
+	// overrides as "not found" even if the data store contains a deleted override placeholder for it.
+	GetConfigOverride(key string) *ldmodel.ConfigOverride
+	// GetMetric attempts to retrieve a metric override from the data store by key.
+	//
+	// The method returns nil if the metric was not found. The DataProvider should treat any deleted
+	// metric as "not found" even if the data store contains a deleted metric placeholder for it.
+	GetMetric(key string) *ldmodel.Metric
 }
 
 // BigSegmentProvider is an abstraction for querying membership in big segments. The caller

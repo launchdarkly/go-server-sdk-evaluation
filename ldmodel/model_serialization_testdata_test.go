@@ -26,6 +26,20 @@ type segmentSerializationTestParams struct {
 	jsonAltInputs []string // if specified, unmarshaling test will verify that these parse to the same result
 }
 
+type configOverrideSerializationTestParams struct {
+	name          string
+	override      ConfigOverride
+	jsonString    string   // for marshaling tests, jsonString doesn't need to include any of configOverrideTopLevelDefaultProperties
+	jsonAltInputs []string // if specified, unmarshaling test will verify that these parse to the same result
+}
+
+type metricSerializationTestParams struct {
+	name          string
+	metric        Metric
+	jsonString    string   // for marshaling tests, jsonString doesn't need to include any of metricTopLevelDefaultProperties
+	jsonAltInputs []string // if specified, unmarshaling test will verify that these parse to the same result
+}
+
 type clauseSerializationTestParams struct {
 	name          string
 	clause        Clause
@@ -57,7 +71,6 @@ var flagTopLevelDefaultProperties = map[string]interface{}{
 	"debugEventsUntilDate":   nil,
 	"salt":                   "",
 	"version":                0,
-	"excludeFromSummaries":   false,
 }
 
 var segmentTopLevelDefaultProperties = map[string]interface{}{
@@ -71,6 +84,19 @@ var segmentTopLevelDefaultProperties = map[string]interface{}{
 	"excludedContexts": []interface{}{},
 	"rules":            []interface{}{},
 	"salt":             "",
+}
+
+var configOverrideTopLevelDefaultProperties = map[string]interface{}{
+	"key":     "",
+	"value":   nil,
+	"deleted": false,
+	"version": 0,
+}
+
+var metricTopLevelDefaultProperties = map[string]interface{}{
+	"key":     "",
+	"deleted": false,
+	"version": 0,
 }
 
 func makeFlagSerializationTestParams() []flagSerializationTestParams {
@@ -319,12 +345,7 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 		{
 			name:       "excludeFromSummaries",
 			flag:       FeatureFlag{ExcludeFromSummaries: false},
-			jsonString: `{"excludeFromSummaries": false}`,
-		},
-		{
-			name:       "excludeFromSummaries",
-			flag:       FeatureFlag{},
-			jsonString: `{"excludeFromSummaries": false}`,
+			jsonString: `{}`,
 		},
 	}
 
@@ -535,6 +556,73 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			sp.jsonAltInputs = append(sp.jsonAltInputs, makeSegmentJSONForClause(alt))
 		}
 		ret = append(ret, sp)
+	}
+
+	return ret
+}
+
+func makeConfigOverrideSerializationTestParams() []configOverrideSerializationTestParams {
+	ret := []configOverrideSerializationTestParams{
+		{
+			name:       "defaults",
+			override:   ConfigOverride{},
+			jsonString: `{}`,
+			jsonAltInputs: []string{
+				`{"deleted": false}`,
+				`{"version": 0}`,
+			},
+		},
+		{
+			name:       "key",
+			override:   ConfigOverride{Key: "override-key"},
+			jsonString: `{"key": "override-key"}`,
+		},
+		{
+			name:       "value",
+			override:   ConfigOverride{Value: ldvalue.Bool(true)},
+			jsonString: `{"value": true}`,
+		},
+		{
+			name:       "value",
+			override:   ConfigOverride{Value: ldvalue.Int(13)},
+			jsonString: `{"value": 13}`,
+		},
+		{
+			name:       "value",
+			override:   ConfigOverride{Value: ldvalue.String("example-string")},
+			jsonString: `{"value": "example-string"}`,
+		},
+	}
+
+	return ret
+}
+
+func makeMetricSerializationTestParams() []metricSerializationTestParams {
+	ret := []metricSerializationTestParams{
+		{
+			name:       "defaults",
+			metric:     Metric{},
+			jsonString: `{}`,
+			jsonAltInputs: []string{
+				`{"deleted": false}`,
+				`{"version": 0}`,
+			},
+		},
+		{
+			name:       "key",
+			metric:     Metric{Key: "override-key"},
+			jsonString: `{"key": "override-key"}`,
+		},
+		{
+			name:       "samplingRatio",
+			metric:     Metric{SamplingRatio: ldvalue.NewOptionalInt(1)},
+			jsonString: `{"samplingRatio": 1}`,
+		},
+		{
+			name:       "samplingRatio",
+			metric:     Metric{SamplingRatio: ldvalue.NewOptionalInt(0)},
+			jsonString: `{"samplingRatio": 0}`,
+		},
 	}
 
 	return ret
