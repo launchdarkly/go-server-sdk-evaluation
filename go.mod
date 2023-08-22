@@ -19,3 +19,5 @@ require (
 	golang.org/x/exp v0.0.0-20220823124025-807a23277127 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
+
+replace github.com/launchdarkly/go-sdk-common/v3 => github.com/launchdarkly/go-sdk-common-private/v3 v3.0.0-alpha.6.0.20230818171508-4d48cc1dba90
