@@ -116,13 +116,17 @@ func (s *simpleMembership) exclude(segmentRefs ...string) *simpleMembership {
 
 func TestBigSegmentWithNoProviderIsNotMatched(t *testing.T) {
 	evaluator := NewEvaluator(
-		basicDataProvider().withStoredSegments(
-			ldbuilders.NewSegmentBuilder("segmentkey").
-				Unbounded(true).
-				Generation(1).
-				Included(basicUserKey). // Included should be ignored for a big segment
-				Build(),
-		),
+		basicDataProvider().
+			withStoredSegments(
+				ldbuilders.NewSegmentBuilder("segmentkey").
+					Unbounded(true).
+					Generation(1).
+					Included(basicUserKey). // Included should be ignored for a big segment
+					Build(),
+			).
+			withConfigOverrides(
+				ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build(),
+			),
 	)
 	f := makeBooleanFlagToMatchAnyOfSegments("segmentkey")
 
@@ -136,7 +140,11 @@ func TestBigSegmentWithNoGenerationIsNotMatched(t *testing.T) {
 		Unbounded(true). // but we didn't set Generation
 		Build()
 	evaluator := NewEvaluatorWithOptions(
-		basicDataProvider().withStoredSegments(segment),
+		basicDataProvider().
+			withStoredSegments(segment).
+			withConfigOverrides(
+				ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build(),
+			),
 		EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().withMembership(basicUserKey,
 			basicMembership().include(makeBigSegmentRef(&segment)))),
 	)
@@ -153,8 +161,11 @@ func TestBigSegmentMatch(t *testing.T) {
 	flag := makeBooleanFlagToMatchAnyOfSegments(segmentKey)
 	makeEvaluator := func(segment ldmodel.Segment, contextMembership *simpleMembership) Evaluator {
 		return NewEvaluatorWithOptions(
-			basicDataProvider().withStoredSegments(segment),
-			EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().withMembership(contextKey, contextMembership)),
+			basicDataProvider().withStoredSegments(segment).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
+			EvaluatorOptionBigSegmentProvider(
+				basicBigSegmentsProvider().
+					withMembership(contextKey, contextMembership),
+			),
 		)
 	}
 	for _, contextKind := range []ldcontext.Kind{"", ldcontext.DefaultKind, "other"} {
@@ -239,7 +250,7 @@ func TestBigSegmentIsMatchedWithRuleWhenSegmentDataForUserShowsNoMatch(t *testin
 			Clauses(ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, ldvalue.String(basicUserKey)))).
 		Build()
 	evaluator := NewEvaluatorWithOptions(
-		basicDataProvider().withStoredSegments(segment),
+		basicDataProvider().withStoredSegments(segment).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
 		EvaluatorOptionBigSegmentProvider(
 			basicBigSegmentsProvider().withMembership(basicUserKey, basicMembership())),
 	)
@@ -256,7 +267,7 @@ func TestBigSegmentStatusIsReturnedFromProvider(t *testing.T) {
 		Generation(2).
 		Build()
 	evaluator := NewEvaluatorWithOptions(
-		basicDataProvider().withStoredSegments(segment),
+		basicDataProvider().withStoredSegments(segment).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
 		EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().
 			withMembership(basicUserKey, basicMembership().include(makeBigSegmentRef(&segment))).
 			withStatus(ldreason.BigSegmentsStale)),
@@ -282,7 +293,7 @@ func TestBigSegmentStateIsQueriedOnlyOncePerUniqueContextKey(t *testing.T) {
 		membership := basicMembership().include(makeBigSegmentRef(&segment1), makeBigSegmentRef(&segment2))
 		bigSegmentsProvider := basicBigSegmentsProvider().withMembership(contextKey, membership)
 		evaluator := NewEvaluatorWithOptions(
-			basicDataProvider().withStoredSegments(segment1, segment2),
+			basicDataProvider().withStoredSegments(segment1, segment2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
 			EvaluatorOptionBigSegmentProvider(bigSegmentsProvider),
 		)
 
@@ -307,7 +318,7 @@ func TestBigSegmentStateIsQueriedOnlyOncePerUniqueContextKey(t *testing.T) {
 		membership := basicMembership().include(makeBigSegmentRef(&segment1), makeBigSegmentRef(&segment2))
 		bigSegmentsProvider := basicBigSegmentsProvider().withMembership(contextKey, membership)
 		evaluator := NewEvaluatorWithOptions(
-			basicDataProvider().withStoredSegments(segment1, segment2),
+			basicDataProvider().withStoredSegments(segment1, segment2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
 			EvaluatorOptionBigSegmentProvider(bigSegmentsProvider),
 		)
 
@@ -335,7 +346,7 @@ func TestBigSegmentStateIsQueriedOnlyOncePerUniqueContextKey(t *testing.T) {
 			withMembership(contextKey1, membershipForKey1).
 			withMembership(contextKey2, membershipForKey2)
 		evaluator := NewEvaluatorWithOptions(
-			basicDataProvider().withStoredSegments(segment1, segment2),
+			basicDataProvider().withStoredSegments(segment1, segment2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
 			EvaluatorOptionBigSegmentProvider(bigSegmentsProvider),
 		)
 
@@ -384,7 +395,7 @@ func TestBigSegmentStatusWithMultipleQueries(t *testing.T) {
 				withStatusForKey(contextKey1, p.status1).
 				withStatusForKey(contextKey2, p.status2)
 			evaluator := NewEvaluatorWithOptions(
-				basicDataProvider().withStoredSegments(segment1, segment2),
+				basicDataProvider().withStoredSegments(segment1, segment2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
 				EvaluatorOptionBigSegmentProvider(bigSegmentsProvider),
 			)
 
@@ -411,7 +422,9 @@ func TestBigSegmentStatusIsReturnedWhenBigSegmentWasReferencedFromPrerequisiteFl
 		Build()
 
 	evaluator := NewEvaluatorWithOptions(
-		basicDataProvider().withStoredFlags(f1).withStoredSegments(segment),
+		basicDataProvider().withStoredFlags(f1).withStoredSegments(segment).withConfigOverrides(
+			ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build(),
+		),
 		EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().
 			withMembership(basicUserKey, basicMembership().include(makeBigSegmentRef(&segment))).
 			withStatus(ldreason.BigSegmentsStale)),

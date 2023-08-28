@@ -50,6 +50,11 @@ type RuleBuilder struct {
 	rule ldmodel.FlagRule
 }
 
+// MigrationFlagParametersBuilder provides a builder pattern for MigrationFlagParameter.
+type MigrationFlagParametersBuilder struct {
+	parameters ldmodel.MigrationFlagParameters
+}
+
 // NewFlagBuilder creates a FlagBuilder.
 func NewFlagBuilder(key string) *FlagBuilder {
 	return &FlagBuilder{flag: ldmodel.FeatureFlag{
@@ -120,6 +125,12 @@ func (b *FlagBuilder) Deleted(value bool) *FlagBuilder {
 	return b
 }
 
+// ExcludeFromSummaries sets the flag's ExcludeFromSummaries property.
+func (b *FlagBuilder) ExcludeFromSummaries(value bool) *FlagBuilder {
+	b.flag.ExcludeFromSummaries = value
+	return b
+}
+
 // Fallthrough sets the flag's Fallthrough property.
 func (b *FlagBuilder) Fallthrough(vr ldmodel.VariationOrRollout) *FlagBuilder {
 	b.flag.Fallthrough = vr
@@ -129,6 +140,12 @@ func (b *FlagBuilder) Fallthrough(vr ldmodel.VariationOrRollout) *FlagBuilder {
 // FallthroughVariation sets the flag's Fallthrough property to a fixed variation.
 func (b *FlagBuilder) FallthroughVariation(variationIndex int) *FlagBuilder {
 	return b.Fallthrough(Variation(variationIndex))
+}
+
+// MigrationFlagParameters sets the flag's migration properties to the provided parameter values.
+func (b *FlagBuilder) MigrationFlagParameters(parameters ldmodel.MigrationFlagParameters) *FlagBuilder {
+	b.flag.Migration = &parameters
+	return b
 }
 
 // OffVariation sets the flag's OffVariation property.
@@ -146,6 +163,12 @@ func (b *FlagBuilder) On(value bool) *FlagBuilder {
 // Salt sets the flag's Salt property.
 func (b *FlagBuilder) Salt(value string) *FlagBuilder {
 	b.flag.Salt = value
+	return b
+}
+
+// SamplingRatio configures the 1 in x chance evaluation events will be sampled for this flag.
+func (b *FlagBuilder) SamplingRatio(samplingRatio ldvalue.OptionalInt) *FlagBuilder {
+	b.flag.SamplingRatio = samplingRatio
 	return b
 }
 
@@ -266,4 +289,20 @@ func SegmentMatchClause(segmentKeys ...string) ldmodel.Clause {
 		clause.Values = append(clause.Values, ldvalue.String(key))
 	}
 	return clause
+}
+
+// NewMigrationFlagParametersBuilder creates a MigrationFlagParametersBuilder.
+func NewMigrationFlagParametersBuilder() *MigrationFlagParametersBuilder {
+	return &MigrationFlagParametersBuilder{}
+}
+
+// Build returns the configured MigrationFlagParameters.
+func (b *MigrationFlagParametersBuilder) Build() ldmodel.MigrationFlagParameters {
+	return b.parameters
+}
+
+// CheckRatio controls the frequency a consistency check is performed for a migration flag.
+func (b *MigrationFlagParametersBuilder) CheckRatio(ratio ldvalue.OptionalInt) *MigrationFlagParametersBuilder {
+	b.parameters.CheckRatio = ratio
+	return b
 }

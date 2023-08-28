@@ -32,12 +32,35 @@ func TestFlagReturnsOffVariationIfPrerequisiteIsNotFound(t *testing.T) {
 		FallthroughVariation(0).
 		Variations(fallthroughValue, offValue, onValue).
 		Build()
-	evaluator := NewEvaluator(basicDataProvider().withNonexistentFlag("feature1"))
+	evaluator := NewEvaluator(basicDataProvider().withNonexistentFlag("feature1").withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
 	m.In(t).Assert(result, ResultDetailProps(1, offValue, ldreason.NewEvalReasonPrerequisiteFailed("feature1")))
 	assert.Equal(t, 0, len(eventSink.events))
+}
+
+func TestCanControlSamplingRatios(t *testing.T) {
+	flag1 := ldbuilders.NewFlagBuilder("feature0").On(true).SamplingRatio(ldvalue.NewOptionalInt(10)).Build()
+	flag2 := ldbuilders.NewFlagBuilder("feature1").On(true).AddPrerequisite(flag1.Key, 0).Build()
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(flag1, flag2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(13)).Build()))
+
+	eventSink := prereqEventSink{}
+	evaluator.Evaluate(&flag2, flagTestContext, eventSink.record)
+	assert.Equal(t, 1, len(eventSink.events))
+	assert.Equal(t, 13, eventSink.events[0].IndexSamplingRatio.IntValue())
+	assert.Equal(t, 10, eventSink.events[0].PrerequisiteFlag.SamplingRatio.IntValue())
+}
+
+func TestCanControlSummaryExclusion(t *testing.T) {
+	flag1 := ldbuilders.NewFlagBuilder("feature0").On(true).ExcludeFromSummaries(true).Build()
+	flag2 := ldbuilders.NewFlagBuilder("feature1").On(true).AddPrerequisite(flag1.Key, 0).Build()
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(flag1, flag2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(13)).Build()))
+
+	eventSink := prereqEventSink{}
+	evaluator.Evaluate(&flag2, flagTestContext, eventSink.record)
+	assert.Equal(t, 1, len(eventSink.events))
+	assert.True(t, eventSink.events[0].ExcludeFromSummaries)
 }
 
 func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsOff(t *testing.T) {
@@ -55,7 +78,7 @@ func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsOff(t *testing.T) {
 		FallthroughVariation(0).
 		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
 		Build()
-	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1))
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
@@ -82,7 +105,7 @@ func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsNotMet(t *testing.T) {
 		FallthroughVariation(0).
 		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
 		Build()
-	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1))
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
@@ -109,7 +132,7 @@ func TestFlagReturnsFallthroughVariationAndEventIfPrerequisiteIsMetAndThereAreNo
 		FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
 		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
 		Build()
-	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1))
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
@@ -138,7 +161,7 @@ func TestPrerequisiteCanMatchWithNonScalarValue(t *testing.T) {
 		FallthroughVariation(1). // this 1 matches the 1 in f0's prerequisites
 		Variations(prereqVar0, prereqVar1).
 		Build()
-	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1))
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
@@ -171,7 +194,7 @@ func TestMultipleLevelsOfPrerequisiteProduceMultipleEvents(t *testing.T) {
 		FallthroughVariation(1). // this 1 matches the 1 in f1's prerequisites
 		Variations(ldvalue.String("nogo"), ldvalue.String("go")).
 		Build()
-	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1, f2))
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(f1, f2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 
 	eventSink := prereqEventSink{}
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
@@ -222,7 +245,7 @@ func TestPrerequisiteCycleDetection(t *testing.T) {
 
 			logCapture := ldlogtest.NewMockLog()
 			evaluator := NewEvaluatorWithOptions(
-				basicDataProvider().withStoredFlags(f0, f1, f2),
+				basicDataProvider().withStoredFlags(f0, f1, f2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
 				EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)),
 			)
 

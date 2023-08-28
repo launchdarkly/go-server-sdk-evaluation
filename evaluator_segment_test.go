@@ -21,7 +21,7 @@ import (
 
 func assertSegmentMatch(t *testing.T, segment ldmodel.Segment, context ldcontext.Context, expected bool) {
 	f := makeBooleanFlagToMatchAnyOfSegments(segment.Key)
-	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
+	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 	result := evaluator.Evaluate(&f, context, nil)
 	assert.Equal(t, expected, result.Detail.Value.BoolValue())
 }
@@ -215,7 +215,7 @@ func TestSegmentMatch(t *testing.T) {
 
 func TestSegmentMatchClauseFallsThroughIfSegmentNotFound(t *testing.T) {
 	f := makeBooleanFlagToMatchAnyOfSegments("unknown-segment-key")
-	evaluator := NewEvaluator(basicDataProvider().withNonexistentSegment("unknown-segment-key"))
+	evaluator := NewEvaluator(basicDataProvider().withNonexistentSegment("unknown-segment-key").withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 
 	result := evaluator.Evaluate(&f, flagTestContext, nil)
 	assert.False(t, result.Detail.Value.BoolValue())
@@ -224,7 +224,7 @@ func TestSegmentMatchClauseFallsThroughIfSegmentNotFound(t *testing.T) {
 func TestCanMatchJustOneSegmentFromList(t *testing.T) {
 	segment := buildSegment().Included(flagTestContext.Key()).Build()
 	f := makeBooleanFlagToMatchAnyOfSegments("unknown-segment-key", segment.Key)
-	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment).withNonexistentSegment("unknown-segment-key"))
+	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment).withNonexistentSegment("unknown-segment-key").withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 
 	result := evaluator.Evaluate(&f, flagTestContext, nil)
 	assert.True(t, result.Detail.Value.BoolValue())
@@ -245,7 +245,7 @@ func TestSegmentRulesCanReferenceOtherSegments(t *testing.T) {
 		Build()
 
 	flag := makeBooleanFlagToMatchAnyOfSegments(segment0.Key)
-	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment0, segment1, segment2))
+	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment0, segment1, segment2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 
 	assert.True(t, evaluator.Evaluate(&flag, context1, nil).Detail.Value.BoolValue())
 	assert.True(t, evaluator.Evaluate(&flag, context2, nil).Detail.Value.BoolValue())
@@ -273,7 +273,7 @@ func TestSegmentCycleDetection(t *testing.T) {
 			flag := makeBooleanFlagToMatchAnyOfSegments(segment0.Key)
 			logCapture := ldlogtest.NewMockLog()
 			evaluator := NewEvaluatorWithOptions(
-				basicDataProvider().withStoredSegments(segment0, segment1, segment2),
+				basicDataProvider().withStoredSegments(segment0, segment1, segment2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
 				EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)),
 			)
 
@@ -471,7 +471,7 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 			flag := makeBooleanFlagToMatchAnyOfSegments(p.segment.Key)
 
 			t.Run("returns error", func(t *testing.T) {
-				e := NewEvaluator(basicDataProvider().withStoredSegments(p.segment))
+				e := NewEvaluator(basicDataProvider().withStoredSegments(p.segment).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()))
 				result := e.Evaluate(&flag, p.context, FailOnAnyPrereqEvent(t))
 
 				m.In(t).Assert(result, ResultDetailError(ldreason.EvalErrorMalformedFlag))
@@ -479,7 +479,7 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 
 			t.Run("logs error", func(t *testing.T) {
 				logCapture := ldlogtest.NewMockLog()
-				e := NewEvaluatorWithOptions(basicDataProvider().withStoredSegments(p.segment),
+				e := NewEvaluatorWithOptions(basicDataProvider().withStoredSegments(p.segment).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
 					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
 				_ = e.Evaluate(&flag, p.context, FailOnAnyPrereqEvent(t))
 

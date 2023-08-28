@@ -81,6 +81,25 @@ func (s *simpleDataProvider) withStoredSegments(segments ...ldmodel.Segment) *si
 			}
 			return s.getSegment(key)
 		},
+		getConfigOverride: s.getConfigOverride,
+		getMetric:         s.getMetric,
+	}
+}
+
+func (s *simpleDataProvider) withConfigOverrides(overrides ...ldmodel.ConfigOverride) *simpleDataProvider {
+	return &simpleDataProvider{
+		getFlag:    s.getFlag,
+		getSegment: s.getSegment,
+		getConfigOverride: func(key string) *ldmodel.ConfigOverride {
+			for _, override := range overrides {
+				if override.Key == key {
+					o := override
+					return &o
+				}
+			}
+			return s.getConfigOverride(key)
+		},
+		getMetric: s.getMetric,
 	}
 }
 
@@ -104,11 +123,22 @@ func basicDataProvider() *simpleDataProvider {
 		getSegment: func(key string) *ldmodel.Segment {
 			panic(fmt.Errorf("unexpectedly queried segment: %s", key))
 		},
+		getConfigOverride: func(key string) *ldmodel.ConfigOverride {
+			panic(fmt.Errorf("unexpectedly queried config override: %s", key))
+		},
+		getMetric: func(key string) *ldmodel.Metric {
+			panic(fmt.Errorf("unexpectedly queried metric: %s", key))
+		},
 	}
 }
 
 func basicEvaluator() Evaluator {
-	return NewEvaluator(basicDataProvider())
+	return NewEvaluator(
+		basicDataProvider().
+			withConfigOverrides(
+				ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build(),
+			),
+	)
 }
 
 func makeClauseToMatchContext(context ldcontext.Context) ldmodel.Clause {

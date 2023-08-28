@@ -84,6 +84,7 @@ type evaluationScope struct {
 	// big segment references during an evaluation. See evaluator_segment.go.
 	bigSegmentsMemberships map[string]BigSegmentMembership
 	bigSegmentsStatus      ldreason.BigSegmentsStatus
+	indexSamplingRatio     ldvalue.OptionalInt
 }
 
 type evaluationStack struct {
@@ -101,11 +102,18 @@ func (e *evaluator) Evaluate(
 		return Result{Detail: ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null())}
 	}
 
+	var indexSamplingRatio ldvalue.OptionalInt
+	override := e.dataProvider.GetConfigOverride("indexSamplingRatio")
+	if override != nil && override.Value.IsNumber() {
+		indexSamplingRatio = ldvalue.NewOptionalInt(override.Value.IntValue())
+	}
+
 	es := evaluationScope{
 		owner:                         e,
 		flag:                          flag,
 		context:                       context,
 		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
+		indexSamplingRatio:            indexSamplingRatio,
 	}
 
 	// Preallocate some space for prerequisiteFlagChain and segmentChain on the stack. We can
@@ -231,7 +239,7 @@ func (es *evaluationScope) checkPrerequisites(stack evaluationStack) (ldreason.E
 			event := PrerequisiteFlagEvent{es.flag.Key, es.context, prereqFeatureFlag, Result{
 				Detail:       prereqResultDetail,
 				IsExperiment: isExperiment(prereqFeatureFlag, prereqResultDetail.Reason),
-			}}
+			}, es.indexSamplingRatio, prereqFeatureFlag.ExcludeFromSummaries}
 			es.prerequisiteFlagEventRecorder(event)
 		}
 

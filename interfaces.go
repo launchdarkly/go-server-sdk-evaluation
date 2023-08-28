@@ -45,6 +45,10 @@ type PrerequisiteFlagEvent struct {
 	PrerequisiteFlag *ldmodel.FeatureFlag
 	// PrerequisiteResult is the result of evaluating the prerequisite flag.
 	PrerequisiteResult Result
+	// IndexSamplingRatio determines the 1 in x chance the event will generate an index event.
+	IndexSamplingRatio ldvalue.OptionalInt
+	// ExcludeFromSummaries determines if the event will be included in summary information.
+	ExcludeFromSummaries bool
 }
 
 // DataProvider is an abstraction for querying feature flags and user segments from a data store.
