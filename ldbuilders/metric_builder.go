@@ -16,8 +16,8 @@ func NewMetricBuilder(key string) *MetricBuilder {
 }
 
 // SamplingRatio sets the metric's sampling ratio.
-func (b *MetricBuilder) SamplingRatio(ratio ldvalue.OptionalInt) *MetricBuilder {
-	b.metric.SamplingRatio = ratio
+func (b *MetricBuilder) SamplingRatio(ratio int) *MetricBuilder {
+	b.metric.SamplingRatio = ldvalue.NewOptionalInt(ratio)
 	return b
 }
 

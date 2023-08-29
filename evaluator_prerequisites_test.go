@@ -41,7 +41,7 @@ func TestFlagReturnsOffVariationIfPrerequisiteIsNotFound(t *testing.T) {
 }
 
 func TestCanControlSamplingRatios(t *testing.T) {
-	flag1 := ldbuilders.NewFlagBuilder("feature0").On(true).SamplingRatio(ldvalue.NewOptionalInt(10)).Build()
+	flag1 := ldbuilders.NewFlagBuilder("feature0").On(true).SamplingRatio(10).Build()
 	flag2 := ldbuilders.NewFlagBuilder("feature1").On(true).AddPrerequisite(flag1.Key, 0).Build()
 	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(flag1, flag2).withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(13)).Build()))
 

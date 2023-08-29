@@ -167,8 +167,8 @@ func (b *FlagBuilder) Salt(value string) *FlagBuilder {
 }
 
 // SamplingRatio configures the 1 in x chance evaluation events will be sampled for this flag.
-func (b *FlagBuilder) SamplingRatio(samplingRatio ldvalue.OptionalInt) *FlagBuilder {
-	b.flag.SamplingRatio = samplingRatio
+func (b *FlagBuilder) SamplingRatio(samplingRatio int) *FlagBuilder {
+	b.flag.SamplingRatio = ldvalue.NewOptionalInt(samplingRatio)
 	return b
 }
 
@@ -302,7 +302,7 @@ func (b *MigrationFlagParametersBuilder) Build() ldmodel.MigrationFlagParameters
 }
 
 // CheckRatio controls the frequency a consistency check is performed for a migration flag.
-func (b *MigrationFlagParametersBuilder) CheckRatio(ratio ldvalue.OptionalInt) *MigrationFlagParametersBuilder {
-	b.parameters.CheckRatio = ratio
+func (b *MigrationFlagParametersBuilder) CheckRatio(ratio int) *MigrationFlagParametersBuilder {
+	b.parameters.CheckRatio = ldvalue.NewOptionalInt(ratio)
 	return b
 }
