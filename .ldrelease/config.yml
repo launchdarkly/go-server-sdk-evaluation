@@ -14,5 +14,5 @@ branches:
   - name: v1
 
 publications:
-  - url: https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v2
+  - url: https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v3
     description: documentation

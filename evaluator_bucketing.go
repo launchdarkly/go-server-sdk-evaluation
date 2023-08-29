@@ -4,7 +4,7 @@ import (
 	"crypto/sha1" //nolint:gosec // SHA1 is cryptographically weak but we are not using it to hash any credentials
 	"encoding/hex"
 
-	"github.com/launchdarkly/go-server-sdk-evaluation/v2/internal"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v3/internal"
 
 	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"

@@ -1,12 +1,11 @@
 package evaluation
 
 import (
-	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
-
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldlog"
 	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldmodel"
 )
 
 // Notes on some implementation details in this file:
