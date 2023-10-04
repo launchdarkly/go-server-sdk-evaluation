@@ -55,7 +55,7 @@ func TestMalformedFlagErrorForBadRuleProperties(t *testing.T) {
 
 			t.Run("logs error", func(t *testing.T) {
 				logCapture := ldlogtest.NewMockLog()
-				e := NewEvaluatorWithOptions(basicDataProvider().withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
+				e := NewEvaluatorWithOptions(basicDataProvider(),
 					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
 				_ = e.Evaluate(&p.flag, p.context, FailOnAnyPrereqEvent(t))
 
@@ -108,7 +108,7 @@ func TestMalformedFlagErrorForBadClauseProperties(t *testing.T) {
 
 			t.Run("logs error", func(t *testing.T) {
 				logCapture := ldlogtest.NewMockLog()
-				e := NewEvaluatorWithOptions(basicDataProvider().withConfigOverrides(ldbuilders.NewConfigOverrideBuilder("indexSamplingRatio").Value(ldvalue.Int(1)).Build()),
+				e := NewEvaluatorWithOptions(basicDataProvider(),
 					EvaluatorOptionErrorLogger(logCapture.Loggers.ForLevel(ldlog.Error)))
 				_ = e.Evaluate(&flag, p.context, FailOnAnyPrereqEvent(t))
 

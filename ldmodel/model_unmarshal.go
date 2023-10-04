@@ -46,36 +46,6 @@ func unmarshalSegmentFromReader(r *jreader.Reader) Segment {
 	return parsed
 }
 
-func unmarshalConfigOverrideFromBytes(data []byte) (ConfigOverride, error) {
-	r := jreader.NewReader(data)
-	parsed := unmarshalConfigOverrideFromReader(&r)
-	if err := r.Error(); err != nil {
-		return ConfigOverride{}, jreader.ToJSONError(err, &parsed)
-	}
-	return parsed, nil
-}
-
-func unmarshalConfigOverrideFromReader(r *jreader.Reader) ConfigOverride {
-	var parsed ConfigOverride
-	readConfigOverride(r, &parsed)
-	return parsed
-}
-
-func unmarshalMetricFromBytes(data []byte) (Metric, error) {
-	r := jreader.NewReader(data)
-	parsed := unmarshalMetricFromReader(&r)
-	if err := r.Error(); err != nil {
-		return Metric{}, jreader.ToJSONError(err, &parsed)
-	}
-	return parsed, nil
-}
-
-func unmarshalMetricFromReader(r *jreader.Reader) Metric {
-	var parsed Metric
-	readMetric(r, &parsed)
-	return parsed
-}
-
 func readFeatureFlag(r *jreader.Reader, flag *FeatureFlag) {
 	deprecatedClientSide := false
 
@@ -332,36 +302,6 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 			segment.Unbounded = r.Bool()
 		case "unboundedContextKind":
 			segment.UnboundedContextKind = ldcontext.Kind(r.String())
-		}
-	}
-}
-
-func readConfigOverride(r *jreader.Reader, override *ConfigOverride) {
-	for obj := r.Object(); obj.Next(); {
-		switch string(obj.Name()) {
-		case "key":
-			override.Key = r.String()
-		case "value":
-			override.Value.ReadFromJSONReader(r)
-		case "version":
-			override.Version = r.Int()
-		case "deleted":
-			override.Deleted = r.Bool()
-		}
-	}
-}
-
-func readMetric(r *jreader.Reader, metric *Metric) {
-	for obj := r.Object(); obj.Next(); {
-		switch string(obj.Name()) {
-		case "key":
-			metric.Key = r.String()
-		case "samplingRatio":
-			metric.SamplingRatio = ldvalue.NewOptionalInt(r.Int())
-		case "version":
-			metric.Version = r.Int()
-		case "deleted":
-			metric.Deleted = r.Bool()
 		}
 	}
 }

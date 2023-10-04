@@ -36,23 +36,11 @@ type DataModelSerialization interface {
 	// MarshalSegment converts a Segment into its serialized encoding.
 	MarshalSegment(item Segment) ([]byte, error)
 
-	// MarshalConfigOverride converts a ConfigOverride into its serialized encoding.
-	MarshalConfigOverride(item ConfigOverride) ([]byte, error)
-
-	// MarshalMetric converts a Metric into its serialized encoding.
-	MarshalMetric(item Metric) ([]byte, error)
-
 	// UnmarshalFeatureFlag attempts to convert a FeatureFlag from its serialized encoding.
 	UnmarshalFeatureFlag(data []byte) (FeatureFlag, error)
 
 	// UnmarshalSegment attempts to convert a Segment from its serialized encoding.
 	UnmarshalSegment(data []byte) (Segment, error)
-
-	// UnmarshalConfigOverride attempts to convert a ConfigOverride from its serialized encoding.
-	UnmarshalConfigOverride(data []byte) (ConfigOverride, error)
-
-	// UnmarshalMetric attempts to convert a Metric from its serialized encoding.
-	UnmarshalMetric(data []byte) (Metric, error)
 }
 
 // MarshalFeatureFlagToJSONWriter attempts to convert a FeatureFlag to JSON using the jsonstream API.
@@ -67,18 +55,6 @@ func MarshalSegmentToJSONWriter(item Segment, writer *jwriter.Writer) {
 	marshalSegmentToWriter(item, writer)
 }
 
-// MarshalConfigOverrideToJSONWriter attempts to convert a ConfigOverride to JSON using the jsonstream API.
-// For details, see: https://github.com/launchdarkly/go-jsonstream/v3
-func MarshalConfigOverrideToJSONWriter(item ConfigOverride, writer *jwriter.Writer) {
-	marshalConfigOverrideToWriter(item, writer)
-}
-
-// MarshalMetricToJSONWriter attempts to convert a Metric to JSON using the jsonstream API.
-// For details, see: https://github.com/launchdarkly/go-jsonstream/v3
-func MarshalMetricToJSONWriter(item Metric, writer *jwriter.Writer) {
-	marshalMetricToWriter(item, writer)
-}
-
 // UnmarshalFeatureFlagFromJSONReader attempts to convert a FeatureFlag from JSON using the jsonstream
 // API. For details, see: https://github.com/launchdarkly/go-jsonstream/v3
 func UnmarshalFeatureFlagFromJSONReader(reader *jreader.Reader) FeatureFlag {
@@ -89,18 +65,6 @@ func UnmarshalFeatureFlagFromJSONReader(reader *jreader.Reader) FeatureFlag {
 // For details, see: https://github.com/launchdarkly/go-jsonstream/v3
 func UnmarshalSegmentFromJSONReader(reader *jreader.Reader) Segment {
 	return unmarshalSegmentFromReader(reader)
-}
-
-// UnmarshalConfigOverrideFromJSONReader attempts to convert a ConfigOverride from JSON using the jsonstream API.
-// For details, see: https://github.com/launchdarkly/go-jsonstream/v3
-func UnmarshalConfigOverrideFromJSONReader(reader *jreader.Reader) ConfigOverride {
-	return unmarshalConfigOverrideFromReader(reader)
-}
-
-// UnmarshalMetricFromJSONReader attempts to convert a Metric from JSON using the jsonstream API.
-// For details, see: https://github.com/launchdarkly/go-jsonstream/v3
-func UnmarshalMetricFromJSONReader(reader *jreader.Reader) Metric {
-	return unmarshalMetricFromReader(reader)
 }
 
 type jsonDataModelSerialization struct{}
@@ -123,28 +87,12 @@ func (s jsonDataModelSerialization) MarshalSegment(item Segment) ([]byte, error)
 	return marshalSegment(item)
 }
 
-func (s jsonDataModelSerialization) MarshalConfigOverride(item ConfigOverride) ([]byte, error) {
-	return marshalConfigOverride(item)
-}
-
-func (s jsonDataModelSerialization) MarshalMetric(item Metric) ([]byte, error) {
-	return marshalMetric(item)
-}
-
 func (s jsonDataModelSerialization) UnmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
 	return unmarshalFeatureFlagFromBytes(data)
 }
 
 func (s jsonDataModelSerialization) UnmarshalSegment(data []byte) (Segment, error) {
 	return unmarshalSegmentFromBytes(data)
-}
-
-func (s jsonDataModelSerialization) UnmarshalConfigOverride(data []byte) (ConfigOverride, error) {
-	return unmarshalConfigOverrideFromBytes(data)
-}
-
-func (s jsonDataModelSerialization) UnmarshalMetric(data []byte) (Metric, error) {
-	return unmarshalMetricFromBytes(data)
 }
 
 // MarshalJSON overrides the default json.Marshal behavior to provide the same marshalling behavior that is
@@ -157,18 +105,6 @@ func (f FeatureFlag) MarshalJSON() ([]byte, error) {
 // used by NewJSONDataModelSerialization().
 func (s Segment) MarshalJSON() ([]byte, error) {
 	return marshalSegment(s)
-}
-
-// MarshalJSON overrides the default json.Marshal behavior to provide the same marshalling behavior that is
-// used by NewJSONDataModelSerialization().
-func (o ConfigOverride) MarshalJSON() ([]byte, error) {
-	return marshalConfigOverride(o)
-}
-
-// MarshalJSON overrides the default json.Marshal behavior to provide the same marshalling behavior that is
-// used by NewJSONDataModelSerialization().
-func (m Metric) MarshalJSON() ([]byte, error) {
-	return marshalMetric(m)
 }
 
 // UnmarshalJSON overrides the default json.Unmarshal behavior to provide the same unmarshalling behavior that
@@ -187,26 +123,6 @@ func (s *Segment) UnmarshalJSON(data []byte) error {
 	result, err := unmarshalSegmentFromBytes(data)
 	if err == nil {
 		*s = result
-	}
-	return err
-}
-
-// UnmarshalJSON overrides the default json.Unmarshal behavior to provide the same unmarshalling behavior that
-// is used by NewJSONDataModelSerialization().
-func (o *ConfigOverride) UnmarshalJSON(data []byte) error {
-	result, err := unmarshalConfigOverrideFromBytes(data)
-	if err == nil {
-		*o = result
-	}
-	return err
-}
-
-// UnmarshalJSON overrides the default json.Unmarshal behavior to provide the same unmarshalling behavior that
-// is used by NewJSONDataModelSerialization().
-func (m *Metric) UnmarshalJSON(data []byte) error {
-	result, err := unmarshalMetricFromBytes(data)
-	if err == nil {
-		*m = result
 	}
 	return err
 }

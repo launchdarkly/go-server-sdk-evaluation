@@ -23,8 +23,6 @@ import (
 // - FeatureFlag.ExcludeFromSummaries
 //
 // - Segment.Unbounded
-//
-// - ConfigOverride and Metric types
 
 func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	w := jwriter.NewWriter()
@@ -258,42 +256,4 @@ func writeAttrRef(w *jwriter.Writer, ref *ldattr.Ref, contextKind ldcontext.Kind
 	} else {
 		w.String(ref.String())
 	}
-}
-
-func marshalConfigOverride(override ConfigOverride) ([]byte, error) {
-	w := jwriter.NewWriter()
-	marshalConfigOverrideToWriter(override, &w)
-	return w.Bytes(), w.Error()
-}
-
-func marshalConfigOverrideToWriter(override ConfigOverride, w *jwriter.Writer) {
-	obj := w.Object()
-
-	obj.Name("key").String(override.Key)
-	override.Value.WriteToJSONWriter(obj.Name("value"))
-	obj.Name("version").Int(override.Version)
-	obj.Name("deleted").Bool(override.Deleted)
-
-	obj.End()
-}
-
-func marshalMetric(metric Metric) ([]byte, error) {
-	w := jwriter.NewWriter()
-	marshalMetricToWriter(metric, &w)
-	return w.Bytes(), w.Error()
-}
-
-func marshalMetricToWriter(metric Metric, w *jwriter.Writer) {
-	obj := w.Object()
-
-	obj.Name("key").String(metric.Key)
-
-	if value, ok := metric.SamplingRatio.Get(); ok {
-		obj.Name("samplingRatio").Int(value)
-	}
-
-	obj.Name("version").Int(metric.Version)
-	obj.Name("deleted").Bool(metric.Deleted)
-
-	obj.End()
 }
