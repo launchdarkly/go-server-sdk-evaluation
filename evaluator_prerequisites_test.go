@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldbuilders"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldbuilders"
 
 	"github.com/launchdarkly/go-sdk-common/v3/ldlog"
 	"github.com/launchdarkly/go-sdk-common/v3/ldlogtest"
@@ -38,6 +38,28 @@ func TestFlagReturnsOffVariationIfPrerequisiteIsNotFound(t *testing.T) {
 	result := evaluator.Evaluate(&f0, flagTestContext, eventSink.record)
 	m.In(t).Assert(result, ResultDetailProps(1, offValue, ldreason.NewEvalReasonPrerequisiteFailed("feature1")))
 	assert.Equal(t, 0, len(eventSink.events))
+}
+
+func TestCanControlSamplingRatios(t *testing.T) {
+	flag1 := ldbuilders.NewFlagBuilder("feature0").On(true).SamplingRatio(10).Build()
+	flag2 := ldbuilders.NewFlagBuilder("feature1").On(true).AddPrerequisite(flag1.Key, 0).Build()
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(flag1, flag2))
+
+	eventSink := prereqEventSink{}
+	evaluator.Evaluate(&flag2, flagTestContext, eventSink.record)
+	assert.Equal(t, 1, len(eventSink.events))
+	assert.Equal(t, 10, eventSink.events[0].PrerequisiteFlag.SamplingRatio.IntValue())
+}
+
+func TestCanControlSummaryExclusion(t *testing.T) {
+	flag1 := ldbuilders.NewFlagBuilder("feature0").On(true).ExcludeFromSummaries(true).Build()
+	flag2 := ldbuilders.NewFlagBuilder("feature1").On(true).AddPrerequisite(flag1.Key, 0).Build()
+	evaluator := NewEvaluator(basicDataProvider().withStoredFlags(flag1, flag2))
+
+	eventSink := prereqEventSink{}
+	evaluator.Evaluate(&flag2, flagTestContext, eventSink.record)
+	assert.Equal(t, 1, len(eventSink.events))
+	assert.True(t, eventSink.events[0].ExcludeFromSummaries)
 }
 
 func TestFlagReturnsOffVariationAndEventIfPrerequisiteIsOff(t *testing.T) {

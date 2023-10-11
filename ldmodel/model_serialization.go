@@ -39,7 +39,7 @@ type DataModelSerialization interface {
 	// UnmarshalFeatureFlag attempts to convert a FeatureFlag from its serialized encoding.
 	UnmarshalFeatureFlag(data []byte) (FeatureFlag, error)
 
-	// UnmarshalFeatureFlag attempts to convert a FeatureFlag from its serialized encoding.
+	// UnmarshalSegment attempts to convert a Segment from its serialized encoding.
 	UnmarshalSegment(data []byte) (Segment, error)
 }
 

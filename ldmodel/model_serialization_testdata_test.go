@@ -3,9 +3,10 @@ package ldmodel
 import (
 	"encoding/json"
 
+	"github.com/launchdarkly/go-sdk-common/v3/ldtime"
+
 	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
-	"github.com/launchdarkly/go-sdk-common/v3/ldtime"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
@@ -273,6 +274,51 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			name:       "debugEventsUntilDate",
 			flag:       FeatureFlag{DebugEventsUntilDate: ldtime.UnixMillisecondTime(1000)},
 			jsonString: `{"debugEventsUntilDate": 1000}`,
+		},
+		{
+			name:       "migration",
+			flag:       FeatureFlag{Migration: nil},
+			jsonString: `{}`,
+		},
+		{
+			name:       "migration",
+			flag:       FeatureFlag{Migration: &MigrationFlagParameters{CheckRatio: ldvalue.NewOptionalInt(2)}},
+			jsonString: `{"migration": {"checkRatio": 2}}`,
+		},
+		{
+			name:       "migration",
+			flag:       FeatureFlag{Migration: &MigrationFlagParameters{CheckRatio: ldvalue.NewOptionalInt(1)}},
+			jsonString: `{"migration": {"checkRatio": 1}}`,
+		},
+		{
+			name:       "samplingRatio",
+			flag:       FeatureFlag{},
+			jsonString: `{}`,
+		},
+		{
+			name:       "samplingRatio",
+			flag:       FeatureFlag{SamplingRatio: ldvalue.NewOptionalInt(10)},
+			jsonString: `{"samplingRatio": 10}`,
+		},
+		{
+			name:       "samplingRatio",
+			flag:       FeatureFlag{SamplingRatio: ldvalue.NewOptionalInt(1)},
+			jsonString: `{"samplingRatio": 1}`,
+		},
+		{
+			name:       "excludeFromSummaries",
+			flag:       FeatureFlag{},
+			jsonString: `{}`,
+		},
+		{
+			name:       "excludeFromSummaries",
+			flag:       FeatureFlag{ExcludeFromSummaries: true},
+			jsonString: `{"excludeFromSummaries": true}`,
+		},
+		{
+			name:       "excludeFromSummaries",
+			flag:       FeatureFlag{ExcludeFromSummaries: false},
+			jsonString: `{}`,
 		},
 	}
 

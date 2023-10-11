@@ -5,7 +5,7 @@ import (
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldtime"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
-	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldmodel"
 )
 
 // Bucket constructs a WeightedVariation with the specified variation index and weight.
@@ -48,6 +48,11 @@ type FlagBuilder struct {
 // RuleBuilder provides a builder pattern for FlagRule.
 type RuleBuilder struct {
 	rule ldmodel.FlagRule
+}
+
+// MigrationFlagParametersBuilder provides a builder pattern for MigrationFlagParameter.
+type MigrationFlagParametersBuilder struct {
+	parameters ldmodel.MigrationFlagParameters
 }
 
 // NewFlagBuilder creates a FlagBuilder.
@@ -120,6 +125,12 @@ func (b *FlagBuilder) Deleted(value bool) *FlagBuilder {
 	return b
 }
 
+// ExcludeFromSummaries sets the flag's ExcludeFromSummaries property.
+func (b *FlagBuilder) ExcludeFromSummaries(value bool) *FlagBuilder {
+	b.flag.ExcludeFromSummaries = value
+	return b
+}
+
 // Fallthrough sets the flag's Fallthrough property.
 func (b *FlagBuilder) Fallthrough(vr ldmodel.VariationOrRollout) *FlagBuilder {
 	b.flag.Fallthrough = vr
@@ -129,6 +140,12 @@ func (b *FlagBuilder) Fallthrough(vr ldmodel.VariationOrRollout) *FlagBuilder {
 // FallthroughVariation sets the flag's Fallthrough property to a fixed variation.
 func (b *FlagBuilder) FallthroughVariation(variationIndex int) *FlagBuilder {
 	return b.Fallthrough(Variation(variationIndex))
+}
+
+// MigrationFlagParameters sets the flag's migration properties to the provided parameter values.
+func (b *FlagBuilder) MigrationFlagParameters(parameters ldmodel.MigrationFlagParameters) *FlagBuilder {
+	b.flag.Migration = &parameters
+	return b
 }
 
 // OffVariation sets the flag's OffVariation property.
@@ -146,6 +163,12 @@ func (b *FlagBuilder) On(value bool) *FlagBuilder {
 // Salt sets the flag's Salt property.
 func (b *FlagBuilder) Salt(value string) *FlagBuilder {
 	b.flag.Salt = value
+	return b
+}
+
+// SamplingRatio configures the 1 in x chance evaluation events will be sampled for this flag.
+func (b *FlagBuilder) SamplingRatio(samplingRatio int) *FlagBuilder {
+	b.flag.SamplingRatio = ldvalue.NewOptionalInt(samplingRatio)
 	return b
 }
 
@@ -266,4 +289,20 @@ func SegmentMatchClause(segmentKeys ...string) ldmodel.Clause {
 		clause.Values = append(clause.Values, ldvalue.String(key))
 	}
 	return clause
+}
+
+// NewMigrationFlagParametersBuilder creates a MigrationFlagParametersBuilder.
+func NewMigrationFlagParametersBuilder() *MigrationFlagParametersBuilder {
+	return &MigrationFlagParametersBuilder{}
+}
+
+// Build returns the configured MigrationFlagParameters.
+func (b *MigrationFlagParametersBuilder) Build() ldmodel.MigrationFlagParameters {
+	return b.parameters
+}
+
+// CheckRatio controls the frequency a consistency check is performed for a migration flag.
+func (b *MigrationFlagParametersBuilder) CheckRatio(ratio int) *MigrationFlagParametersBuilder {
+	b.parameters.CheckRatio = ldvalue.NewOptionalInt(ratio)
+	return b
 }

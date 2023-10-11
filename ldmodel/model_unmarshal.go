@@ -20,6 +20,7 @@ func unmarshalFeatureFlagFromBytes(data []byte) (FeatureFlag, error) {
 
 func unmarshalFeatureFlagFromReader(r *jreader.Reader) FeatureFlag {
 	var parsed FeatureFlag
+
 	readFeatureFlag(r, &parsed)
 	if r.Error() == nil {
 		PreprocessFlag(&parsed)
@@ -86,6 +87,12 @@ func readFeatureFlag(r *jreader.Reader, flag *FeatureFlag) {
 			flag.Version = r.Int()
 		case "deleted":
 			flag.Deleted = r.Bool()
+		case "excludeFromSummaries":
+			flag.ExcludeFromSummaries = r.Bool()
+		case "samplingRatio":
+			flag.SamplingRatio = ldvalue.NewOptionalInt(r.Int())
+		case "migration":
+			readMigration(r, flag)
 		}
 	}
 
@@ -233,6 +240,16 @@ func readClientSideAvailability(r *jreader.Reader, out *ClientSideAvailability) 
 			out.UsingEnvironmentID = r.Bool()
 		case "usingMobileKey":
 			out.UsingMobileKey = r.Bool()
+		}
+	}
+}
+
+func readMigration(r *jreader.Reader, flag *FeatureFlag) {
+	flag.Migration = &MigrationFlagParameters{}
+
+	for obj := r.ObjectOrNull(); obj.Next(); {
+		if string(obj.Name()) == "checkRatio" {
+			flag.Migration.CheckRatio = ldvalue.NewOptionalInt(r.Int())
 		}
 	}
 }

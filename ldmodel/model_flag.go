@@ -93,6 +93,31 @@ type FeatureFlag struct {
 	// deleted flag. This is only relevant in data store implementations. The SDK does not evaluate
 	// deleted flags.
 	Deleted bool
+	// Migration contains migration-related flag parameters. If this flag is
+	// for migration purposes, this property is guaranteed to be set.
+	Migration *MigrationFlagParameters
+	// SamplingRatio controls the rate at which feature and debug events are emitted from the SDK for
+	// this particular flag. If this value is not defined, it is assumed to be 1. Non-positive
+	// values will disable emission entirely.
+	//
+	// LaunchDarkly may affect this flag to prevent poorly performing applications from adversely
+	// affecting upstream service health.
+	SamplingRatio ldvalue.OptionalInt
+	// ExcludeFromSummaries determines whether or not this flag will be excluded from the event
+	// summarization process.
+	//
+	// LaunchDarkly may affect this flag to prevent poorly performing applications from adversely
+	// affecting upstream service health.
+	ExcludeFromSummaries bool
+}
+
+// MigrationFlagParameters are used to control flag-specific migration
+// configuration.
+type MigrationFlagParameters struct {
+	// CheckRatio controls the rate at which consistency checks are performing during a
+	// migration-influenced read or write operation. This value can be controlled through the
+	// LaunchDarkly UI and propagated downstream to the SDKs.
+	CheckRatio ldvalue.OptionalInt
 }
 
 // FlagRule describes a single rule within a feature flag.

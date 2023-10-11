@@ -15,7 +15,13 @@ import (
 //
 // Properties that did not exist prior to Go SDK v5 are always safe to drop if they have default
 // values, since older SDKs will never look for them. These are:
+//
 // - FeatureFlag.ClientSideAvailability
+// - FeatureFlag.Migration
+// - FeatureFlag.Migration.CheckRatio
+// - FeatureFlag.SamplingRatio
+// - FeatureFlag.ExcludeFromSummaries
+//
 // - Segment.Unbounded
 
 func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
@@ -94,6 +100,24 @@ func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
 	obj.Name("version").Int(flag.Version)
 
 	obj.Name("deleted").Bool(flag.Deleted)
+
+	if flag.Migration != nil {
+		migrationObj := obj.Name("migration").Object()
+
+		if checkRatio, ok := flag.Migration.CheckRatio.Get(); ok {
+			migrationObj.Name("checkRatio").Int(checkRatio)
+		}
+
+		migrationObj.End()
+	}
+
+	if weight, ok := flag.SamplingRatio.Get(); ok {
+		obj.Name("samplingRatio").Int(weight)
+	}
+
+	if flag.ExcludeFromSummaries {
+		obj.Name("excludeFromSummaries").Bool(flag.ExcludeFromSummaries)
+	}
 
 	obj.End()
 }
