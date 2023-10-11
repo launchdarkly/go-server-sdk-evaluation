@@ -1,6 +1,6 @@
 # LaunchDarkly Go SDK Evaluation Engine
 
-[![Circle CI](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation.svg?style=shield)](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation) [![Documentation](https://img.shields.io/static/v1?label=go.dev&message=reference&color=00add8)](https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v2)
+[![Circle CI](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation.svg?style=shield)](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation) [![Documentation](https://img.shields.io/static/v1?label=go.dev&message=reference&color=00add8)](https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v3)
 
 ## Overview
 
@@ -18,7 +18,7 @@ If you do not set the `launchdarkly_easyjson` build tag, `go-server-sdk-evaluati
 
 ## Learn more
 
-Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for the Go SDK](http://docs.launchdarkly.com/docs/go-sdk-reference), or the [generated API documentation](https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v2) for this project.
+Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for the Go SDK](http://docs.launchdarkly.com/docs/go-sdk-reference), or the [generated API documentation](https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v3) for this project.
 
 ## Contributing
 

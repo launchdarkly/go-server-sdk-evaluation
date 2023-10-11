@@ -1,7 +1,7 @@
 package evaluation
 
 import (
-	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldmodel"
 
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
@@ -45,6 +45,8 @@ type PrerequisiteFlagEvent struct {
 	PrerequisiteFlag *ldmodel.FeatureFlag
 	// PrerequisiteResult is the result of evaluating the prerequisite flag.
 	PrerequisiteResult Result
+	// ExcludeFromSummaries determines if the event will be included in summary information.
+	ExcludeFromSummaries bool
 }
 
 // DataProvider is an abstraction for querying feature flags and user segments from a data store.

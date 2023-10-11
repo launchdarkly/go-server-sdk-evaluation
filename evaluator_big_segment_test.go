@@ -8,8 +8,8 @@ import (
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
-	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldbuilders"
-	"github.com/launchdarkly/go-server-sdk-evaluation/v2/ldmodel"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldbuilders"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldmodel"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -116,13 +116,14 @@ func (s *simpleMembership) exclude(segmentRefs ...string) *simpleMembership {
 
 func TestBigSegmentWithNoProviderIsNotMatched(t *testing.T) {
 	evaluator := NewEvaluator(
-		basicDataProvider().withStoredSegments(
-			ldbuilders.NewSegmentBuilder("segmentkey").
-				Unbounded(true).
-				Generation(1).
-				Included(basicUserKey). // Included should be ignored for a big segment
-				Build(),
-		),
+		basicDataProvider().
+			withStoredSegments(
+				ldbuilders.NewSegmentBuilder("segmentkey").
+					Unbounded(true).
+					Generation(1).
+					Included(basicUserKey). // Included should be ignored for a big segment
+					Build(),
+			),
 	)
 	f := makeBooleanFlagToMatchAnyOfSegments("segmentkey")
 
@@ -136,7 +137,8 @@ func TestBigSegmentWithNoGenerationIsNotMatched(t *testing.T) {
 		Unbounded(true). // but we didn't set Generation
 		Build()
 	evaluator := NewEvaluatorWithOptions(
-		basicDataProvider().withStoredSegments(segment),
+		basicDataProvider().
+			withStoredSegments(segment),
 		EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().withMembership(basicUserKey,
 			basicMembership().include(makeBigSegmentRef(&segment)))),
 	)
@@ -154,7 +156,10 @@ func TestBigSegmentMatch(t *testing.T) {
 	makeEvaluator := func(segment ldmodel.Segment, contextMembership *simpleMembership) Evaluator {
 		return NewEvaluatorWithOptions(
 			basicDataProvider().withStoredSegments(segment),
-			EvaluatorOptionBigSegmentProvider(basicBigSegmentsProvider().withMembership(contextKey, contextMembership)),
+			EvaluatorOptionBigSegmentProvider(
+				basicBigSegmentsProvider().
+					withMembership(contextKey, contextMembership),
+			),
 		)
 	}
 	for _, contextKind := range []ldcontext.Kind{"", ldcontext.DefaultKind, "other"} {
