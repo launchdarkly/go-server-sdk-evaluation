@@ -2,6 +2,12 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [3.0.0] - 2023-10-11
+### Added:
+- The flag model now supports new summary exclusion, sampling, and migration related properties.
+- Each new flag property is modifiable through the flag builder interface.
+- The `PrerequisiteFlagEvent` also has a new property to support flag summary exclusions.
+
 ## [2.0.2] - 2023-03-01
 ### Changed:
 - Bumped go-sdk-common to v3.0.1.
