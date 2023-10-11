@@ -10,6 +10,7 @@ jobs:
       name: go
 
 branches:
+  - name: v3
   - name: v2
   - name: v1
 
