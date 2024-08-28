@@ -2,6 +2,17 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [3.0.1] - 2024-08-28
+### Changed:
+- Bumped launchdarkly/go-sdk-common from v3.0.0 to v3.1.0
+- Bumped launchdarkly/go-test-helpers from v3.0.1 to v3.0.2
+- Bumped mailru/easyjson from v0.7.6 to v0.7.7
+- Bumped stretchr/testify from v1.7.0 to v1.9.0
+
+
+### Fixed:
+- Bumped launchdarkly/go-semver from v1.0.2 to v1.0.3, which removes the dependency on the "testing" package
+
 ## [3.0.0] - 2023-10-11
 ### Added:
 - The flag model now supports new summary exclusion, sampling, and migration related properties.
