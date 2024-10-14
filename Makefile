@@ -1,4 +1,4 @@
-GOLANGCI_LINT_VERSION=v1.48.0
+GOLANGCI_LINT_VERSION=v1.60.1
 
 LINTER=./bin/golangci-lint
 LINTER_VERSION_FILE=./bin/.golangci-lint-version-$(GOLANGCI_LINT_VERSION)
@@ -50,7 +50,7 @@ benchmarks: build
 	@if grep <build/benchmarks.out 'NoAlloc.*[1-9][0-9]* allocs/op'; then echo "Unexpected heap allocations detected in benchmarks!"; exit 1; fi
 
 benchmarks-easyjson: build-easyjson
-	go test $(EASYJSON_TAG) -benchmem '-run=^$$' '-bench=.*' ./... | tee build/benchmarks-easyjson.out
+	go test $(EASYJSON_TAG) -benchmem '-run=^$$' '-bench=.*' ./...
 
 # See CONTRIBUTING.md regarding the use of the benchmark-allocs target. Notes about this implementation:
 # 1. We precompile the test code because otherwise the allocation traces will include the actions of the compiler itself.
@@ -67,7 +67,7 @@ benchmark-allocs:
 
 $(LINTER_VERSION_FILE):
 	rm -f $(LINTER)
-	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | bash -s $(GOLANGCI_LINT_VERSION)
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
 	touch $(LINTER_VERSION_FILE)
 
 lint: $(LINTER_VERSION_FILE)
