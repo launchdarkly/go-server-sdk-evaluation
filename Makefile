@@ -50,7 +50,7 @@ benchmarks: build
 	@if grep <build/benchmarks.out 'NoAlloc.*[1-9][0-9]* allocs/op'; then echo "Unexpected heap allocations detected in benchmarks!"; exit 1; fi
 
 benchmarks-easyjson: build-easyjson
-	go test $(EASYJSON_TAG) -benchmem '-run=^$$' '-bench=.*' ./...
+	go test $(EASYJSON_TAG) -benchmem '-run=^$$' '-bench=.*' ./... | tee build/benchmarks-easyjson.out
 
 # See CONTRIBUTING.md regarding the use of the benchmark-allocs target. Notes about this implementation:
 # 1. We precompile the test code because otherwise the allocation traces will include the actions of the compiler itself.
