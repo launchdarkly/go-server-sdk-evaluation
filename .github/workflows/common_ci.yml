@@ -62,4 +62,4 @@ jobs:
           go-version: ${{ inputs.go-version }}
       - uses: ./.github/actions/benchmarks
         with:
-          make-target: 'benchmark-easyjson'
+          make-target: 'benchmarks-easyjson'
