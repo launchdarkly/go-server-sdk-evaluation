@@ -153,12 +153,12 @@ func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
 	obj.Name("salt").String(segment.Salt)
 
 	rulesArr := obj.Name("rules").Array()
-	for _, r := range segment.Rules {
+	for i, r := range segment.Rules {
 		ruleObj := rulesArr.Object()
 		ruleObj.Name("id").String(r.ID)
 		writeClauses(w, &ruleObj, r.Clauses)
 		ruleObj.Maybe("weight", r.Weight.IsDefined()).Int(r.Weight.IntValue())
-		writeAttrRef(ruleObj.Maybe("bucketBy", r.BucketBy.IsDefined()), &r.BucketBy, r.RolloutContextKind)
+		writeAttrRef(ruleObj.Maybe("bucketBy", r.BucketBy.IsDefined()), &segment.Rules[i].BucketBy, r.RolloutContextKind)
 		ruleObj.Maybe("rolloutContextKind", r.RolloutContextKind != "").String(string(r.RolloutContextKind))
 		ruleObj.End()
 	}
@@ -219,7 +219,7 @@ func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrR
 
 func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause) {
 	clausesArr := obj.Name("clauses").Array()
-	for _, c := range clauses {
+	for i, c := range clauses {
 		clauseObj := clausesArr.Object()
 		if c.ContextKind != "" {
 			clauseObj.Name("contextKind").String(string(c.ContextKind))
@@ -231,7 +231,7 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 			// this as an empty string even if it was undefined
 			w.String("")
 		} else {
-			writeAttrRef(w, &c.Attribute, c.ContextKind)
+			writeAttrRef(w, &clauses[i].Attribute, c.ContextKind)
 		}
 
 		clauseObj.Name("op").String(string(c.Op))
