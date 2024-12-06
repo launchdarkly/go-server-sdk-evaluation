@@ -1,6 +1,7 @@
 # LaunchDarkly Go SDK Evaluation Engine
 
-[![Circle CI](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation.svg?style=shield)](https://circleci.com/gh/launchdarkly/go-server-sdk-evaluation) [![Documentation](https://img.shields.io/static/v1?label=go.dev&message=reference&color=00add8)](https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v3)
+[![Actions Status](https://github.com/launchdarkly/go-server-sdk-evaluation/actions/workflows/ci.yml/badge.svg?branch=v3)](https://github.com/launchdarkly/go-server-sdk-evaluation/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/static/v1?label=go.dev&message=reference&color=00add8)](https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v3)
 
 ## Overview
 
