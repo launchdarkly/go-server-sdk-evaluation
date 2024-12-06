@@ -1,7 +1,4 @@
 version: 2
-repo:
-  public: go-server-sdk-evaluation
-  private: go-server-sdk-evaluation-private
 
 jobs:
   - docker:
