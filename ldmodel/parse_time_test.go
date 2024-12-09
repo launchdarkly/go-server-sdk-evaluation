@@ -14,9 +14,13 @@ func TestParseRFC3339TimeUTC(t *testing.T) {
 			t1, ok := parseRFC3339TimeUTC(test.s)
 			t2, err := time.Parse(time.RFC3339Nano, test.s)
 			if test.valid {
-				if assert.True(t, ok, "parseRFC3339TimeUTC should have accepted this string") &&
-					assert.NoError(t, err, "time.Parse should have accepted this string") {
-					assert.Equal(t, t2.UTC(), t1)
+				if assert.True(t, ok, "parseRFC3339TimeUTC should have accepted this string") {
+					if !test.nonstandard {
+						assert.NoError(t, err, "time.Parse should have accepted this string")
+						assert.Equal(t, t2.UTC(), t1)
+					} else {
+						t.Log("This timestamp (" + test.s + ") is marked as nonstandard, it is expected that time.Parse will reject it in some versions of Go")
+					}
 				}
 			} else {
 				if assert.False(t, ok, "parseRFC3339TimeUTC should have rejected this string") &&
@@ -29,23 +33,26 @@ func TestParseRFC3339TimeUTC(t *testing.T) {
 }
 
 type parseTimeTest struct {
-	s     string
-	valid bool
+	s           string
+	valid       bool
+	nonstandard bool
 }
 
 func makeParseTimeTests() []parseTimeTest {
 	var ret []parseTimeTest
 
 	addGood := func(s string) {
-		ret = append(ret, parseTimeTest{s, true})
+		ret = append(ret, parseTimeTest{s, true, false})
 	}
 	addBad := func(s string) {
-		ret = append(ret, parseTimeTest{s, false})
+		ret = append(ret, parseTimeTest{s, false, false})
+	}
+	addNonstandard := func(s string) {
+		ret = append(ret, parseTimeTest{s, true, true})
 	}
 
 	for _, goodSuffix := range []string{
-		"Z", ".123Z", ".123456789Z", "+08:00", "-08:00", "+07:30", "+99:00",
-		// NONSTANDARD: time.Parse allows overly large hour offsets like "+99:00"
+		"Z", ".123Z", ".123456789Z", "+08:00", "-08:00", "+07:30",
 	} {
 		addGood(fmt.Sprintf("2020-06-09T18:53:52%s", goodSuffix))
 	}
@@ -79,22 +86,20 @@ func makeParseTimeTests() []parseTimeTest {
 		addBad(fmt.Sprintf("2020-06-09T18:53:52%s", badTimeZone))
 	}
 
+	// In Go 1.23, time.Parse was changed as follows:
+	// > Parse and ParseInLocation now return an error if the time zone offset is out of range.
+	// Previously, it would accept an offset like +99:00. Therefore, the optimized parser in this evaluation
+	// module also modeled that behavior.
+	//
+	// One path forward would be to update the parser to match time.Parse's behavior, but that would be a breaking
+	// behavioral change with unknown ramifications (and might require a major version of the eval module.)
+	//
+	// For now, mark the test as nonstandard to check that it is parseable by the optimized parser, but not necessarily
+	// that it matches stdlib behavior.
+	addNonstandard(fmt.Sprintf("2020-06-09T18:53:52+99:00"))
+
 	// RFC3339 doesn't support non-ASCII characters - just make sure our parser rejects them gracefully
 	addBad("🤨2020-06-09T18:53:52Z")
 
 	return ret
-}
-
-var parseTimeTests = []parseTimeTest{
-	// bad fractional second
-	{"2020-06-09T18:53:52.500xZ", false}, // non-numeric
-	{"2020-06-09T18:53:52.Z", false},     // empty
-
-	// bad time zone
-	{"2020-06-09T18:53:52/07:00", false},  // invalid sign
-	{"2020-06-09T18:53:52-0:00", false},   // hour too short
-	{"2020-06-09T18:53:52-007:00", false}, // hour too long
-	{"2020-06-09T18:53:52-24:00", false},  // hour too high
-	{"2020-06-09T18:53:52-2x:00", false},  // hour non-numeric
-	{"2020-06-09T18:53:52-:00", false},    // hour too short
 }
