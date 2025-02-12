@@ -16,4 +16,4 @@ type ArbitraryConfigs struct {
 	// Version is an integer that is incremented by LaunchDarkly every time the configuration is
 	// changed.
 	Version int
-} 
+}
