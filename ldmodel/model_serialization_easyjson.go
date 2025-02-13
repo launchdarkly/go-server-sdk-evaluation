@@ -42,3 +42,13 @@ func (s *Segment) UnmarshalEasyJSON(lexer *jlexer.Lexer) {
 	wrappedReader := jreader.NewReaderFromEasyJSONLexer(lexer)
 	*s = unmarshalSegmentFromReader(&wrappedReader)
 }
+
+func (a ArbitraryConfigs) MarshalEasyJSON(writer *ej_jwriter.Writer) {
+	wrappedWriter := jwriter.NewWriterFromEasyJSONWriter(writer)
+	marshalArbitraryConfigsToWriter(a, &wrappedWriter)
+}
+
+func (a *ArbitraryConfigs) UnmarshalEasyJSON(lexer *jlexer.Lexer) {
+	wrappedReader := jreader.NewReaderFromEasyJSONLexer(lexer)
+	*a = unmarshalArbitraryConfigsFromReader(&wrappedReader)
+}

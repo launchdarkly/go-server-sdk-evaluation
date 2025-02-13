@@ -46,6 +46,12 @@ func unmarshalSegmentFromReader(r *jreader.Reader) Segment {
 	return parsed
 }
 
+func unmarshalArbitraryConfigsFromReader(r *jreader.Reader) ArbitraryConfigs {
+	var parsed ArbitraryConfigs
+	readArbitraryConfigs(r, &parsed)
+	return parsed
+}
+
 func readFeatureFlag(r *jreader.Reader, flag *FeatureFlag) {
 	deprecatedClientSide := false
 
@@ -351,5 +357,34 @@ func setAttrNameOrRef(value string, contextKind ldcontext.Kind, out *ldattr.Ref)
 
 	default:
 		*out = ldattr.NewRef(value)
+	}
+}
+
+func UnmarshalArbitraryConfigsFromBytes(data []byte) (ArbitraryConfigs, error) {
+	r := jreader.NewReader(data)
+	parsed := UnmarshalArbitraryConfigsFromJSONReader(&r)
+	if err := r.Error(); err != nil {
+		return ArbitraryConfigs{}, jreader.ToJSONError(err, &parsed)
+	}
+	return parsed, nil
+}
+
+func readArbitraryConfigs(r *jreader.Reader, out *ArbitraryConfigs) {
+	for obj := r.Object(); obj.Next(); {
+		switch string(obj.Name()) {
+		case "key":
+			out.Key = r.String()
+		case "version":
+			out.Version = r.Int()
+		case "dataType":
+			out.DataType = ArbitraryConfigType(r.String())
+		case "values":
+			switch out.DataType {
+			case ArrayType:
+				out.Values = r.Array()
+			case KeyValuesType:
+				out.Values = r.Object()
+			}
+		}
 	}
 }

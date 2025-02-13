@@ -36,11 +36,17 @@ type DataModelSerialization interface {
 	// MarshalSegment converts a Segment into its serialized encoding.
 	MarshalSegment(item Segment) ([]byte, error)
 
+	// MarshalArbitraryConfigs converts an ArbitraryConfigs into its serialized encoding.
+	MarshalArbitraryConfigs(item ArbitraryConfigs) ([]byte, error)
+
 	// UnmarshalFeatureFlag attempts to convert a FeatureFlag from its serialized encoding.
 	UnmarshalFeatureFlag(data []byte) (FeatureFlag, error)
 
 	// UnmarshalSegment attempts to convert a Segment from its serialized encoding.
 	UnmarshalSegment(data []byte) (Segment, error)
+
+	// UnmarshalArbitraryConfigs attempts to convert an ArbitraryConfigs from its serialized encoding.
+	UnmarshalArbitraryConfigs(data []byte) (ArbitraryConfigs, error)
 }
 
 // MarshalFeatureFlagToJSONWriter attempts to convert a FeatureFlag to JSON using the jsonstream API.
@@ -53,6 +59,18 @@ func MarshalFeatureFlagToJSONWriter(item FeatureFlag, writer *jwriter.Writer) {
 // For details, see: https://github.com/launchdarkly/go-jsonstream/v3
 func MarshalSegmentToJSONWriter(item Segment, writer *jwriter.Writer) {
 	marshalSegmentToWriter(item, writer)
+}
+
+// MarshalArbitraryConfigsToJSONWriter attempts to convert an ArbitraryConfigs to JSON using the jsonstream API.
+// For details, see: https://github.com/launchdarkly/go-jsonstream/v3
+func MarshalArbitraryConfigsToJSONWriter(item ArbitraryConfigs, writer *jwriter.Writer) {
+	marshalArbitraryConfigsToWriter(item, writer)
+}
+
+// UnmarshalArbitraryConfigsFromJSONReader attempts to convert an ArbitraryConfigs from JSON using the jsonstream API.
+// For details, see: https://github.com/launchdarkly/go-jsonstream/v3
+func UnmarshalArbitraryConfigsFromJSONReader(reader *jreader.Reader) ArbitraryConfigs {
+	return unmarshalArbitraryConfigsFromReader(reader)
 }
 
 // UnmarshalFeatureFlagFromJSONReader attempts to convert a FeatureFlag from JSON using the jsonstream
@@ -95,6 +113,14 @@ func (s jsonDataModelSerialization) UnmarshalSegment(data []byte) (Segment, erro
 	return unmarshalSegmentFromBytes(data)
 }
 
+func (s jsonDataModelSerialization) MarshalArbitraryConfigs(item ArbitraryConfigs) ([]byte, error) {
+	return marshalArbitraryConfigs(item)
+}
+
+func (s jsonDataModelSerialization) UnmarshalArbitraryConfigs(data []byte) (ArbitraryConfigs, error) {
+	return UnmarshalArbitraryConfigsFromBytes(data)
+}
+
 // MarshalJSON overrides the default json.Marshal behavior to provide the same marshalling behavior that is
 // used by NewJSONDataModelSerialization().
 func (f FeatureFlag) MarshalJSON() ([]byte, error) {
@@ -105,6 +131,12 @@ func (f FeatureFlag) MarshalJSON() ([]byte, error) {
 // used by NewJSONDataModelSerialization().
 func (s Segment) MarshalJSON() ([]byte, error) {
 	return marshalSegment(s)
+}
+
+// MarshalJSON overrides the default json.Marshal behavior to provide the same marshalling behavior that is
+// used by NewJSONDataModelSerialization().
+func (a ArbitraryConfigs) MarshalJSON() ([]byte, error) {
+	return marshalArbitraryConfigs(a)
 }
 
 // UnmarshalJSON overrides the default json.Unmarshal behavior to provide the same unmarshalling behavior that
@@ -123,6 +155,16 @@ func (s *Segment) UnmarshalJSON(data []byte) error {
 	result, err := unmarshalSegmentFromBytes(data)
 	if err == nil {
 		*s = result
+	}
+	return err
+}
+
+// UnmarshalJSON overrides the default json.Unmarshal behavior to provide the same unmarshalling behavior that
+// is used by NewJSONDataModelSerialization().
+func (a *ArbitraryConfigs) UnmarshalJSON(data []byte) error {
+	result, err := UnmarshalArbitraryConfigsFromBytes(data)
+	if err == nil {
+		*a = result
 	}
 	return err
 }

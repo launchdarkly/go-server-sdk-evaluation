@@ -26,6 +26,10 @@ type Evaluator interface {
 	) Result
 }
 
+type ArbitraryConfigProvider interface {
+	GetArbitraryConfigMapValues(config ldmodel.ArbitraryConfigs, key any) ldvalue.Value
+}
+
 // PrerequisiteFlagEventRecorder is a function that Evaluator.Evaluate() will call to record the
 // result of a prerequisite flag evaluation.
 type PrerequisiteFlagEventRecorder func(PrerequisiteFlagEvent)
@@ -71,6 +75,15 @@ type DataProvider interface {
 	// The method returns nil if the segment was not found. The DataProvider should treat any deleted
 	// segment as "not found" even if the data store contains a deleted segment placeholder for it.
 	GetSegment(key string) *ldmodel.Segment
+
+	// GetArbitraryConfigs attempts to retrieve an arbitrary configuration from the data store by key.
+	//
+	// The evaluator calls this method if a clause in a flag rule uses the OperatorArbitraryConfigsMatch
+	// test.
+	//
+	// The method returns nil if the arbitrary configuration was not found. The DataProvider should treat any deleted
+	// arbitrary configuration as "not found" even if the data store contains a deleted arbitrary configuration placeholder for it.
+	GetArbitraryConfigs(key string) *ldmodel.ArbitraryConfigs
 }
 
 // BigSegmentProvider is an abstraction for querying membership in big segments. The caller
