@@ -1,5 +1,12 @@
 package ldmodel
 
+type ArbitraryConfigType string
+
+const (
+	KeyValuesType ArbitraryConfigType = "key_value"
+	ArrayType     ArbitraryConfigType = "array"
+)
+
 // ArbitraryConfigs describes an individual arbitrary configuration.
 //
 // The fields of this struct are exported for use by LaunchDarkly internal components.
@@ -8,7 +15,7 @@ type ArbitraryConfigs struct {
 	Key string
 
 	// DataType represents the data type of the configuration.
-	DataType string
+	DataType ArbitraryConfigType
 
 	// Values contains any associated configuration values.
 	Values any

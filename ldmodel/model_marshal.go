@@ -257,3 +257,35 @@ func writeAttrRef(w *jwriter.Writer, ref *ldattr.Ref, contextKind ldcontext.Kind
 		w.String(ref.String())
 	}
 }
+
+func marshalArbitraryConfigs(configs ArbitraryConfigs) ([]byte, error) {
+	w := jwriter.NewWriter()
+	marshalArbitraryConfigsToWriter(configs, &w)
+	return w.Bytes(), w.Error()
+}
+
+func marshalArbitraryConfigsToWriter(configs ArbitraryConfigs, w *jwriter.Writer) {
+	obj := w.Object()
+
+	obj.Name("key").String(configs.Key)
+	obj.Name("version").Int(configs.Version)
+
+	obj.Name("dataType").String(string(configs.DataType))
+
+	switch configs.DataType {
+	case ArrayType:
+		valuesArr := obj.Name("values").Array()
+		for _, v := range configs.Values.([]any) {
+			valuesArr.String(v.(string))
+		}
+		valuesArr.End()
+	case KeyValuesType:
+		valuesObj := obj.Name("values").Object()
+		for k, v := range configs.Values.(map[string]any) {
+			valuesObj.Name(k).String(v.(string))
+		}
+		valuesObj.End()
+	}
+
+	obj.End()
+}

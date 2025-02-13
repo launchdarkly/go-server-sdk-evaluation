@@ -18,8 +18,9 @@ func assertResultDetail(t *testing.T, expected ldreason.EvaluationDetail, result
 }
 
 type simpleDataProvider struct {
-	getFlag    func(string) *ldmodel.FeatureFlag
-	getSegment func(string) *ldmodel.Segment
+	getFlag             func(string) *ldmodel.FeatureFlag
+	getSegment          func(string) *ldmodel.Segment
+	getArbitraryConfigs func(string) *ldmodel.ArbitraryConfigs
 }
 
 func (s *simpleDataProvider) GetFeatureFlag(key string) *ldmodel.FeatureFlag {
@@ -28,6 +29,10 @@ func (s *simpleDataProvider) GetFeatureFlag(key string) *ldmodel.FeatureFlag {
 
 func (s *simpleDataProvider) GetSegment(key string) *ldmodel.Segment {
 	return s.getSegment(key)
+}
+
+func (s *simpleDataProvider) GetArbitraryConfigs(key string) *ldmodel.ArbitraryConfigs {
+	return s.getArbitraryConfigs(key)
 }
 
 func (s *simpleDataProvider) withStoredFlags(flags ...ldmodel.FeatureFlag) *simpleDataProvider {
@@ -91,6 +96,9 @@ func basicDataProvider() *simpleDataProvider {
 		},
 		getSegment: func(key string) *ldmodel.Segment {
 			panic(fmt.Errorf("unexpectedly queried segment: %s", key))
+		},
+		getArbitraryConfigs: func(key string) *ldmodel.ArbitraryConfigs {
+			panic(fmt.Errorf("unexpectedly queried arbitrary configs: %s", key))
 		},
 	}
 }
