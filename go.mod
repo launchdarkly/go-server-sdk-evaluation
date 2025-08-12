@@ -1,8 +1,11 @@
 module github.com/launchdarkly/go-server-sdk-evaluation/v3
 
-go 1.18
+go 1.21
+
+toolchain go1.23.7
 
 require (
+	github.com/google/go-cmp v0.7.0
 	github.com/launchdarkly/go-jsonstream/v3 v3.1.0
 	github.com/launchdarkly/go-sdk-common/v3 v3.1.0
 	github.com/launchdarkly/go-semver v1.0.3

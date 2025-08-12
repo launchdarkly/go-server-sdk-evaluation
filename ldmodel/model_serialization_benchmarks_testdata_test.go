@@ -115,42 +115,42 @@ var flagWithAllProperties = FeatureFlag{
 	},
 }
 
-var flagWithAllPropertiesJSON = map[string]interface{}{
+var flagWithAllPropertiesJSON = map[string]any{
 	"key": "flag-key",
 	"on":  true,
-	"prerequisites": []interface{}{
-		map[string]interface{}{
+	"prerequisites": []any{
+		map[string]any{
 			"key":       "prereq-key",
 			"variation": float64(1),
 		},
 	},
-	"targets": []interface{}{
-		map[string]interface{}{
-			"values":    []interface{}{"user-key"},
+	"targets": []any{
+		map[string]any{
+			"values":    []any{"user-key"},
 			"variation": float64(2),
 		},
 	},
-	"rules": []interface{}{
-		map[string]interface{}{
+	"rules": []any{
+		map[string]any{
 			"id": "rule-id1",
-			"clauses": []interface{}{
-				map[string]interface{}{
+			"clauses": []any{
+				map[string]any{
 					"attribute": "name",
 					"op":        "in",
-					"values":    []interface{}{"clause-value"},
+					"values":    []any{"clause-value"},
 					"negate":    true,
 				},
 			},
 			"variation":   float64(1),
 			"trackEvents": true,
 		},
-		map[string]interface{}{
+		map[string]any{
 			"id":      "rule-id2",
-			"clauses": []interface{}{},
-			"rollout": map[string]interface{}{
+			"clauses": []any{},
+			"rollout": map[string]any{
 				"kind": "rollout",
-				"variations": []interface{}{
-					map[string]interface{}{
+				"variations": []any{
+					map[string]any{
 						"weight":    float64(100000),
 						"variation": float64(3),
 					},
@@ -159,22 +159,22 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 			},
 			"trackEvents": false,
 		},
-		map[string]interface{}{
+		map[string]any{
 			"id":      "rule-id3",
-			"clauses": []interface{}{},
-			"rollout": map[string]interface{}{
+			"clauses": []any{},
+			"rollout": map[string]any{
 				"kind":     "experiment",
 				"bucketBy": "name",
-				"variations": []interface{}{
-					map[string]interface{}{
+				"variations": []any{
+					map[string]any{
 						"weight":    float64(10000),
 						"variation": float64(1),
 					},
-					map[string]interface{}{
+					map[string]any{
 						"weight":    float64(10000),
 						"variation": float64(2),
 					},
-					map[string]interface{}{
+					map[string]any{
 						"weight":    float64(80000),
 						"variation": float64(3),
 						"untracked": true,
@@ -185,10 +185,10 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 			"trackEvents": true,
 		},
 	},
-	"fallthrough": map[string]interface{}{
-		"rollout": map[string]interface{}{
-			"variations": []interface{}{
-				map[string]interface{}{
+	"fallthrough": map[string]any{
+		"rollout": map[string]any{
+			"variations": []any{
+				map[string]any{
 					"weight":    float64(100000),
 					"variation": float64(3),
 				},
@@ -196,8 +196,8 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 		},
 	},
 	"offVariation": float64(3),
-	"variations":   []interface{}{false, float64(9), "other"},
-	"clientSideAvailability": map[string]interface{}{
+	"variations":   []any{false, float64(9), "other"},
+	"clientSideAvailability": map[string]any{
 		"usingEnvironmentId": true,
 		"usingMobileKey":     true,
 	},
@@ -210,7 +210,7 @@ var flagWithAllPropertiesJSON = map[string]interface{}{
 	"deleted":                true,
 	"samplingRatio":          1,
 	"excludeFromSummaries":   true,
-	"migration": map[string]interface{}{
+	"migration": map[string]any{
 		"checkRatio": 10,
 	},
 }
@@ -227,17 +227,17 @@ var flagWithMinimalProperties = FeatureFlag{
 	Version: 99,
 }
 
-var flagWithMinimalPropertiesJSON = map[string]interface{}{
+var flagWithMinimalPropertiesJSON = map[string]any{
 	"key":          "flag-key",
 	"on":           false,
 	"offVariation": nil,
-	"fallthrough": map[string]interface{}{
+	"fallthrough": map[string]any{
 		"variation": float64(1),
 	},
-	"variations":             []interface{}{false, float64(9), "other"},
-	"targets":                []interface{}{},
-	"rules":                  []interface{}{},
-	"prerequisites":          []interface{}{},
+	"variations":             []any{false, float64(9), "other"},
+	"targets":                []any{},
+	"rules":                  []any{},
+	"prerequisites":          []any{},
 	"clientSide":             false,
 	"salt":                   "flag-salt",
 	"trackEvents":            false,
@@ -279,25 +279,25 @@ var segmentWithAllProperties = Segment{
 	Deleted:    true,
 }
 
-var segmentWithAllPropertiesJSON = map[string]interface{}{
+var segmentWithAllPropertiesJSON = map[string]any{
 	"key":      "segment-key",
-	"included": []interface{}{"user1"},
-	"excluded": []interface{}{"user2"},
-	"rules": []interface{}{
-		map[string]interface{}{
+	"included": []any{"user1"},
+	"excluded": []any{"user2"},
+	"rules": []any{
+		map[string]any{
 			"id": "rule-id",
-			"clauses": []interface{}{
-				map[string]interface{}{
+			"clauses": []any{
+				map[string]any{
 					"attribute": "name",
 					"op":        "in",
-					"values":    []interface{}{"clause-value"},
+					"values":    []any{"clause-value"},
 					"negate":    true,
 				},
 			},
 		},
-		map[string]interface{}{
+		map[string]any{
 			"id":       "",
-			"clauses":  []interface{}{},
+			"clauses":  []any{},
 			"weight":   float64(50000),
 			"bucketBy": "name",
 		},
@@ -315,11 +315,11 @@ var segmentWithMinimalProperties = Segment{
 	Version: 99,
 }
 
-var segmentWithMinimalPropertiesJSON = map[string]interface{}{
+var segmentWithMinimalPropertiesJSON = map[string]any{
 	"key":        "segment-key",
-	"included":   []interface{}{},
-	"excluded":   []interface{}{},
-	"rules":      []interface{}{},
+	"included":   []any{},
+	"excluded":   []any{},
+	"rules":      []any{},
 	"salt":       "segment-salt",
 	"version":    float64(99),
 	"generation": nil,
@@ -334,16 +334,16 @@ func makeLargeFlagJSON() []byte {
 		}
 		return ret
 	}
-	makeRules := func() []map[string]interface{} {
-		ret := []map[string]interface{}{}
+	makeRules := func() []map[string]any {
+		ret := []map[string]any{}
 		for i := 0; i < 20; i++ {
-			ret = append(ret, map[string]interface{}{
+			ret = append(ret, map[string]any{
 				"id": fmt.Sprintf("rule-id%d", i),
-				"clauses": []interface{}{
-					map[string]interface{}{
+				"clauses": []any{
+					map[string]any{
 						"attribute": "name",
 						"op":        "in",
-						"values":    []interface{}{"clause-value"},
+						"values":    []any{"clause-value"},
 						"negate":    true,
 					},
 				},
@@ -353,26 +353,26 @@ func makeLargeFlagJSON() []byte {
 		}
 		return ret
 	}
-	data := map[string]interface{}{
+	data := map[string]any{
 		"key": "large-flag-key",
 		"on":  true,
-		"prerequisites": []interface{}{
-			map[string]interface{}{
+		"prerequisites": []any{
+			map[string]any{
 				"key":       "prereq-key",
 				"variation": float64(1),
 			},
 		},
-		"targets": []interface{}{
-			map[string]interface{}{
+		"targets": []any{
+			map[string]any{
 				"values":    makeManyStrings(),
 				"variation": float64(2),
 			},
 		},
 		"rules": makeRules(),
-		"fallthrough": map[string]interface{}{
-			"rollout": map[string]interface{}{
-				"variations": []interface{}{
-					map[string]interface{}{
+		"fallthrough": map[string]any{
+			"rollout": map[string]any{
+				"variations": []any{
+					map[string]any{
 						"weight":    float64(100000),
 						"variation": float64(3),
 					},
@@ -380,8 +380,8 @@ func makeLargeFlagJSON() []byte {
 			},
 		},
 		"offVariation": float64(3),
-		"variations":   []interface{}{false, float64(9), "other"},
-		"clientSideAvailability": map[string]interface{}{
+		"variations":   []any{false, float64(9), "other"},
+		"clientSideAvailability": map[string]any{
 			"usingEnvironmentId": true,
 			"usingMobileKey":     true,
 		},
@@ -405,16 +405,16 @@ func makeLargeSegmentJSON() []byte {
 		}
 		return ret
 	}
-	makeRules := func() []map[string]interface{} {
-		ret := []map[string]interface{}{}
+	makeRules := func() []map[string]any {
+		ret := []map[string]any{}
 		for i := 0; i < 20; i++ {
-			ret = append(ret, map[string]interface{}{
+			ret = append(ret, map[string]any{
 				"id": fmt.Sprintf("rule-id%d", i),
-				"clauses": []interface{}{
-					map[string]interface{}{
+				"clauses": []any{
+					map[string]any{
 						"attribute": "name",
 						"op":        "in",
-						"values":    []interface{}{"clause-value"},
+						"values":    []any{"clause-value"},
 						"negate":    true,
 					},
 				},
@@ -424,7 +424,7 @@ func makeLargeSegmentJSON() []byte {
 		}
 		return ret
 	}
-	data := map[string]interface{}{
+	data := map[string]any{
 		"key":       "large-segment-key",
 		"included":  makeManyStrings(),
 		"excluded":  makeManyStrings(),

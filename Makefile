@@ -16,7 +16,7 @@ ALLOCATIONS_LOG=./allocations.out
 
 EASYJSON_TAG=-tags launchdarkly_easyjson
 
-.PHONY: all build build-easyjson clean test test-easyjson lint test-coverage benchmarks benchmark-allocs
+.PHONY: all build build-easyjson clean test test-easyjson lint test-coverage benchmarks benchmarks-easyjson benchmarks-intern-json benchmarks-nointern benchmark-allocs
 
 all: build build-easyjson
 
@@ -51,6 +51,12 @@ benchmarks: build
 
 benchmarks-easyjson: build-easyjson
 	go test $(EASYJSON_TAG) -benchmem '-run=^$$' '-bench=.*' ./...
+
+benchmarks-intern-json: build
+	go test -tags launchdarkly_intern_json -benchmem  '-run=^$$' '-bench=.*' ./...
+
+benchmarks: build
+	go test -benchmem '-run=^$$' '-bench=.*' ./...
 
 # See CONTRIBUTING.md regarding the use of the benchmark-allocs target. Notes about this implementation:
 # 1. We precompile the test code because otherwise the allocation traces will include the actions of the compiler itself.

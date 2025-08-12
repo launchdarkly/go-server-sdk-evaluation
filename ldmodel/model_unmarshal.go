@@ -7,7 +7,14 @@ import (
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 
 	"github.com/launchdarkly/go-jsonstream/v3/jreader"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v3/internal/intern"
 )
+
+// trimSlice reduces the capacity of a slice to exactly match its length,
+// eliminating memory waste from Go's exponential growth strategy during append operations.
+func trimSlice[T any](s []T) []T {
+	return s[:len(s):len(s)]
+}
 
 func unmarshalFeatureFlagFromBytes(data []byte) (FeatureFlag, error) {
 	r := jreader.NewReader(data)
@@ -118,6 +125,7 @@ func readPrerequisites(r *jreader.Reader, out *[]Prerequisite) {
 		}
 		*out = append(*out, prereq)
 	}
+	*out = trimSlice(*out)
 }
 
 func readTargets(r *jreader.Reader, out *[]Target) {
@@ -135,6 +143,7 @@ func readTargets(r *jreader.Reader, out *[]Target) {
 		}
 		*out = append(*out, t)
 	}
+	*out = trimSlice(*out)
 }
 
 func readFlagRules(r *jreader.Reader, out *[]FlagRule) {
@@ -156,6 +165,7 @@ func readFlagRules(r *jreader.Reader, out *[]FlagRule) {
 		}
 		*out = append(*out, rule)
 	}
+	*out = trimSlice(*out)
 }
 
 func readClauses(r *jreader.Reader, out *[]Clause) {
@@ -165,11 +175,12 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "contextKind":
-				clause.ContextKind = ldcontext.Kind(r.String())
+				clause.ContextKind = ldcontext.Kind(intern.String(r.String()))
 			case "attribute":
 				attrStr, _ = r.StringOrNull()
+				attrStr = intern.String(attrStr)
 			case "op":
-				clause.Op = Operator(r.String())
+				clause.Op = Operator(intern.String(r.String()))
 			case "values":
 				readValueList(r, &clause.Values)
 			case "negate":
@@ -179,6 +190,7 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 		setAttrNameOrRef(attrStr, clause.ContextKind, &clause.Attribute)
 		*out = append(*out, clause)
 	}
+	*out = trimSlice(*out)
 }
 
 func readVariationOrRollout(r *jreader.Reader, out *VariationOrRollout) {
@@ -220,6 +232,7 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 				}
 				out.Variations = append(out.Variations, wv)
 			}
+			out.Variations = trimSlice(out.Variations)
 		case "bucketBy":
 			bucketByStr, _ = r.StringOrNull()
 		case "seed":
@@ -296,6 +309,7 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 				setAttrNameOrRef(bucketByStr, rule.RolloutContextKind, &rule.BucketBy)
 				segment.Rules = append(segment.Rules, rule)
 			}
+			segment.Rules = trimSlice(segment.Rules)
 		case "salt":
 			segment.Salt = r.String()
 		case "unbounded":
@@ -319,12 +333,15 @@ func readSegmentTargets(r *jreader.Reader, out *[]SegmentTarget) {
 		}
 		*out = append(*out, t)
 	}
+	*out = trimSlice(*out)
 }
 
 func readStringList(r *jreader.Reader, out *[]string) {
 	for arr := r.ArrayOrNull(); arr.Next(); {
-		*out = append(*out, r.String())
+		str := r.String()
+		*out = append(*out, str)
 	}
+	*out = trimSlice(*out)
 }
 
 func readValueList(r *jreader.Reader, out *[]ldvalue.Value) {
@@ -333,6 +350,7 @@ func readValueList(r *jreader.Reader, out *[]ldvalue.Value) {
 		v.ReadFromJSONReader(r)
 		*out = append(*out, v)
 	}
+	*out = trimSlice(*out)
 }
 
 func setAttrNameOrRef(value string, contextKind ldcontext.Kind, out *ldattr.Ref) {
@@ -345,11 +363,19 @@ func setAttrNameOrRef(value string, contextKind ldcontext.Kind, out *ldattr.Ref)
 
 	case contextKind == "":
 		// If the context kind was not specified in this clause/rollout/etc., then this is old-style
-		// data and we must interpret the attribute property as a plain attribute name, not an attribute
+		// data, and we must interpret the attribute property as a plain attribute name, not an attribute
 		// reference (in other words, a leading slash would be just part of the name).
 		*out = ldattr.NewLiteralRef(value)
 
 	default:
 		*out = ldattr.NewRef(value)
 	}
+}
+
+// SetStringInterningCacheSize controls string interning cache size at runtime.
+// If size <= 0, interning is disabled entirely.
+// If size > 0, creates a new cache with the specified capacity.
+// This allows adjusting or disabling interning in a running process if issues arise.
+func SetStringInterningCacheSize(size int) {
+	intern.SetCacheSize(size)
 }

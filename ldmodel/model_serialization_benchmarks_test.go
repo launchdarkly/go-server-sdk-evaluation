@@ -89,13 +89,15 @@ func BenchmarkUnmarshalSegment(b *testing.B) {
 func BenchmarkLargeFlagComparative(b *testing.B) {
 	b.Run("our unmarshaler", func(b *testing.B) {
 		bytes := makeLargeFlagJSON()
+		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			r := jreader.NewReader(bytes)
 			var f FeatureFlag
 			readFeatureFlag(&r, &f)
-			// Calling the lower-level function readFeatureFlag means we're skipping the post-processing step,
-			// since we're not doing that step in the comparative UnmarshalJSON benchmark.
+			// Calling the lower-level function readFeatureFlag means we're skipping the
+			// post-processing step, since we're not doing that step in the comparative
+			// UnmarshalJSON benchmark.
 			benchmarkErrorResult = r.Error()
 			if benchmarkErrorResult != nil {
 				b.Error(benchmarkErrorResult)
@@ -121,13 +123,15 @@ func BenchmarkLargeFlagComparative(b *testing.B) {
 func BenchmarkLargeSegmentComparative(b *testing.B) {
 	b.Run("our unmarshaler", func(b *testing.B) {
 		bytes := makeLargeSegmentJSON()
+		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			r := jreader.NewReader(bytes)
 			var s Segment
 			readSegment(&r, &s)
-			// Calling the lower-level function readSegment means we're skipping the post-processing step,
-			// since we're not doing that step in the comparative UnmarshalJSON benchmark.
+			// Calling the lower-level function readSegment means we're skipping the
+			// post-processing step, since we're not doing that step in the comparative
+			// UnmarshalJSON benchmark.
 			benchmarkErrorResult = r.Error()
 			if benchmarkErrorResult != nil {
 				b.Error(benchmarkErrorResult)
