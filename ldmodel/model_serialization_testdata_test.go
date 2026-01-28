@@ -17,27 +17,31 @@ type flagSerializationTestParams struct {
 	jsonAltInputs []string // if specified, unmarshaling test will verify that these parse to the same result
 
 	isCustomClientSideAvailability bool
+	expectUnmarshalError           bool // if true, unmarshaling jsonString should fail
 }
 
 type segmentSerializationTestParams struct {
-	name          string
-	segment       Segment
-	jsonString    string   // for marshaling tests, jsonString doesn't need to include any of segmentTopDefaultLevelProperties
-	jsonAltInputs []string // if specified, unmarshaling test will verify that these parse to the same result
+	name                 string
+	segment              Segment
+	jsonString           string   // for marshaling tests, jsonString doesn't need to include any of segmentTopDefaultLevelProperties
+	jsonAltInputs        []string // if specified, unmarshaling test will verify that these parse to the same result
+	expectUnmarshalError bool     // if true, unmarshaling jsonString should fail
 }
 
 type clauseSerializationTestParams struct {
-	name          string
-	clause        Clause
-	jsonString    string
-	jsonAltInputs []string
+	name                 string
+	clause               Clause
+	jsonString           string
+	jsonAltInputs        []string
+	expectUnmarshalError bool // if true, unmarshaling jsonString should fail
 }
 
 type rolloutSerializationTestParams struct {
-	name          string
-	rollout       Rollout
-	jsonString    string
-	jsonAltInputs []string
+	name                 string
+	rollout              Rollout
+	jsonString           string
+	jsonAltInputs        []string
+	expectUnmarshalError bool // if true, unmarshaling jsonString should fail
 }
 
 var flagTopLevelDefaultProperties = map[string]interface{}{
@@ -320,6 +324,16 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			flag:       FeatureFlag{ExcludeFromSummaries: false},
 			jsonString: `{}`,
 		},
+		{
+			name:                 "contextTargets with invalid context kind - kind",
+			jsonString:           `{"contextTargets": [ {"contextKind": "kind", "variation": 1, "values": ["a", "b"]} ]}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "contextTargets with invalid context kind - multi",
+			jsonString:           `{"contextTargets": [ {"contextKind": "multi", "variation": 1, "values": ["a", "b"]} ]}`,
+			expectUnmarshalError: true,
+		},
 	}
 
 	makeFlagJSONForClause := func(clauseJSON string) string {
@@ -336,7 +350,8 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 					},
 				},
 			},
-			jsonString: makeFlagJSONForClause(cp.jsonString),
+			jsonString:           makeFlagJSONForClause(cp.jsonString),
+			expectUnmarshalError: cp.expectUnmarshalError,
 		}
 		for _, alt := range cp.jsonAltInputs {
 			fp.jsonAltInputs = append(fp.jsonAltInputs, makeFlagJSONForClause(alt))
@@ -356,7 +371,8 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			flag: FeatureFlag{
 				Fallthrough: VariationOrRollout{Rollout: rp.rollout},
 			},
-			jsonString: makeFlagJSONForFallthroughRollout(rp.jsonString),
+			jsonString:           makeFlagJSONForFallthroughRollout(rp.jsonString),
+			expectUnmarshalError: rp.expectUnmarshalError,
 		}
 		for _, alt := range rp.jsonAltInputs {
 			fp1.jsonAltInputs = append(fp1.jsonAltInputs, makeFlagJSONForFallthroughRollout(alt))
@@ -366,7 +382,8 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			flag: FeatureFlag{
 				Rules: []FlagRule{{VariationOrRollout: VariationOrRollout{Rollout: rp.rollout}}},
 			},
-			jsonString: makeFlagJSONForRuleRollout(rp.jsonString),
+			jsonString:           makeFlagJSONForRuleRollout(rp.jsonString),
+			expectUnmarshalError: rp.expectUnmarshalError,
 		}
 		for _, alt := range rp.jsonAltInputs {
 			fp2.jsonAltInputs = append(fp2.jsonAltInputs, makeFlagJSONForRuleRollout(alt))
@@ -508,6 +525,46 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			segment:    Segment{Salt: "segment-salt"},
 			jsonString: `{"salt": "segment-salt"}`,
 		},
+		{
+			name:                 "includedContexts with invalid context kind - kind",
+			jsonString:           `{"includedContexts": [ {"contextKind": "kind", "values": ["a", "b"]} ]}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "includedContexts with invalid context kind - multi",
+			jsonString:           `{"includedContexts": [ {"contextKind": "multi", "values": ["a", "b"]} ]}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "excludedContexts with invalid context kind - kind",
+			jsonString:           `{"excludedContexts": [ {"contextKind": "kind", "values": ["a", "b"]} ]}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "excludedContexts with invalid context kind - multi",
+			jsonString:           `{"excludedContexts": [ {"contextKind": "multi", "values": ["a", "b"]} ]}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "unboundedContextKind with invalid context kind - kind",
+			jsonString:           `{"unbounded": true, "unboundedContextKind": "kind", "generation": 1}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "unboundedContextKind with invalid context kind - multi",
+			jsonString:           `{"unbounded": true, "unboundedContextKind": "multi", "generation": 1}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "rule rolloutContextKind with invalid context kind - kind",
+			jsonString:           `{"rules": [ {"id": "", "weight": 100000, "rolloutContextKind": "kind", "clauses": []} ]}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "rule rolloutContextKind with invalid context kind - multi",
+			jsonString:           `{"rules": [ {"id": "", "weight": 100000, "rolloutContextKind": "multi", "clauses": []} ]}`,
+			expectUnmarshalError: true,
+		},
 	}
 
 	makeSegmentJSONForClause := func(clauseJSON string) string {
@@ -523,7 +580,8 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 					},
 				},
 			},
-			jsonString: makeSegmentJSONForClause(cp.jsonString),
+			jsonString:           makeSegmentJSONForClause(cp.jsonString),
+			expectUnmarshalError: cp.expectUnmarshalError,
 		}
 		for _, alt := range cp.jsonAltInputs {
 			sp.jsonAltInputs = append(sp.jsonAltInputs, makeSegmentJSONForClause(alt))
@@ -603,6 +661,16 @@ func makeClauseSerializationTestParams() []clauseSerializationTestParams {
 				Negate:    true,
 			},
 			jsonString: `{"attribute": "key", "op": "in", "values": ["a"], "negate": true}`,
+		},
+		{
+			name:                 "invalid context kind - kind",
+			jsonString:           `{"contextKind": "kind", "attribute": "key", "op": "in", "values": ["a"], "negate": false}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "invalid context kind - multi",
+			jsonString:           `{"contextKind": "multi", "attribute": "key", "op": "in", "values": ["a"], "negate": false}`,
+			expectUnmarshalError: true,
 		},
 	}
 }
@@ -688,6 +756,16 @@ func makeRolloutSerializationTestParams() []rolloutSerializationTestParams {
 			},
 			jsonString: `{"kind": "experiment", "variations": [` +
 				`{"variation": 0, "weight": 75000}, {"variation": 1, "weight": 25000, "untracked": true}]}`,
+		},
+		{
+			name:                 "invalid context kind - kind",
+			jsonString:           `{"contextKind": "kind", "variations": [{"variation": 1, "weight": 100000}]}`,
+			expectUnmarshalError: true,
+		},
+		{
+			name:                 "invalid context kind - multi",
+			jsonString:           `{"contextKind": "multi", "variations": [{"variation": 1, "weight": 100000}]}`,
+			expectUnmarshalError: true,
 		},
 	}
 }

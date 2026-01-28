@@ -20,6 +20,9 @@ type testUnmarshalSegmentFn func([]byte) (Segment, error)
 
 func doMarshalFlagTest(t *testing.T, marshalFn testMarshalFlagFn) {
 	for _, p := range makeFlagSerializationTestParams() {
+		if p.expectUnmarshalError {
+			continue // skip error cases for marshal tests
+		}
 		t.Run(p.name, func(t *testing.T) {
 			bytes, err := marshalFn(p.flag)
 			require.NoError(t, err)
@@ -31,6 +34,9 @@ func doMarshalFlagTest(t *testing.T, marshalFn testMarshalFlagFn) {
 
 func doMarshalSegmentTest(t *testing.T, marshalFn testMarshalSegmentFn) {
 	for _, p := range makeSegmentSerializationTestParams() {
+		if p.expectUnmarshalError {
+			continue // skip error cases for marshal tests
+		}
 		t.Run(p.name, func(t *testing.T) {
 			bytes, err := marshalFn(p.segment)
 			require.NoError(t, err)
@@ -44,6 +50,12 @@ func doUnmarshalFlagTest(t *testing.T, unmarshalFn testUnmarshalFlagFn) {
 	for _, p := range makeFlagSerializationTestParams() {
 		t.Run(p.name, func(t *testing.T) {
 			flag, err := unmarshalFn([]byte(p.jsonString))
+
+			if p.expectUnmarshalError {
+				assert.Error(t, err)
+				return
+			}
+
 			require.NoError(t, err)
 
 			expectedFlag := p.flag
@@ -68,6 +80,12 @@ func doUnmarshalSegmentTest(t *testing.T, unmarshalFn testUnmarshalSegmentFn) {
 	for _, p := range makeSegmentSerializationTestParams() {
 		t.Run(p.name, func(t *testing.T) {
 			segment, err := unmarshalFn([]byte(p.jsonString))
+
+			if p.expectUnmarshalError {
+				assert.Error(t, err)
+				return
+			}
+
 			require.NoError(t, err)
 
 			expectedSegment := p.segment

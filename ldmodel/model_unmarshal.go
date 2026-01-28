@@ -126,7 +126,12 @@ func readTargets(r *jreader.Reader, out *[]Target) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "contextKind":
-				t.ContextKind = ldcontext.Kind(r.String())
+				kind, err := ldcontext.NewSingleContextKind(r.String())
+				if err != nil {
+					r.AddError(err)
+					return
+				}
+				t.ContextKind = kind
 			case "values":
 				readStringList(r, &t.Values)
 			case "variation":
@@ -165,7 +170,12 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "contextKind":
-				clause.ContextKind = ldcontext.Kind(r.String())
+				kind, err := ldcontext.NewSingleContextKind(r.String())
+				if err != nil {
+					r.AddError(err)
+					return
+				}
+				clause.ContextKind = kind
 			case "attribute":
 				attrStr, _ = r.StringOrNull()
 			case "op":
@@ -204,7 +214,12 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 		case "kind":
 			out.Kind = RolloutKind(r.String())
 		case "contextKind":
-			out.ContextKind = ldcontext.Kind(r.String())
+			kind, err := ldcontext.NewSingleContextKind(r.String())
+			if err != nil {
+				r.AddError(err)
+				return
+			}
+			out.ContextKind = kind
 		case "variations":
 			for arr := r.Array(); arr.Next(); {
 				var wv WeightedVariation
@@ -290,7 +305,12 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 					case "bucketBy":
 						bucketByStr, _ = r.StringOrNull()
 					case "rolloutContextKind":
-						rule.RolloutContextKind = ldcontext.Kind(r.String())
+						kind, err := ldcontext.NewSingleContextKind(r.String())
+						if err != nil {
+							r.AddError(err)
+							return
+						}
+						rule.RolloutContextKind = kind
 					}
 				}
 				setAttrNameOrRef(bucketByStr, rule.RolloutContextKind, &rule.BucketBy)
@@ -301,7 +321,12 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 		case "unbounded":
 			segment.Unbounded = r.Bool()
 		case "unboundedContextKind":
-			segment.UnboundedContextKind = ldcontext.Kind(r.String())
+			kind, err := ldcontext.NewSingleContextKind(r.String())
+			if err != nil {
+				r.AddError(err)
+				return
+			}
+			segment.UnboundedContextKind = kind
 		}
 	}
 }
@@ -312,7 +337,12 @@ func readSegmentTargets(r *jreader.Reader, out *[]SegmentTarget) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "contextKind":
-				t.ContextKind = ldcontext.Kind(r.String())
+				kind, err := ldcontext.NewSingleContextKind(r.String())
+				if err != nil {
+					r.AddError(err)
+					return
+				}
+				t.ContextKind = kind
 			case "values":
 				readStringList(r, &t.Values)
 			}
