@@ -9,7 +9,7 @@ This repository contains the internal feature flag evaluation logic and data mod
 
 ## Supported Go versions
 
-This version of the project requires a Go version of 1.18 or higher.
+This version of the project requires a Go version of 1.24 or higher.
 
 ## Integration with easyjson
 
