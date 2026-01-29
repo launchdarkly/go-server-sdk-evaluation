@@ -99,6 +99,7 @@ func colonTerminator(ch rune) bool  { return ch == ':' }
 func endOfSecondsTerminator(ch rune) bool {
 	return ch == '.' || ch == 'Z' || ch == 'z' || ch == '+' || ch == '-'
 }
+
 func endOfFractionalSecondsTerminator(ch rune) bool {
 	return ch == 'Z' || ch == 'z' || ch == '+' || ch == '-'
 }
@@ -126,12 +127,12 @@ func parseDateTimeNumericField(
 
 // Attempts to parse a string as an integer greater than or equal to zero. Non-ASCII strings are not supported.
 func parsePositiveNumericString(s string) (int, bool) {
-	max := len(s)
-	if max == 0 {
+	stringLength := len(s)
+	if stringLength == 0 {
 		return 0, false
 	}
 	n := 0
-	for i := 0; i < max; i++ {
+	for i := 0; i < stringLength; i++ {
 		ch := rune(s[i])
 		if ch < '0' || ch > '9' {
 			return 0, false

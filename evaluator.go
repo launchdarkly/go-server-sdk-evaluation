@@ -154,7 +154,7 @@ func (es *evaluationScope) evaluate(stack evaluationStack) (ldreason.EvaluationD
 
 	// Now walk through the rules and see if any match
 	for ruleIndex, rule := range es.flag.Rules {
-		match, err := es.ruleMatchesContext(&rule, stack) //nolint:gosec // see comments at top of file
+		match, err := es.ruleMatchesContext(&rule, stack)
 		if err != nil {
 			es.logEvaluationError(err)
 			return ldreason.NewEvaluationDetailForError(errorKindForError(err), ldvalue.Null()), false
@@ -277,7 +277,7 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 		// If ContextTargets is empty but Targets is not empty, then this is flag data that originally
 		// came from a non-context-aware LD endpoint or SDK. In that case, just look at Targets.
 		for _, t := range es.flag.Targets {
-			if variation := es.targetMatchVariation(&t); variation.IsDefined() { //nolint:gosec // see comments at top of file
+			if variation := es.targetMatchVariation(&t); variation.IsDefined() {
 				return variation
 			}
 		}
@@ -289,12 +289,12 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 			if (t.ContextKind == "" || t.ContextKind == ldcontext.DefaultKind) && len(t.Values) == 0 {
 				for _, t1 := range es.flag.Targets {
 					if t1.Variation == t.Variation {
-						variation = es.targetMatchVariation(&t1) //nolint:gosec // see comments at top of file
+						variation = es.targetMatchVariation(&t1)
 						break
 					}
 				}
 			} else {
-				variation = es.targetMatchVariation(&t) //nolint:gosec // see comments at top of file
+				variation = es.targetMatchVariation(&t)
 			}
 			if variation.IsDefined() {
 				return variation
@@ -316,7 +316,7 @@ func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.Optio
 func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule, stack evaluationStack) (bool, error) {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
 	for _, clause := range rule.Clauses {
-		match, err := es.clauseMatchesContext(&clause, stack) //nolint:gosec // see comments at top of file
+		match, err := es.clauseMatchesContext(&clause, stack)
 		if !match || err != nil {
 			return match, err
 		}
@@ -325,7 +325,8 @@ func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule, stack eval
 }
 
 func (es *evaluationScope) variationOrRolloutResult(
-	r ldmodel.VariationOrRollout, key, salt string) (variationIndex int, inExperiment bool, err error) {
+	r ldmodel.VariationOrRollout, key, salt string,
+) (variationIndex int, inExperiment bool, err error) {
 	if r.Variation.IsDefined() {
 		return r.Variation.IntValue(), false, nil
 	}
