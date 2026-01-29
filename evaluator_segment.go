@@ -169,14 +169,14 @@ func (es *evaluationScope) segmentRuleMatchesContext(
 	return bucket < weight, nil
 }
 
-func computeUpdatedBigSegmentsStatus(old, new ldreason.BigSegmentsStatus) ldreason.BigSegmentsStatus {
+func computeUpdatedBigSegmentsStatus(oldStatus, newStatus ldreason.BigSegmentsStatus) ldreason.BigSegmentsStatus {
 	// A single evaluation could end up doing more than one big segments query if there are two different
 	// context keys involved. If those queries don't return the same status, we want to make sure we
 	// report whichever status is most problematic.
-	if old != "" && getBigSegmentsStatusPriority(old) > getBigSegmentsStatusPriority(new) {
-		return old
+	if oldStatus != "" && getBigSegmentsStatusPriority(oldStatus) > getBigSegmentsStatusPriority(newStatus) {
+		return oldStatus
 	}
-	return new
+	return newStatus
 }
 
 func getBigSegmentsStatusPriority(status ldreason.BigSegmentsStatus) int {
