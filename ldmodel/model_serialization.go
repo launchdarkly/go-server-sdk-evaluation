@@ -1,8 +1,8 @@
 package ldmodel
 
 import (
-	"github.com/launchdarkly/go-jsonstream/v3/jreader"
-	"github.com/launchdarkly/go-jsonstream/v3/jwriter"
+	"github.com/launchdarkly/go-jsonstream/v4/jreader"
+	"github.com/launchdarkly/go-jsonstream/v4/jwriter"
 )
 
 // DataModelSerialization is an abstraction of an encoding for SDK data model objects.
@@ -18,7 +18,7 @@ import (
 // correctly encoded or decoded if you call Go's standard json.Marshal or json.Unmarshal.
 //
 // 2. There are equivalent methods for encoding and decoding via the go-jsonstream API
-// (https://pkg.go.dev/github.com/launchdarkly/go-jsonstream/v3). These are used internally by the
+// (https://pkg.go.dev/github.com/launchdarkly/go-jsonstream/v4). These are used internally by the
 // SDK to avoid inefficiencies in json.Marshal and json.Unmarshal.
 //
 // There is no separately defined encoding for lower-level data model types such as FlagRule, since
@@ -40,25 +40,25 @@ type DataModelSerialization interface {
 }
 
 // MarshalFeatureFlagToJSONWriter attempts to convert a FeatureFlag to JSON using the jsonstream API.
-// For details, see: https://github.com/launchdarkly/go-jsonstream/v3
+// For details, see: https://github.com/launchdarkly/go-jsonstream/v4
 func MarshalFeatureFlagToJSONWriter(item FeatureFlag, writer *jwriter.Writer) {
 	marshalFeatureFlagToWriter(item, writer)
 }
 
 // MarshalSegmentToJSONWriter attempts to convert a Segment to JSON using the jsonstream API.
-// For details, see: https://github.com/launchdarkly/go-jsonstream/v3
+// For details, see: https://github.com/launchdarkly/go-jsonstream/v4
 func MarshalSegmentToJSONWriter(item Segment, writer *jwriter.Writer) {
 	marshalSegmentToWriter(item, writer)
 }
 
 // UnmarshalFeatureFlagFromJSONReader attempts to convert a FeatureFlag from JSON using the jsonstream
-// API. For details, see: https://github.com/launchdarkly/go-jsonstream/v3
+// API. For details, see: https://github.com/launchdarkly/go-jsonstream/v4
 func UnmarshalFeatureFlagFromJSONReader(reader *jreader.Reader) FeatureFlag {
 	return unmarshalFeatureFlagFromReader(reader)
 }
 
 // UnmarshalSegmentFromJSONReader attempts to convert a Segment from JSON using the jsonstream API.
-// For details, see: https://github.com/launchdarkly/go-jsonstream/v3
+// For details, see: https://github.com/launchdarkly/go-jsonstream/v4
 func UnmarshalSegmentFromJSONReader(reader *jreader.Reader) Segment {
 	return unmarshalSegmentFromReader(reader)
 }

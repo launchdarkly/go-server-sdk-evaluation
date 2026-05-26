@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
+	"github.com/launchdarkly/go-sdk-common/v4/ldvalue"
 	"github.com/launchdarkly/go-semver"
 )
 

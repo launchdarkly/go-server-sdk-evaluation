@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
+	"github.com/launchdarkly/go-sdk-common/v4/ldreason"
 
 	"github.com/stretchr/testify/assert"
 )

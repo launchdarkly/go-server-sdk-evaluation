@@ -3,7 +3,7 @@ package evaluation
 import (
 	"testing"
 
-	"github.com/launchdarkly/go-sdk-common/v3/ldlog"
+	"github.com/launchdarkly/go-sdk-common/v4/ldlog"
 	"github.com/stretchr/testify/assert"
 )
 

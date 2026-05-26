@@ -3,14 +3,14 @@ package evaluation
 import (
 	"testing"
 
-	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldbuilders"
-	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldmodel"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v4/ldbuilders"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v4/ldmodel"
 
-	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
-	"github.com/launchdarkly/go-sdk-common/v3/ldlog"
-	"github.com/launchdarkly/go-sdk-common/v3/ldlogtest"
-	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
-	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
+	"github.com/launchdarkly/go-sdk-common/v4/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v4/ldlog"
+	"github.com/launchdarkly/go-sdk-common/v4/ldlogtest"
+	"github.com/launchdarkly/go-sdk-common/v4/ldreason"
+	"github.com/launchdarkly/go-sdk-common/v4/ldvalue"
 	m "github.com/launchdarkly/go-test-helpers/v3/matchers"
 
 	"github.com/stretchr/testify/assert"
