@@ -21,10 +21,6 @@ import (
 // (https://pkg.go.dev/github.com/launchdarkly/go-jsonstream/v3). These are used internally by the
 // SDK to avoid inefficiencies in json.Marshal and json.Unmarshal.
 //
-// 3. If the build tag "launchdarkly_easyjson" is set, FeatureFlag and Segment will also define
-// MarshalEasyJSON and UnmarshalEasyJSON methods for interoperability with the easyjson library.
-// For details, see the go-jsonstream documentation.
-//
 // There is no separately defined encoding for lower-level data model types such as FlagRule, since
 // there is no guarantee that those will always be represented as individual JSON objects in future
 // versions of the schema. If you want to create a JSON representation of those data structures you

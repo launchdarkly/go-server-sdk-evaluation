@@ -126,12 +126,12 @@ func parseDateTimeNumericField(
 
 // Attempts to parse a string as an integer greater than or equal to zero. Non-ASCII strings are not supported.
 func parsePositiveNumericString(s string) (int, bool) {
-	max := len(s)
-	if max == 0 {
+	maxLen := len(s)
+	if maxLen == 0 {
 		return 0, false
 	}
 	n := 0
-	for i := 0; i < max; i++ {
+	for i := 0; i < maxLen; i++ {
 		ch := rune(s[i])
 		if ch < '0' || ch > '9' {
 			return 0, false
