@@ -2,6 +2,17 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.0.0](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v3.0.1...v4.0.0) (2026-05-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove easyjson from go-server-sdk-evaluation ([#51](https://github.com/launchdarkly/go-server-sdk-evaluation/issues/51))
+
+### Features
+
+* remove easyjson from go-server-sdk-evaluation ([#51](https://github.com/launchdarkly/go-server-sdk-evaluation/issues/51)) ([7ffc22a](https://github.com/launchdarkly/go-server-sdk-evaluation/commit/7ffc22adec3e4167f26c6658bf9b341181c8d52a))
+
 ## [3.0.1] - 2024-08-28
 ### Changed:
 - Bumped launchdarkly/go-sdk-common from v3.0.0 to v3.1.0
