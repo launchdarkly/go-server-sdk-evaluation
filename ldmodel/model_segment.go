@@ -1,9 +1,9 @@
 package ldmodel
 
 import (
-	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
-	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
-	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
+	"github.com/launchdarkly/go-sdk-common/v4/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v4/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v4/ldvalue"
 )
 
 // Segment describes a group of contexts based on context keys and/or matching rules.

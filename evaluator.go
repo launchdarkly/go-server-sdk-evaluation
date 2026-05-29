@@ -1,11 +1,11 @@
 package evaluation
 
 import (
-	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
-	"github.com/launchdarkly/go-sdk-common/v3/ldlog"
-	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
-	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
-	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldmodel"
+	"github.com/launchdarkly/go-sdk-common/v4/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v4/ldlog"
+	"github.com/launchdarkly/go-sdk-common/v4/ldreason"
+	"github.com/launchdarkly/go-sdk-common/v4/ldvalue"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v4/ldmodel"
 )
 
 // Notes on some implementation details in this file:
@@ -16,10 +16,9 @@ import (
 // nested function/method calls; passing a pointer instead is faster. It is safe for us to do this
 // as long as the pointer value is not being retained outside the scope of this call.
 //
-// - In some for loops, we are deliberately taking the address of the range variable and using a
-// "//nolint:gosec" directive to turn off the usual linter warning about this:
+// - In some for loops, we are deliberately taking the address of the range variable:
 //       for _, x := range someThings {
-//           doSomething(&x) //nolint:gosec
+//           doSomething(&x)
 //       }
 // The rationale is the same as above, and is safe as long as the same conditions apply.
 
@@ -154,7 +153,7 @@ func (es *evaluationScope) evaluate(stack evaluationStack) (ldreason.EvaluationD
 
 	// Now walk through the rules and see if any match
 	for ruleIndex, rule := range es.flag.Rules {
-		match, err := es.ruleMatchesContext(&rule, stack) //nolint:gosec // see comments at top of file
+		match, err := es.ruleMatchesContext(&rule, stack)
 		if err != nil {
 			es.logEvaluationError(err)
 			return ldreason.NewEvaluationDetailForError(errorKindForError(err), ldvalue.Null()), false
@@ -277,7 +276,7 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 		// If ContextTargets is empty but Targets is not empty, then this is flag data that originally
 		// came from a non-context-aware LD endpoint or SDK. In that case, just look at Targets.
 		for _, t := range es.flag.Targets {
-			if variation := es.targetMatchVariation(&t); variation.IsDefined() { //nolint:gosec // see comments at top of file
+			if variation := es.targetMatchVariation(&t); variation.IsDefined() {
 				return variation
 			}
 		}
@@ -289,12 +288,12 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 			if (t.ContextKind == "" || t.ContextKind == ldcontext.DefaultKind) && len(t.Values) == 0 {
 				for _, t1 := range es.flag.Targets {
 					if t1.Variation == t.Variation {
-						variation = es.targetMatchVariation(&t1) //nolint:gosec // see comments at top of file
+						variation = es.targetMatchVariation(&t1)
 						break
 					}
 				}
 			} else {
-				variation = es.targetMatchVariation(&t) //nolint:gosec // see comments at top of file
+				variation = es.targetMatchVariation(&t)
 			}
 			if variation.IsDefined() {
 				return variation
@@ -316,7 +315,7 @@ func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.Optio
 func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule, stack evaluationStack) (bool, error) {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
 	for _, clause := range rule.Clauses {
-		match, err := es.clauseMatchesContext(&clause, stack) //nolint:gosec // see comments at top of file
+		match, err := es.clauseMatchesContext(&clause, stack)
 		if !match || err != nil {
 			return match, err
 		}

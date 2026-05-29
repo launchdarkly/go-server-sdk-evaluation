@@ -4,10 +4,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
-	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
-	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
-	"github.com/launchdarkly/go-server-sdk-evaluation/v3/ldmodel"
+	"github.com/launchdarkly/go-sdk-common/v4/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v4/ldcontext"
+	"github.com/launchdarkly/go-sdk-common/v4/ldvalue"
+	"github.com/launchdarkly/go-server-sdk-evaluation/v4/ldmodel"
 )
 
 func (es *evaluationScope) clauseMatchesContext(clause *ldmodel.Clause, stack evaluationStack) (bool, error) {

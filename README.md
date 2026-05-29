@@ -1,7 +1,7 @@
 # LaunchDarkly Go SDK Evaluation Engine
 
-[![Actions Status](https://github.com/launchdarkly/go-server-sdk-evaluation/actions/workflows/ci.yml/badge.svg?branch=v3)](https://github.com/launchdarkly/go-server-sdk-evaluation/actions/workflows/ci.yml)
-[![Documentation](https://img.shields.io/static/v1?label=go.dev&message=reference&color=00add8)](https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v3)
+[![Actions Status](https://github.com/launchdarkly/go-server-sdk-evaluation/actions/workflows/ci.yml/badge.svg?branch=v4)](https://github.com/launchdarkly/go-server-sdk-evaluation/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/static/v1?label=go.dev&message=reference&color=00add8)](https://pkg.go.dev/github.com/launchdarkly/go-server-sdk-evaluation/v4)
 
 ## Overview
 
@@ -10,12 +10,6 @@ This repository contains the internal feature flag evaluation logic and data mod
 ## Supported Go versions
 
 This version of the project requires a Go version of 1.18 or higher.
-
-## Integration with easyjson
-
-By default, `go-server-sdk-evaluation` uses LaunchDarkly's open-source JSON library [`go-jsonstream`](https://github.com/launchdarkly/go-jsonstream) to convert its data model types like `FeatureFlag` to and from JSON; this is considerably faster than Go's built-in `encoding/json` and does not depend on any third-party code. However, it can optionally integrate with the third-party library [`easyjson`](https://github.com/mailru/easyjson), which may be even faster in some cases, without requiring any changes in your code. To enable this, set the build tag `launchdarkly_easyjson` when you run `go build`, which both switches `go-jsonstream` to use `easyjson` internally and also generates `MarshalEasyJSON`/`UnmarshalEasyJSON` methods for each JSON-serializable type. The `easyjson` library is still under development and has some potential compatibility issues; see its documentation for more details.
-
-If you do not set the `launchdarkly_easyjson` build tag, `go-server-sdk-evaluation` does not use any code from `easyjson`.
 
 ## Learn more
 

@@ -1,9 +1,9 @@
 package ldmodel
 
 import (
-	"github.com/launchdarkly/go-jsonstream/v3/jwriter"
-	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
-	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+	"github.com/launchdarkly/go-jsonstream/v4/jwriter"
+	"github.com/launchdarkly/go-sdk-common/v4/ldattr"
+	"github.com/launchdarkly/go-sdk-common/v4/ldcontext"
 )
 
 // For backward compatibility, we are only allowed to drop out properties that have default values if
