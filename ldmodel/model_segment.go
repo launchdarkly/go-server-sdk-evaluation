@@ -59,6 +59,13 @@ type Segment struct {
 	// Deleted is true if this is not actually a user segment but rather a placeholder (tombstone) for a
 	// deleted segment. This is only relevant in data store implementations.
 	Deleted bool
+	// IsOverride is true if this segment definition was supplied by an SDK override source rather
+	// than by LaunchDarkly.
+	//
+	// This marker is not part of the segment data model: it is never serialized to or deserialized
+	// from JSON, and it is set only by SDK components that manage override entries. Components that
+	// read segment data can treat a segment carrying this marker the same as any other segment.
+	IsOverride bool
 	// preprocessedData is created by Segment.Preprocess() to speed up target matching.
 	preprocessed segmentPreprocessedData
 }
