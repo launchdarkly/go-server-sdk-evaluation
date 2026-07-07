@@ -120,7 +120,24 @@ func (e *evaluator) Evaluate(
 		detail.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(detail.Reason,
 			es.bigSegmentsStatus)
 	}
+	detail.Reason = reasonWithOverrideMarker(flag, detail.Reason)
 	return Result{Detail: detail, IsExperiment: isExperiment(flag, detail.Reason)}
+}
+
+// reasonWithOverrideMarker sets the reason's override indicator when the evaluated flag's
+// definition carries the override marker. The indicator reflects the source of the evaluated
+// flag itself, so it is applied only here and at the point where a prerequisite's own result
+// is reported; it is never propagated from a prerequisite or segment to the flag that
+// references it. A reason whose kind is an error is left unmarked: the result in that case
+// is the caller's default value, which did not come from the override.
+func reasonWithOverrideMarker(
+	flag *ldmodel.FeatureFlag,
+	reason ldreason.EvaluationReason,
+) ldreason.EvaluationReason {
+	if !flag.IsOverride || reason.GetKind() == ldreason.EvalReasonError {
+		return reason
+	}
+	return ldreason.NewEvalReasonFromReasonWithIsOverride(reason, true)
 }
 
 // Entry point for evaluating a flag which could be either the original flag or a prerequisite.
@@ -227,9 +244,11 @@ func (es *evaluationScope) checkPrerequisites(stack evaluationStack) (ldreason.E
 		}
 
 		if es.prerequisiteFlagEventRecorder != nil {
+			prereqEventDetail := prereqResultDetail
+			prereqEventDetail.Reason = reasonWithOverrideMarker(prereqFeatureFlag, prereqEventDetail.Reason)
 			event := PrerequisiteFlagEvent{es.flag.Key, es.context, prereqFeatureFlag, Result{
-				Detail:       prereqResultDetail,
-				IsExperiment: isExperiment(prereqFeatureFlag, prereqResultDetail.Reason),
+				Detail:       prereqEventDetail,
+				IsExperiment: isExperiment(prereqFeatureFlag, prereqEventDetail.Reason),
 			}, prereqFeatureFlag.ExcludeFromSummaries}
 			es.prerequisiteFlagEventRecorder(event)
 		}
