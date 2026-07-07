@@ -103,7 +103,7 @@ func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment, stack eval
 	// Check if any of the segment rules match
 	for _, rule := range s.Rules {
 		// Note, taking address of range variable here is OK because it's not used outside the loop
-		match, err := es.segmentRuleMatchesContext(&rule, stack, s.Key, s.Salt) //nolint:gosec // see comment above
+		match, err := es.segmentRuleMatchesContext(&rule, stack, s.Key, s.Salt)
 		if err != nil {
 			return false, malformedSegmentError{SegmentKey: s.Key, Err: err}
 		}
