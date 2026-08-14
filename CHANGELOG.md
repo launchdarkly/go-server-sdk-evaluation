@@ -2,6 +2,13 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [3.0.2](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v3.0.1...v3.0.2) (2026-08-14)
+
+
+### Bug Fixes
+
+* upgrade go-jsonstream to v3.1.2 and go-sdk-common to v3.5.1 ([#59](https://github.com/launchdarkly/go-server-sdk-evaluation/issues/59)) ([0f623b8](https://github.com/launchdarkly/go-server-sdk-evaluation/commit/0f623b851d2fcf356da77de06d200d503c4dd96f))
+
 ## [3.0.1] - 2024-08-28
 ### Changed:
 - Bumped launchdarkly/go-sdk-common from v3.0.0 to v3.1.0
