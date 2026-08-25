@@ -1,24 +1,18 @@
+version: "2"
 run:
-  deadline: 120s
   tests: false
-
 linters:
   enable:
     - bodyclose
     - dupl
-    - errcheck
     - gochecknoglobals
     - gochecknoinits
-    #- goconst  # disabling goconst because our multiple uses of strings like "key" aren't always for the same purpose
+    # goconst is disabled because our multiple uses of strings like "key" aren't
+    # always for the same purpose
     - gocritic
     - gocyclo
     - godox
-    - gofmt
-    - goimports
     - gosec
-    - gosimple
-    - govet
-    - ineffassign
     - lll
     - misspell
     - nakedret
@@ -26,21 +20,31 @@ linters:
     - prealloc
     - revive
     - staticcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
-    - unused
     - whitespace
-  fast: false
-
-linters-settings:
-  gofmt:
-    simplify: false
-  goimports:
-    local-prefixes: github.com/launchdarkly
-
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  exclude-use-default: false
+  max-issues-per-linter: 1000
   max-same-issues: 1000
-  max-per-linter: 1000
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: false
+    goimports:
+      local-prefixes:
+        - github.com/launchdarkly
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
