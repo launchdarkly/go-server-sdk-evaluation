@@ -109,6 +109,14 @@ type FeatureFlag struct {
 	// LaunchDarkly may affect this flag to prevent poorly performing applications from adversely
 	// affecting upstream service health.
 	ExcludeFromSummaries bool
+	// IsOverride is true if this flag definition was supplied by an SDK override source rather than
+	// by LaunchDarkly.
+	//
+	// This marker is not part of the flag data model: it is never serialized to or deserialized from
+	// JSON, and it is set only by SDK components that manage override entries. Components that read
+	// flag data can treat a flag carrying this marker the same as any other flag; the evaluator reads
+	// it to mark the evaluation reason.
+	IsOverride bool
 }
 
 // MigrationFlagParameters are used to control flag-specific migration
