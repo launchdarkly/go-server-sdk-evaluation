@@ -17,6 +17,13 @@ func makeBigSegmentRef(s *ldmodel.Segment) string {
 }
 
 func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment, stack evaluationStack) (bool, error) {
+	// The segment definition is read at this point, so an override segment marks the scope here. A
+	// match is not required: a negated clause turns a non-match into a match, so the definition
+	// shapes the result either way.
+	if s.IsOverride {
+		es.overrideAffected = true
+	}
+
 	// Have we already visited this segment recursively?
 	for _, visitedKey := range stack.segmentChain {
 		if visitedKey == s.Key {
