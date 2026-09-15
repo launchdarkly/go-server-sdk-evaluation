@@ -34,6 +34,14 @@ type Result struct {
 	// does not say anything special. When the SDK submits evaluation information to the event
 	// processor, it should set the RequireReason field in ldevents.FlagEventProperties to this value.
 	IsExperiment bool
+
+	// OverrideAffected is true if an override affected this evaluation, directly or transitively.
+	// It is true when the evaluated flag came from the SDK's override store. It is also true when
+	// a prerequisite flag at any depth, or a segment read during the evaluation, came from that
+	// store. The evaluator sets this field from its own record of the definitions it read. It does
+	// not derive the field from Detail.Reason, so event generation does not depend on the reason.
+	// Detail.Reason reports the same state through IsOverrideAffected().
+	OverrideAffected bool
 }
 
 type evaluator struct {
@@ -83,6 +91,11 @@ type evaluationScope struct {
 	// big segment references during an evaluation. See evaluator_segment.go.
 	bigSegmentsMemberships map[string]BigSegmentMembership
 	bigSegmentsStatus      ldreason.BigSegmentsStatus
+	// overrideAffected is true if this scope has read a definition that carries the override marker.
+	// evaluate() sets it for the scope's own flag. segmentContainsContext() sets it for each segment
+	// that the scope reads. evaluatePrerequisite() merges the state of each nested scope into this
+	// one, so the marking propagates upward only.
+	overrideAffected bool
 }
 
 type evaluationStack struct {
@@ -97,7 +110,11 @@ func (e *evaluator) Evaluate(
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 ) Result {
 	if context.Err() != nil {
-		return Result{Detail: ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null())}
+		// The caller has already read the flag definition, so an override flag marks this result too.
+		fromOverride := flag != nil && flag.IsOverride
+		detail := ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null())
+		detail.Reason = reasonWithOverrideAffected(detail.Reason, fromOverride)
+		return Result{Detail: detail, OverrideAffected: fromOverride}
 	}
 
 	es := evaluationScope{
@@ -120,24 +137,26 @@ func (e *evaluator) Evaluate(
 		detail.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(detail.Reason,
 			es.bigSegmentsStatus)
 	}
-	detail.Reason = reasonWithOverrideMarker(flag, detail.Reason)
-	return Result{Detail: detail, IsExperiment: isExperiment(flag, detail.Reason)}
+	detail.Reason = reasonWithOverrideAffected(detail.Reason, es.overrideAffected)
+	return Result{
+		Detail:           detail,
+		IsExperiment:     isExperiment(flag, detail.Reason),
+		OverrideAffected: es.overrideAffected,
+	}
 }
 
-// reasonWithOverrideMarker sets the reason's override indicator when the evaluated flag's
-// definition carries the override marker. The indicator reflects the source of the evaluated
-// flag itself, so it is applied only here and at the point where a prerequisite's own result
-// is reported; it is never propagated from a prerequisite or segment to the flag that
-// references it. A reason whose kind is an error is left unmarked: the result in that case
-// is the caller's default value, which did not come from the override.
-func reasonWithOverrideMarker(
-	flag *ldmodel.FeatureFlag,
+// reasonWithOverrideAffected sets the overrideAffected indicator on a reason when the evaluation
+// that produced the reason read a definition from the override store. Error reasons are marked
+// too. A malformed override definition yields the caller's default value with an error reason,
+// and an override still affected that result.
+func reasonWithOverrideAffected(
 	reason ldreason.EvaluationReason,
+	overrideAffected bool,
 ) ldreason.EvaluationReason {
-	if !flag.IsOverride || reason.GetKind() == ldreason.EvalReasonError {
+	if !overrideAffected {
 		return reason
 	}
-	return ldreason.NewEvalReasonFromReasonWithIsOverride(reason, true)
+	return ldreason.NewEvalReasonFromReasonWithOverrideAffected(reason, true)
 }
 
 // Entry point for evaluating a flag which could be either the original flag or a prerequisite.
@@ -150,6 +169,12 @@ func reasonWithOverrideMarker(
 // with append(). The other is that Go's escape analysis is not quite clever enough to let the
 // slices that we preallocated in Evaluate() remain on the stack if we pass that struct by address.
 func (es *evaluationScope) evaluate(stack evaluationStack) (ldreason.EvaluationDetail, bool) {
+	// The scope's own flag definition counts as a read. This runs before any early return, so every
+	// result of this scope reflects the marker, including error results.
+	if es.flag.IsOverride {
+		es.overrideAffected = true
+	}
+
 	if !es.flag.On {
 		return es.getOffValue(ldreason.NewEvalReasonOff()), true
 	}
@@ -188,22 +213,38 @@ func (es *evaluationScope) evaluate(stack evaluationStack) (ldreason.EvaluationD
 // Do a nested evaluation for a prerequisite of the current scope's flag. The second return value is
 // normally true; it is false only in the case where we've detected a circular reference, in which
 // case we want the entire evaluation to fail with a MalformedFlag error.
+//
+// The returned Result is the prerequisite's own evaluation record. Its reason and its
+// OverrideAffected field reflect only the definitions that the prerequisite's subtree read.
 func (es *evaluationScope) evaluatePrerequisite(
 	prereqFlag *ldmodel.FeatureFlag,
 	stack evaluationStack,
-) (ldreason.EvaluationDetail, bool) {
+) (Result, bool) {
 	for _, p := range stack.prerequisiteFlagChain {
 		if prereqFlag.Key == p {
+			// The prerequisite definition was read, so it still marks this scope before the error.
+			es.overrideAffected = es.overrideAffected || prereqFlag.IsOverride
 			err := circularPrereqReferenceError(prereqFlag.Key)
 			es.logEvaluationError(err)
-			return ldreason.EvaluationDetail{}, false
+			return Result{}, false
 		}
 	}
 	subScope := *es
 	subScope.flag = prereqFlag
-	result, ok := subScope.evaluate(stack)
+	// A prerequisite evaluation is an evaluation in its own right. The nested scope starts unmarked,
+	// so its record reflects only its own subtree of reads and not the state of this scope.
+	subScope.overrideAffected = false
+	detail, ok := subScope.evaluate(stack)
 	es.bigSegmentsStatus = computeUpdatedBigSegmentsStatus(es.bigSegmentsStatus, subScope.bigSegmentsStatus)
-	return result, ok
+	// The marking propagates upward only. The nested scope marks this scope, but this scope does not
+	// mark the nested record.
+	es.overrideAffected = es.overrideAffected || subScope.overrideAffected
+	detail.Reason = reasonWithOverrideAffected(detail.Reason, subScope.overrideAffected)
+	return Result{
+		Detail:           detail,
+		IsExperiment:     isExperiment(prereqFlag, detail.Reason),
+		OverrideAffected: subScope.overrideAffected,
+	}, ok
 }
 
 // Returns an empty reason if all prerequisites are OK, otherwise constructs an error reason that describes the failure
@@ -231,25 +272,22 @@ func (es *evaluationScope) checkPrerequisites(stack evaluationStack) (ldreason.E
 		}
 		prereqOK := true
 
-		prereqResultDetail, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, stack)
+		prereqResult, prereqValid := es.evaluatePrerequisite(prereqFeatureFlag, stack)
 		if !prereqValid {
 			// In this case we want to immediately exit with an error and not check any more prereqs
 			return ldreason.NewEvalReasonError(ldreason.EvalErrorMalformedFlag), false
 		}
-		if !prereqFeatureFlag.On || prereqResultDetail.IsDefaultValue() ||
-			prereqResultDetail.VariationIndex.IntValue() != prereq.Variation {
+		if !prereqFeatureFlag.On || prereqResult.Detail.IsDefaultValue() ||
+			prereqResult.Detail.VariationIndex.IntValue() != prereq.Variation {
 			// Note that if the prerequisite flag is off, we don't consider it a match no matter what its
 			// off variation was. But we still need to evaluate it in order to generate an event.
 			prereqOK = false
 		}
 
 		if es.prerequisiteFlagEventRecorder != nil {
-			prereqEventDetail := prereqResultDetail
-			prereqEventDetail.Reason = reasonWithOverrideMarker(prereqFeatureFlag, prereqEventDetail.Reason)
-			event := PrerequisiteFlagEvent{es.flag.Key, es.context, prereqFeatureFlag, Result{
-				Detail:       prereqEventDetail,
-				IsExperiment: isExperiment(prereqFeatureFlag, prereqEventDetail.Reason),
-			}, prereqFeatureFlag.ExcludeFromSummaries}
+			// The record carries the prerequisite's own marking, which its own subtree of reads set.
+			event := PrerequisiteFlagEvent{es.flag.Key, es.context, prereqFeatureFlag, prereqResult,
+				prereqFeatureFlag.ExcludeFromSummaries}
 			es.prerequisiteFlagEventRecorder(event)
 		}
 

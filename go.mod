@@ -4,7 +4,7 @@ go 1.24
 
 require (
 	github.com/launchdarkly/go-jsonstream/v3 v3.1.2
-	github.com/launchdarkly/go-sdk-common/v3 v3.5.1
+	github.com/launchdarkly/go-sdk-common/v3 v3.5.2-0.20260915210143-e960a8e76a91
 	github.com/launchdarkly/go-semver v1.0.3
 	github.com/launchdarkly/go-test-helpers/v3 v3.0.2
 	github.com/mailru/easyjson v0.7.7
