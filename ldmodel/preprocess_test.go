@@ -359,6 +359,16 @@ func TestPreprocessFlagWithOptions_DiscardRedundantClauseValues(t *testing.T) {
 		// Regex clause: valuesMap is nil, Values should be preserved
 		assert.NotNil(t, f.Rules[0].Clauses[2].Values)
 		assert.Len(t, f.Rules[0].Clauses[2].Values, 1)
+
+		// Re-preprocess should be idempotent and not wipe the existing valuesMap
+		PreprocessFlagWithOptions(&f, PreprocessOptions{DiscardRedundantClauseValues: true})
+		assert.NotNil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+		assert.True(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-1")))
+
+		// Even a standard PreprocessFlag call should not wipe the map
+		PreprocessFlag(&f)
+		assert.NotNil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+		assert.True(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-1")))
 	})
 }
 
@@ -401,5 +411,11 @@ func TestPreprocessSegmentWithOptions_DiscardRedundantClauseValues(t *testing.T)
 		assert.Nil(t, s.Rules[0].Clauses[0].Values)
 		assert.NotNil(t, s.Rules[0].Clauses[0].preprocessed.valuesMap)
 		assert.NotNil(t, s.Rules[0].Clauses[1].Values)
+
+		// Re-preprocess idempotency check
+		PreprocessSegmentWithOptions(&s, PreprocessOptions{DiscardRedundantClauseValues: true})
+		assert.NotNil(t, s.Rules[0].Clauses[0].preprocessed.valuesMap)
+		PreprocessSegment(&s)
+		assert.NotNil(t, s.Rules[0].Clauses[0].preprocessed.valuesMap)
 	})
 }

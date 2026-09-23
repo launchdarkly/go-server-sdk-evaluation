@@ -62,6 +62,9 @@ func PreprocessFlagWithOptions(f *FeatureFlag, opts PreprocessOptions) {
 	}
 	for i, r := range f.Rules {
 		for j, c := range r.Clauses {
+			if c.Values == nil && c.preprocessed.valuesMap != nil {
+				continue
+			}
 			preprocessed := preprocessClause(c)
 			if opts.DiscardRedundantClauseValues && preprocessed.valuesMap != nil {
 				f.Rules[i].Clauses[j].Values = nil
@@ -97,6 +100,9 @@ func PreprocessSegmentWithOptions(s *Segment, opts PreprocessOptions) {
 
 	for i, r := range s.Rules {
 		for j, c := range r.Clauses {
+			if c.Values == nil && c.preprocessed.valuesMap != nil {
+				continue
+			}
 			preprocessed := preprocessClause(c)
 			if opts.DiscardRedundantClauseValues && preprocessed.valuesMap != nil {
 				s.Rules[i].Clauses[j].Values = nil
