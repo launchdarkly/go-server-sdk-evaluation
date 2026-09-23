@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
@@ -297,4 +298,108 @@ func TestPreprocessSegmentPreprocessesClausesInRules(t *testing.T) {
 	assert.False(t, p[1].valid)
 	assert.True(t, p[2].computed)
 	assert.False(t, p[2].valid)
+}
+
+func TestPreprocessFlagWithOptions_DiscardRedundantClauseValues(t *testing.T) {
+	makeTestFlag := func() FeatureFlag {
+		return FeatureFlag{
+			Key: "test-flag",
+			Rules: []FlagRule{
+				{
+					Clauses: []Clause{
+						{
+							Op:        OperatorIn,
+							Attribute: ldattr.NewLiteralRef("account_uuid"),
+							Values: []ldvalue.Value{
+								ldvalue.String("acc-1"),
+								ldvalue.String("acc-2"),
+							},
+						},
+						{
+							Op:        OperatorIn,
+							Attribute: ldattr.NewLiteralRef("single_attr"),
+							Values:    []ldvalue.Value{ldvalue.String("single")},
+						},
+						{
+							Op:        OperatorMatches,
+							Attribute: ldattr.NewLiteralRef("name"),
+							Values:    []ldvalue.Value{ldvalue.String("test.*")},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("default preserves values", func(t *testing.T) {
+		f := makeTestFlag()
+		PreprocessFlag(&f)
+		assert.NotNil(t, f.Rules[0].Clauses[0].Values)
+		assert.Len(t, f.Rules[0].Clauses[0].Values, 2)
+		assert.NotNil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+		assert.NotNil(t, f.Rules[0].Clauses[1].Values)
+		assert.NotNil(t, f.Rules[0].Clauses[2].Values)
+	})
+
+	t.Run("discard enabled sets multi-value OperatorIn values to nil", func(t *testing.T) {
+		f := makeTestFlag()
+		PreprocessFlagWithOptions(&f, PreprocessOptions{DiscardRedundantClauseValues: true})
+
+		// Multi-value OperatorIn: valuesMap exists, Values should be nil
+		assert.Nil(t, f.Rules[0].Clauses[0].Values)
+		assert.NotNil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+		assert.True(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-1")))
+		assert.True(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-2")))
+		assert.False(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-3")))
+
+		// Single-value OperatorIn: valuesMap is nil, Values should be preserved
+		assert.NotNil(t, f.Rules[0].Clauses[1].Values)
+		assert.Len(t, f.Rules[0].Clauses[1].Values, 1)
+
+		// Regex clause: valuesMap is nil, Values should be preserved
+		assert.NotNil(t, f.Rules[0].Clauses[2].Values)
+		assert.Len(t, f.Rules[0].Clauses[2].Values, 1)
+	})
+}
+
+func TestPreprocessSegmentWithOptions_DiscardRedundantClauseValues(t *testing.T) {
+	makeTestSegment := func() Segment {
+		return Segment{
+			Key: "test-segment",
+			Rules: []SegmentRule{
+				{
+					Clauses: []Clause{
+						{
+							Op:        OperatorIn,
+							Attribute: ldattr.NewLiteralRef("account_uuid"),
+							Values: []ldvalue.Value{
+								ldvalue.String("acc-1"),
+								ldvalue.String("acc-2"),
+							},
+						},
+						{
+							Op:        OperatorIn,
+							Attribute: ldattr.NewLiteralRef("single_attr"),
+							Values:    []ldvalue.Value{ldvalue.String("single")},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("default preserves segment values", func(t *testing.T) {
+		s := makeTestSegment()
+		PreprocessSegment(&s)
+		assert.NotNil(t, s.Rules[0].Clauses[0].Values)
+		assert.Len(t, s.Rules[0].Clauses[0].Values, 2)
+	})
+
+	t.Run("discard enabled sets multi-value segment OperatorIn values to nil", func(t *testing.T) {
+		s := makeTestSegment()
+		PreprocessSegmentWithOptions(&s, PreprocessOptions{DiscardRedundantClauseValues: true})
+		assert.Nil(t, s.Rules[0].Clauses[0].Values)
+		assert.NotNil(t, s.Rules[0].Clauses[0].preprocessed.valuesMap)
+		assert.NotNil(t, s.Rules[0].Clauses[1].Values)
+	})
 }

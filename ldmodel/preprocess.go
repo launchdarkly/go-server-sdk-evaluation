@@ -42,6 +42,35 @@ func (j jsonPrimitiveValueKey) isValid() bool {
 	return j.valueType != ldvalue.NullType
 }
 
+// PreprocessOptions configures memory optimizations for flag preprocessing.
+type PreprocessOptions struct {
+	// DiscardRedundantClauseValues, if true, frees Clause.Values by setting it to nil
+	// for OperatorIn clauses where an internal valuesMap has been successfully constructed.
+	// This significantly reduces in-memory footprint in environments with large targeting
+	// lists (e.g., thousands of user/account keys) by avoiding storing both the slice
+	// and the hash map simultaneously.
+	//
+	// Note: If enabled, flags should not be re-serialized to JSON via model_marshal.
+	DiscardRedundantClauseValues bool
+}
+
+// PreprocessFlagWithOptions precomputes internal data structures based on the flag
+// configuration with configurable optimization options.
+func PreprocessFlagWithOptions(f *FeatureFlag, opts PreprocessOptions) {
+	for i, t := range f.Targets {
+		f.Targets[i].preprocessed.valuesMap = preprocessStringSet(t.Values)
+	}
+	for i, r := range f.Rules {
+		for j, c := range r.Clauses {
+			preprocessed := preprocessClause(c)
+			if opts.DiscardRedundantClauseValues && preprocessed.valuesMap != nil {
+				f.Rules[i].Clauses[j].Values = nil
+			}
+			f.Rules[i].Clauses[j].preprocessed = preprocessed
+		}
+	}
+}
+
 // PreprocessFlag precomputes internal data structures based on the flag configuration, to speed up
 // evaluations.
 //
@@ -49,23 +78,12 @@ func (j jsonPrimitiveValueKey) isValid() bool {
 // construct a flag by some other means, you should call PreprocessFlag exactly once before making it
 // available to any other code. The method is not safe for concurrent access across goroutines.
 func PreprocessFlag(f *FeatureFlag) {
-	for i, t := range f.Targets {
-		f.Targets[i].preprocessed.valuesMap = preprocessStringSet(t.Values)
-	}
-	for i, r := range f.Rules {
-		for j, c := range r.Clauses {
-			f.Rules[i].Clauses[j].preprocessed = preprocessClause(c)
-		}
-	}
+	PreprocessFlagWithOptions(f, PreprocessOptions{})
 }
 
-// PreprocessSegment precomputes internal data structures based on the segment configuration, to speed up
-// evaluations.
-//
-// This is called once after a segment is deserialized from JSON, or is created with ldbuilders. If you
-// construct a segment by some other means, you should call PreprocessSegment exactly once before making
-// it available to any other code. The method is not safe for concurrent access across goroutines.
-func PreprocessSegment(s *Segment) {
+// PreprocessSegmentWithOptions precomputes internal data structures based on the segment
+// configuration with configurable optimization options.
+func PreprocessSegmentWithOptions(s *Segment, opts PreprocessOptions) {
 	p := segmentPreprocessedData{}
 	p.includeMap = preprocessStringSet(s.Included)
 	p.excludeMap = preprocessStringSet(s.Excluded)
@@ -79,9 +97,23 @@ func PreprocessSegment(s *Segment) {
 
 	for i, r := range s.Rules {
 		for j, c := range r.Clauses {
-			s.Rules[i].Clauses[j].preprocessed = preprocessClause(c)
+			preprocessed := preprocessClause(c)
+			if opts.DiscardRedundantClauseValues && preprocessed.valuesMap != nil {
+				s.Rules[i].Clauses[j].Values = nil
+			}
+			s.Rules[i].Clauses[j].preprocessed = preprocessed
 		}
 	}
+}
+
+// PreprocessSegment precomputes internal data structures based on the segment configuration, to speed up
+// evaluations.
+//
+// This is called once after a segment is deserialized from JSON, or is created with ldbuilders. If you
+// construct a segment by some other means, you should call PreprocessSegment exactly once before making
+// it available to any other code. The method is not safe for concurrent access across goroutines.
+func PreprocessSegment(s *Segment) {
+	PreprocessSegmentWithOptions(s, PreprocessOptions{})
 }
 
 func preprocessClause(c Clause) clausePreprocessedData {
