@@ -236,8 +236,14 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 
 		clauseObj.Name("op").String(string(c.Op))
 		valuesArr := clauseObj.Name("values").Array()
-		for _, v := range c.Values {
-			v.WriteToJSONWriter(w)
+		if len(c.Values) > 0 {
+			for _, v := range c.Values {
+				v.WriteToJSONWriter(w)
+			}
+		} else if c.preprocessed.valuesMap != nil {
+			for k := range c.preprocessed.valuesMap {
+				k.toValue().WriteToJSONWriter(w)
+			}
 		}
 		valuesArr.End()
 		clauseObj.Name("negate").Bool(c.Negate)

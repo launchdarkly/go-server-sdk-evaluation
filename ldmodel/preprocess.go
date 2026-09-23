@@ -42,13 +42,46 @@ func (j jsonPrimitiveValueKey) isValid() bool {
 	return j.valueType != ldvalue.NullType
 }
 
-// PreprocessFlag precomputes internal data structures based on the flag configuration, to speed up
-// evaluations.
-//
-// This is called once after a flag is deserialized from JSON, or is created with ldbuilders. If you
-// construct a flag by some other means, you should call PreprocessFlag exactly once before making it
-// available to any other code. The method is not safe for concurrent access across goroutines.
-func PreprocessFlag(f *FeatureFlag) {
+func (j jsonPrimitiveValueKey) toValue() ldvalue.Value {
+	switch j.valueType {
+	case ldvalue.BoolType:
+		return ldvalue.Bool(j.booleanValue)
+	case ldvalue.NumberType:
+		return ldvalue.Float64(j.numberValue)
+	case ldvalue.StringType:
+		return ldvalue.String(j.stringValue)
+	default:
+		return ldvalue.Null()
+	}
+}
+
+// PreprocessOptions configures memory optimizations for flag preprocessing.
+type PreprocessOptions struct {
+	// DiscardRedundantClauseValues, if true, frees Clause.Values by setting it to nil
+	// for OperatorIn clauses where an internal valuesMap has been successfully constructed.
+	// This significantly reduces in-memory footprint in environments with large targeting
+	// lists (e.g., thousands of user/account keys) by avoiding storing both the slice
+	// and the hash map simultaneously.
+	//
+	// When enabled, model_marshal will reconstruct serialized values from valuesMap if needed.
+	DiscardRedundantClauseValues bool
+}
+
+var defaultPreprocessOptions = PreprocessOptions{}
+
+// SetDefaultPreprocessOptions sets the global default preprocessing options used by PreprocessFlag and PreprocessSegment.
+func SetDefaultPreprocessOptions(opts PreprocessOptions) {
+	defaultPreprocessOptions = opts
+}
+
+// GetDefaultPreprocessOptions returns the current default preprocessing options.
+func GetDefaultPreprocessOptions() PreprocessOptions {
+	return defaultPreprocessOptions
+}
+
+// PreprocessFlagWithOptions precomputes internal data structures based on the flag
+// configuration with configurable optimization options.
+func PreprocessFlagWithOptions(f *FeatureFlag, opts PreprocessOptions) {
 	for i, t := range f.Targets {
 		f.Targets[i].preprocessed.valuesMap = preprocessStringSet(t.Values)
 	}
@@ -58,7 +91,7 @@ func PreprocessFlag(f *FeatureFlag) {
 				continue
 			}
 			preprocessed := preprocessClause(c)
-			if preprocessed.valuesMap != nil {
+			if opts.DiscardRedundantClauseValues && preprocessed.valuesMap != nil {
 				f.Rules[i].Clauses[j].Values = nil
 			}
 			f.Rules[i].Clauses[j].preprocessed = preprocessed
@@ -66,13 +99,19 @@ func PreprocessFlag(f *FeatureFlag) {
 	}
 }
 
-// PreprocessSegment precomputes internal data structures based on the segment configuration, to speed up
+// PreprocessFlag precomputes internal data structures based on the flag configuration, to speed up
 // evaluations.
 //
-// This is called once after a segment is deserialized from JSON, or is created with ldbuilders. If you
-// construct a segment by some other means, you should call PreprocessSegment exactly once before making
-// it available to any other code. The method is not safe for concurrent access across goroutines.
-func PreprocessSegment(s *Segment) {
+// This is called once after a flag is deserialized from JSON, or is created with ldbuilders. If you
+// construct a flag by some other means, you should call PreprocessFlag exactly once before making it
+// available to any other code. The method is not safe for concurrent access across goroutines.
+func PreprocessFlag(f *FeatureFlag) {
+	PreprocessFlagWithOptions(f, defaultPreprocessOptions)
+}
+
+// PreprocessSegmentWithOptions precomputes internal data structures based on the segment
+// configuration with configurable optimization options.
+func PreprocessSegmentWithOptions(s *Segment, opts PreprocessOptions) {
 	p := segmentPreprocessedData{}
 	p.includeMap = preprocessStringSet(s.Included)
 	p.excludeMap = preprocessStringSet(s.Excluded)
@@ -90,12 +129,22 @@ func PreprocessSegment(s *Segment) {
 				continue
 			}
 			preprocessed := preprocessClause(c)
-			if preprocessed.valuesMap != nil {
+			if opts.DiscardRedundantClauseValues && preprocessed.valuesMap != nil {
 				s.Rules[i].Clauses[j].Values = nil
 			}
 			s.Rules[i].Clauses[j].preprocessed = preprocessed
 		}
 	}
+}
+
+// PreprocessSegment precomputes internal data structures based on the segment configuration, to speed up
+// evaluations.
+//
+// This is called once after a segment is deserialized from JSON, or is created with ldbuilders. If you
+// construct a segment by some other means, you should call PreprocessSegment exactly once before making
+// it available to any other code. The method is not safe for concurrent access across goroutines.
+func PreprocessSegment(s *Segment) {
+	PreprocessSegmentWithOptions(s, defaultPreprocessOptions)
 }
 
 func preprocessClause(c Clause) clausePreprocessedData {

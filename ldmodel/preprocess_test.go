@@ -300,7 +300,7 @@ func TestPreprocessSegmentPreprocessesClausesInRules(t *testing.T) {
 	assert.False(t, p[2].valid)
 }
 
-func TestPreprocessFlag_DiscardsRedundantClauseValues(t *testing.T) {
+func TestPreprocessFlag_DiscardRedundantClauseValues(t *testing.T) {
 	makeTestFlag := func() FeatureFlag {
 		return FeatureFlag{
 			Key: "test-flag",
@@ -331,9 +331,19 @@ func TestPreprocessFlag_DiscardsRedundantClauseValues(t *testing.T) {
 		}
 	}
 
-	t.Run("sets multi-value OperatorIn values to nil and retains valuesMap", func(t *testing.T) {
+	t.Run("default preserves values for unmarshal-then-marshal safety", func(t *testing.T) {
 		f := makeTestFlag()
 		PreprocessFlag(&f)
+		assert.NotNil(t, f.Rules[0].Clauses[0].Values)
+		assert.Len(t, f.Rules[0].Clauses[0].Values, 2)
+		assert.NotNil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+		assert.NotNil(t, f.Rules[0].Clauses[1].Values)
+		assert.NotNil(t, f.Rules[0].Clauses[2].Values)
+	})
+
+	t.Run("opt-in discard frees multi-value OperatorIn slice while preserving targeting", func(t *testing.T) {
+		f := makeTestFlag()
+		PreprocessFlagWithOptions(&f, PreprocessOptions{DiscardRedundantClauseValues: true})
 
 		// Multi-value OperatorIn: valuesMap exists, Values should be nil
 		assert.Nil(t, f.Rules[0].Clauses[0].Values)
@@ -351,13 +361,19 @@ func TestPreprocessFlag_DiscardsRedundantClauseValues(t *testing.T) {
 		assert.Len(t, f.Rules[0].Clauses[2].Values, 1)
 
 		// Re-preprocess should be idempotent and not wipe the existing valuesMap
-		PreprocessFlag(&f)
+		PreprocessFlagWithOptions(&f, PreprocessOptions{DiscardRedundantClauseValues: true})
 		assert.NotNil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
 		assert.True(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-1")))
+
+		// Marshaling reconstructs values from valuesMap even when Values is nil
+		bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(f)
+		require.NoError(t, err)
+		assert.Contains(t, string(bytes), `"acc-1"`)
+		assert.Contains(t, string(bytes), `"acc-2"`)
 	})
 }
 
-func TestPreprocessSegment_DiscardsRedundantClauseValues(t *testing.T) {
+func TestPreprocessSegment_DiscardRedundantClauseValues(t *testing.T) {
 	makeTestSegment := func() Segment {
 		return Segment{
 			Key: "test-segment",
@@ -383,15 +399,28 @@ func TestPreprocessSegment_DiscardsRedundantClauseValues(t *testing.T) {
 		}
 	}
 
-	t.Run("sets multi-value segment OperatorIn values to nil", func(t *testing.T) {
+	t.Run("default preserves segment values", func(t *testing.T) {
 		s := makeTestSegment()
 		PreprocessSegment(&s)
+		assert.NotNil(t, s.Rules[0].Clauses[0].Values)
+		assert.Len(t, s.Rules[0].Clauses[0].Values, 2)
+	})
+
+	t.Run("opt-in discard frees multi-value segment OperatorIn slice", func(t *testing.T) {
+		s := makeTestSegment()
+		PreprocessSegmentWithOptions(&s, PreprocessOptions{DiscardRedundantClauseValues: true})
 		assert.Nil(t, s.Rules[0].Clauses[0].Values)
 		assert.NotNil(t, s.Rules[0].Clauses[0].preprocessed.valuesMap)
 		assert.NotNil(t, s.Rules[0].Clauses[1].Values)
 
 		// Re-preprocess idempotency check
-		PreprocessSegment(&s)
+		PreprocessSegmentWithOptions(&s, PreprocessOptions{DiscardRedundantClauseValues: true})
 		assert.NotNil(t, s.Rules[0].Clauses[0].preprocessed.valuesMap)
+
+		// Serialization reconstructs segment clause values
+		bytes, err := NewJSONDataModelSerialization().MarshalSegment(s)
+		require.NoError(t, err)
+		assert.Contains(t, string(bytes), `"acc-1"`)
+		assert.Contains(t, string(bytes), `"acc-2"`)
 	})
 }
