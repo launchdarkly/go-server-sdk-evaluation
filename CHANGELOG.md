@@ -2,6 +2,13 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [3.1.0](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v3.0.2...v3.1.0) (2026-09-24)
+
+
+### Features
+
+* **ldmodel:** add override marker to FeatureFlag and Segment ([#57](https://github.com/launchdarkly/go-server-sdk-evaluation/issues/57)) ([bcd7c4e](https://github.com/launchdarkly/go-server-sdk-evaluation/commit/bcd7c4e0b698ca12df36b741432e4c9e3c88ebca))
+
 ## [3.0.2](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v3.0.1...v3.0.2) (2026-08-14)
 
 
