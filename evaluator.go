@@ -92,9 +92,9 @@ type evaluationScope struct {
 	bigSegmentsMemberships map[string]BigSegmentMembership
 	bigSegmentsStatus      ldreason.BigSegmentsStatus
 	// overrideAffected is true if this scope has read a definition that carries the override marker.
-	// evaluate() sets it for the scope's own flag. segmentContainsContext() sets it for each segment
-	// that the scope reads. evaluatePrerequisite() merges the state of each nested scope into this
-	// one, so the marking propagates upward only.
+	// The scope constructors set it from the scope's own flag. segmentContainsContext() sets it for
+	// each segment that the scope reads. evaluatePrerequisite() merges the state of each nested scope
+	// into this one, so the marking propagates upward only.
 	overrideAffected bool
 }
 
@@ -109,19 +109,13 @@ func (e *evaluator) Evaluate(
 	context ldcontext.Context,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 ) Result {
+	es := newEvaluationScope(e, flag, context, prerequisiteFlagEventRecorder)
+
 	if context.Err() != nil {
 		// The caller has already read the flag definition, so an override flag marks this result too.
-		fromOverride := flag != nil && flag.IsOverride
 		detail := ldreason.NewEvaluationDetailForError(ldreason.EvalErrorUserNotSpecified, ldvalue.Null())
-		detail.Reason = reasonWithOverrideAffected(detail.Reason, fromOverride)
-		return Result{Detail: detail, OverrideAffected: fromOverride}
-	}
-
-	es := evaluationScope{
-		owner:                         e,
-		flag:                          flag,
-		context:                       context,
-		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
+		detail.Reason = ldreason.NewEvalReasonFromReasonWithOverrideAffected(detail.Reason, es.overrideAffected)
+		return Result{Detail: detail, OverrideAffected: es.overrideAffected}
 	}
 
 	// Preallocate some space for prerequisiteFlagChain and segmentChain on the stack. We can
@@ -137,7 +131,9 @@ func (e *evaluator) Evaluate(
 		detail.Reason = ldreason.NewEvalReasonFromReasonWithBigSegmentsStatus(detail.Reason,
 			es.bigSegmentsStatus)
 	}
-	detail.Reason = reasonWithOverrideAffected(detail.Reason, es.overrideAffected)
+	// Error reasons are marked too. A malformed override definition yields the caller's default
+	// value with an error reason, and an override still affected that result.
+	detail.Reason = ldreason.NewEvalReasonFromReasonWithOverrideAffected(detail.Reason, es.overrideAffected)
 	return Result{
 		Detail:           detail,
 		IsExperiment:     isExperiment(flag, detail.Reason),
@@ -145,18 +141,37 @@ func (e *evaluator) Evaluate(
 	}
 }
 
-// reasonWithOverrideAffected sets the overrideAffected indicator on a reason when the evaluation
-// that produced the reason read a definition from the override store. Error reasons are marked
-// too. A malformed override definition yields the caller's default value with an error reason,
-// and an override still affected that result.
-func reasonWithOverrideAffected(
-	reason ldreason.EvaluationReason,
-	overrideAffected bool,
-) ldreason.EvaluationReason {
-	if !overrideAffected {
-		return reason
+// newEvaluationScope creates the scope for evaluating one flag. Reading the flag's own definition
+// is the first read of the scope, so the marking starts from the flag's override marker.
+func newEvaluationScope(
+	owner *evaluator,
+	flag *ldmodel.FeatureFlag,
+	context ldcontext.Context,
+	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
+) evaluationScope {
+	return evaluationScope{
+		owner:                         owner,
+		flag:                          flag,
+		context:                       context,
+		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
+		overrideAffected:              flag != nil && flag.IsOverride,
 	}
-	return ldreason.NewEvalReasonFromReasonWithOverrideAffected(reason, true)
+}
+
+// subScope creates the scope for evaluating a prerequisite of this scope's flag. It carries every
+// value that a nested evaluation shares with its parent. The flag and the marking are the two
+// values that do not carry over: the nested scope evaluates its own flag, and its marking starts
+// from that flag's marker so that its record reflects only its own reads.
+func (es *evaluationScope) subScope(prereqFlag *ldmodel.FeatureFlag) evaluationScope {
+	return evaluationScope{
+		owner:                         es.owner,
+		flag:                          prereqFlag,
+		context:                       es.context,
+		prerequisiteFlagEventRecorder: es.prerequisiteFlagEventRecorder,
+		bigSegmentsMemberships:        es.bigSegmentsMemberships,
+		bigSegmentsStatus:             es.bigSegmentsStatus,
+		overrideAffected:              prereqFlag.IsOverride,
+	}
 }
 
 // Entry point for evaluating a flag which could be either the original flag or a prerequisite.
@@ -169,12 +184,6 @@ func reasonWithOverrideAffected(
 // with append(). The other is that Go's escape analysis is not quite clever enough to let the
 // slices that we preallocated in Evaluate() remain on the stack if we pass that struct by address.
 func (es *evaluationScope) evaluate(stack evaluationStack) (ldreason.EvaluationDetail, bool) {
-	// The scope's own flag definition counts as a read. This runs before any early return, so every
-	// result of this scope reflects the marker, including error results.
-	if es.flag.IsOverride {
-		es.overrideAffected = true
-	}
-
 	if !es.flag.On {
 		return es.getOffValue(ldreason.NewEvalReasonOff()), true
 	}
@@ -229,17 +238,13 @@ func (es *evaluationScope) evaluatePrerequisite(
 			return Result{}, false
 		}
 	}
-	subScope := *es
-	subScope.flag = prereqFlag
-	// A prerequisite evaluation is an evaluation in its own right. The nested scope starts unmarked,
-	// so its record reflects only its own subtree of reads and not the state of this scope.
-	subScope.overrideAffected = false
+	subScope := es.subScope(prereqFlag)
 	detail, ok := subScope.evaluate(stack)
 	es.bigSegmentsStatus = computeUpdatedBigSegmentsStatus(es.bigSegmentsStatus, subScope.bigSegmentsStatus)
 	// The marking propagates upward only. The nested scope marks this scope, but this scope does not
 	// mark the nested record.
 	es.overrideAffected = es.overrideAffected || subScope.overrideAffected
-	detail.Reason = reasonWithOverrideAffected(detail.Reason, subScope.overrideAffected)
+	detail.Reason = ldreason.NewEvalReasonFromReasonWithOverrideAffected(detail.Reason, subScope.overrideAffected)
 	return Result{
 		Detail:           detail,
 		IsExperiment:     isExperiment(prereqFlag, detail.Reason),
