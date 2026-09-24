@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
@@ -297,4 +298,112 @@ func TestPreprocessSegmentPreprocessesClausesInRules(t *testing.T) {
 	assert.False(t, p[1].valid)
 	assert.True(t, p[2].computed)
 	assert.False(t, p[2].valid)
+}
+
+func TestPreprocessFlag_DiscardsRedundantClauseValues(t *testing.T) {
+	makeTestFlag := func() FeatureFlag {
+		return FeatureFlag{
+			Key: "test-flag",
+			Rules: []FlagRule{
+				{
+					Clauses: []Clause{
+						{
+							Op:        OperatorIn,
+							Attribute: ldattr.NewLiteralRef("account_uuid"),
+							Values: []ldvalue.Value{
+								ldvalue.String("acc-1"),
+								ldvalue.String("acc-2"),
+							},
+						},
+						{
+							Op:        OperatorIn,
+							Attribute: ldattr.NewLiteralRef("single_attr"),
+							Values:    []ldvalue.Value{ldvalue.String("single")},
+						},
+						{
+							Op:        OperatorMatches,
+							Attribute: ldattr.NewLiteralRef("name"),
+							Values:    []ldvalue.Value{ldvalue.String("test.*")},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("sets multi-value OperatorIn values to nil and retains valuesMap", func(t *testing.T) {
+		f := makeTestFlag()
+		PreprocessFlag(&f)
+
+		// Multi-value OperatorIn: valuesMap exists, Values should be nil
+		assert.Nil(t, f.Rules[0].Clauses[0].Values)
+		assert.NotNil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+		assert.True(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-1")))
+		assert.True(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-2")))
+		assert.False(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-3")))
+
+		// Single-value OperatorIn: valuesMap is nil, Values should be preserved
+		assert.NotNil(t, f.Rules[0].Clauses[1].Values)
+		assert.Len(t, f.Rules[0].Clauses[1].Values, 1)
+
+		// Regex clause: valuesMap is nil, Values should be preserved
+		assert.NotNil(t, f.Rules[0].Clauses[2].Values)
+		assert.Len(t, f.Rules[0].Clauses[2].Values, 1)
+
+		// Re-preprocess should be idempotent and not wipe the existing valuesMap
+		PreprocessFlag(&f)
+		assert.NotNil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+		assert.True(t, EvaluatorAccessors.ClauseFindValue(&f.Rules[0].Clauses[0], ldvalue.String("acc-1")))
+
+		// Marshaling reconstructs values from valuesMap even when Values is nil
+		bytes, err := NewJSONDataModelSerialization().MarshalFeatureFlag(f)
+		require.NoError(t, err)
+		assert.Contains(t, string(bytes), `"acc-1"`)
+		assert.Contains(t, string(bytes), `"acc-2"`)
+	})
+}
+
+func TestPreprocessSegment_DiscardsRedundantClauseValues(t *testing.T) {
+	makeTestSegment := func() Segment {
+		return Segment{
+			Key: "test-segment",
+			Rules: []SegmentRule{
+				{
+					Clauses: []Clause{
+						{
+							Op:        OperatorIn,
+							Attribute: ldattr.NewLiteralRef("account_uuid"),
+							Values: []ldvalue.Value{
+								ldvalue.String("acc-1"),
+								ldvalue.String("acc-2"),
+							},
+						},
+						{
+							Op:        OperatorIn,
+							Attribute: ldattr.NewLiteralRef("single_attr"),
+							Values:    []ldvalue.Value{ldvalue.String("single")},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("sets multi-value segment OperatorIn values to nil", func(t *testing.T) {
+		s := makeTestSegment()
+		PreprocessSegment(&s)
+		assert.Nil(t, s.Rules[0].Clauses[0].Values)
+		assert.NotNil(t, s.Rules[0].Clauses[0].preprocessed.valuesMap)
+		assert.NotNil(t, s.Rules[0].Clauses[1].Values)
+
+		// Re-preprocess idempotency check
+		PreprocessSegment(&s)
+		assert.NotNil(t, s.Rules[0].Clauses[0].preprocessed.valuesMap)
+
+		// Serialization reconstructs segment clause values
+		bytes, err := NewJSONDataModelSerialization().MarshalSegment(s)
+		require.NoError(t, err)
+		assert.Contains(t, string(bytes), `"acc-1"`)
+		assert.Contains(t, string(bytes), `"acc-2"`)
+	})
 }

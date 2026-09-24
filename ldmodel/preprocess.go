@@ -42,6 +42,19 @@ func (j jsonPrimitiveValueKey) isValid() bool {
 	return j.valueType != ldvalue.NullType
 }
 
+func (j jsonPrimitiveValueKey) toValue() ldvalue.Value {
+	switch j.valueType {
+	case ldvalue.BoolType:
+		return ldvalue.Bool(j.booleanValue)
+	case ldvalue.NumberType:
+		return ldvalue.Float64(j.numberValue)
+	case ldvalue.StringType:
+		return ldvalue.String(j.stringValue)
+	default:
+		return ldvalue.Null()
+	}
+}
+
 // PreprocessFlag precomputes internal data structures based on the flag configuration, to speed up
 // evaluations.
 //
@@ -54,7 +67,14 @@ func PreprocessFlag(f *FeatureFlag) {
 	}
 	for i, r := range f.Rules {
 		for j, c := range r.Clauses {
-			f.Rules[i].Clauses[j].preprocessed = preprocessClause(c)
+			if c.Values == nil && c.preprocessed.valuesMap != nil {
+				continue
+			}
+			preprocessed := preprocessClause(c)
+			if preprocessed.valuesMap != nil {
+				f.Rules[i].Clauses[j].Values = nil
+			}
+			f.Rules[i].Clauses[j].preprocessed = preprocessed
 		}
 	}
 }
@@ -79,7 +99,14 @@ func PreprocessSegment(s *Segment) {
 
 	for i, r := range s.Rules {
 		for j, c := range r.Clauses {
-			s.Rules[i].Clauses[j].preprocessed = preprocessClause(c)
+			if c.Values == nil && c.preprocessed.valuesMap != nil {
+				continue
+			}
+			preprocessed := preprocessClause(c)
+			if preprocessed.valuesMap != nil {
+				s.Rules[i].Clauses[j].Values = nil
+			}
+			s.Rules[i].Clauses[j].preprocessed = preprocessed
 		}
 	}
 }
