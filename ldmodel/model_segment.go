@@ -65,6 +65,8 @@ type Segment struct {
 	// This marker is not part of the segment data model: it is never serialized to or deserialized
 	// from JSON, and it is set only by SDK components that manage override entries. Components that
 	// read segment data can treat a segment carrying this marker the same as any other segment.
+	//
+	// Flag overrides are currently experimental and subject to change.
 	IsOverride bool
 	// preprocessedData is created by Segment.Preprocess() to speed up target matching.
 	preprocessed segmentPreprocessedData

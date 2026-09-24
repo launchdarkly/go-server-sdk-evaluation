@@ -116,6 +116,8 @@ type FeatureFlag struct {
 	// JSON, and it is set only by SDK components that manage override entries. Components that read
 	// flag data can treat a flag carrying this marker the same as any other flag; the evaluator reads
 	// it to mark the evaluation reason.
+	//
+	// Flag overrides are currently experimental and subject to change.
 	IsOverride bool
 }
 

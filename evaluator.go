@@ -41,6 +41,8 @@ type Result struct {
 	// store. The evaluator sets this field from its own record of the definitions it read. It does
 	// not derive the field from Detail.Reason, so event generation does not depend on the reason.
 	// Detail.Reason reports the same state through IsOverrideAffected().
+	//
+	// Flag overrides are currently experimental and subject to change.
 	OverrideAffected bool
 }
 
