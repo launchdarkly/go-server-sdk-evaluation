@@ -2,6 +2,18 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.1.0](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v4.0.0...v4.1.0) (2026-09-29)
+
+
+### Features
+
+* Add override markers and mark evaluations affected by an override ([#71](https://github.com/launchdarkly/go-server-sdk-evaluation/issues/71)) ([a98a867](https://github.com/launchdarkly/go-server-sdk-evaluation/commit/a98a867e3846921be331150503a0d15ee1393aed))
+
+
+### Bug Fixes
+
+* upgrade go-jsonstream to v4.0.1 and go-sdk-common to v4.0.1 ([#61](https://github.com/launchdarkly/go-server-sdk-evaluation/issues/61)) ([8e10eef](https://github.com/launchdarkly/go-server-sdk-evaluation/commit/8e10eef2d52624eb11f02bcc9becf5721bd740bb))
+
 ## [4.0.0](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v3.0.1...v4.0.0) (2026-05-29)
 
 
