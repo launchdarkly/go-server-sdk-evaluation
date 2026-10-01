@@ -1,7 +1,9 @@
 package ldmodel
 
 import (
+	"fmt"
 	"regexp"
+	"slices"
 	"testing"
 	"time"
 
@@ -38,30 +40,133 @@ func TestPreprocessFlagBuildsTargetMap(t *testing.T) {
 	assert.Contains(t, f.Targets[1].preprocessed.valuesMap, "b")
 }
 
-func TestPreprocessFlagCreatesClauseValuesMapForMultiValueEqualityTest(t *testing.T) {
-	f := FeatureFlag{
+func makeClauseValuesAtSetThreshold() []ldvalue.Value {
+	values := []ldvalue.Value{ldvalue.Bool(true), ldvalue.Int(0)}
+	for len(values) < clauseInValuesSetMinSize {
+		values = append(values, ldvalue.String(fmt.Sprintf("value%d", len(values))))
+	}
+	return values
+}
+
+func makeFlagWithInClause(values []ldvalue.Value) FeatureFlag {
+	return FeatureFlag{
 		Rules: []FlagRule{
-			{
-				Clauses: []Clause{
-					{
-						Op:     OperatorIn,
-						Values: []ldvalue.Value{ldvalue.Bool(true), ldvalue.String("a"), ldvalue.Int(0)},
-					},
-				},
-			},
+			{Clauses: []Clause{{Op: OperatorIn, Values: values}}},
 		},
 	}
+}
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+func TestPreprocessFlagCreatesClauseValueSetAtThreshold(t *testing.T) {
+	values := makeClauseValuesAtSetThreshold()
+	f := makeFlagWithInClause(values)
+
+	assert.False(t, f.Rules[0].Clauses[0].preprocessed.inValues.ready)
 
 	PreprocessFlag(&f)
 
-	m := f.Rules[0].Clauses[0].preprocessed.valuesMap
-	assert.Equal(t, map[jsonPrimitiveValueKey]struct{}{
-		asPrimitiveValueKey(ldvalue.Bool(true)):  {},
-		asPrimitiveValueKey(ldvalue.String("a")): {},
-		asPrimitiveValueKey(ldvalue.Int(0)):      {},
-	}, m)
+	expected := make(map[jsonPrimitiveValueKey]struct{})
+	for _, v := range values {
+		expected[asPrimitiveValueKey(v)] = struct{}{}
+	}
+	in := f.Rules[0].Clauses[0].preprocessed.inValues
+	assert.True(t, in.ready)
+	assert.Equal(t, expected, in.set)
+	assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
+}
+
+func TestPreprocessFlagDoesNotCreateClauseValueSetBelowThreshold(t *testing.T) {
+	values := makeClauseValuesAtSetThreshold()[:clauseInValuesSetMinSize-1]
+	f := makeFlagWithInClause(values)
+
+	PreprocessFlag(&f)
+
+	in := f.Rules[0].Clauses[0].preprocessed.inValues
+	assert.True(t, in.ready)
+	assert.Nil(t, in.set)
+	assert.Equal(t, values, in.list)
+	assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
+}
+
+func TestPreprocessFlagDoesNotCreateClauseValueSetForNonPrimitiveValue(t *testing.T) {
+	values := append(makeClauseValuesAtSetThreshold(), ldvalue.ArrayOf(ldvalue.String("a")))
+	f := makeFlagWithInClause(values)
+
+	PreprocessFlag(&f)
+
+	in := f.Rules[0].Clauses[0].preprocessed.inValues
+	assert.Nil(t, in.set)
+	assert.Equal(t, values, in.list)
+}
+
+func TestReleaseClauseValuesReleasesListOfClauseWithSet(t *testing.T) {
+	values := makeClauseValuesAtSetThreshold()
+	f := makeFlagWithInClause(values)
+	PreprocessFlag(&f)
+
+	ReleaseClauseValues(&f)
+
+	c := &f.Rules[0].Clauses[0]
+	assert.Nil(t, c.Values)
+	assert.Nil(t, c.preprocessed.inValues.list)
+	assert.Len(t, c.preprocessed.inValues.set, len(values))
+	for _, v := range values {
+		assert.True(t, EvaluatorAccessors.ClauseFindValue(c, v), "value: %s", v)
+	}
+	assert.False(t, EvaluatorAccessors.ClauseFindValue(c, ldvalue.String("other")))
+	assert.ElementsMatch(t, values, slices.Collect(c.AllValues()))
+}
+
+func TestReleaseClauseValuesKeepsListOfClauseWithoutSet(t *testing.T) {
+	values := makeClauseValuesAtSetThreshold()[:clauseInValuesSetMinSize-1]
+	f := makeFlagWithInClause(values)
+	PreprocessFlag(&f)
+
+	ReleaseClauseValues(&f)
+
+	assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
+	assert.Equal(t, values, f.Rules[0].Clauses[0].preprocessed.inValues.list)
+}
+
+func TestPreprocessFlagKeepsReleasedClauseValueSet(t *testing.T) {
+	f := makeFlagWithInClause(makeClauseValuesAtSetThreshold())
+	PreprocessFlag(&f)
+	ReleaseClauseValues(&f)
+	expected := f.Rules[0].Clauses[0].preprocessed.inValues
+
+	PreprocessFlag(&f)
+
+	assert.Equal(t, expected, f.Rules[0].Clauses[0].preprocessed.inValues)
+	assert.Nil(t, f.Rules[0].Clauses[0].Values)
+}
+
+func TestClauseAllValues(t *testing.T) {
+	values := append(makeClauseValuesAtSetThreshold(), ldvalue.String("value2"))
+
+	t.Run("not preprocessed", func(t *testing.T) {
+		c := Clause{Op: OperatorIn, Values: values}
+		assert.Equal(t, values, slices.Collect(c.AllValues()))
+	})
+
+	t.Run("preprocessed, with original order and duplicates", func(t *testing.T) {
+		f := makeFlagWithInClause(values)
+		PreprocessFlag(&f)
+		assert.Equal(t, values, slices.Collect(f.Rules[0].Clauses[0].AllValues()))
+	})
+
+	t.Run("released, without duplicates", func(t *testing.T) {
+		f := makeFlagWithInClause(values)
+		PreprocessFlag(&f)
+		ReleaseClauseValues(&f)
+		assert.ElementsMatch(t, values[:len(values)-1], slices.Collect(f.Rules[0].Clauses[0].AllValues()))
+	})
+
+	t.Run("operator other than in", func(t *testing.T) {
+		f := FeatureFlag{
+			Rules: []FlagRule{{Clauses: []Clause{{Op: OperatorMatches, Values: values}}}},
+		}
+		PreprocessFlag(&f)
+		assert.Equal(t, values, slices.Collect(f.Rules[0].Clauses[0].AllValues()))
+	})
 }
 
 func TestPreprocessFlagDoesNotCreateClauseValuesMapForSingleValueEqualityTest(t *testing.T) {
@@ -78,11 +183,11 @@ func TestPreprocessFlagDoesNotCreateClauseValuesMapForSingleValueEqualityTest(t 
 		},
 	}
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValues.set)
 
 	PreprocessFlag(&f)
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValues.set)
 }
 
 func TestPreprocessFlagDoesNotCreateClauseValuesMapForEmptyEqualityTest(t *testing.T) {
@@ -92,11 +197,11 @@ func TestPreprocessFlagDoesNotCreateClauseValuesMapForEmptyEqualityTest(t *testi
 		},
 	}
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValues.set)
 
 	PreprocessFlag(&f)
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValues.set)
 }
 
 func TestPreprocessFlagDoesNotCreateClauseValuesMapForNonEqualityOperators(t *testing.T) {
@@ -107,9 +212,9 @@ func TestPreprocessFlagDoesNotCreateClauseValuesMapForNonEqualityOperators(t *te
 		OperatorSemVerGreaterThan,
 	}
 
-	values := []ldvalue.Value{ldvalue.String("a"), ldvalue.String("b")}
+	values := makeClauseValuesAtSetThreshold()
 	// The values & types aren't very important here because we won't actually evaluate the clause; all that
-	// matters is that they're primitives and there's more than one of them, so that it *would* build a map
+	// matters is that they're primitives and there are enough of them, so that it *would* build a map
 	// if the operator were OperatorIn
 	for _, op := range ops {
 		t.Run(string(op), func(t *testing.T) {
@@ -121,11 +226,10 @@ func TestPreprocessFlagDoesNotCreateClauseValuesMapForNonEqualityOperators(t *te
 				},
 			}
 
-			assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
-
 			PreprocessFlag(&f)
 
-			assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.valuesMap)
+			assert.False(t, f.Rules[0].Clauses[0].preprocessed.inValues.ready)
+			assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
 		})
 	}
 }
@@ -297,4 +401,21 @@ func TestPreprocessSegmentPreprocessesClausesInRules(t *testing.T) {
 	assert.False(t, p[1].valid)
 	assert.True(t, p[2].computed)
 	assert.False(t, p[2].valid)
+}
+
+func TestReleaseSegmentClauseValuesReleasesListOfClauseWithSet(t *testing.T) {
+	values := makeClauseValuesAtSetThreshold()
+	s := Segment{
+		Rules: []SegmentRule{
+			{Clauses: []Clause{{Op: OperatorIn, Values: values}}},
+		},
+	}
+	PreprocessSegment(&s)
+	assert.Len(t, s.Rules[0].Clauses[0].preprocessed.inValues.set, len(values))
+	assert.Equal(t, values, s.Rules[0].Clauses[0].Values)
+
+	ReleaseSegmentClauseValues(&s)
+
+	assert.Nil(t, s.Rules[0].Clauses[0].Values)
+	assert.ElementsMatch(t, values, slices.Collect(s.Rules[0].Clauses[0].AllValues()))
 }
