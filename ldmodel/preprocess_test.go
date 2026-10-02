@@ -204,19 +204,19 @@ func TestPreprocessFlagDoesNotCreateClauseValuesMapForEmptyEqualityTest(t *testi
 	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValues.set)
 }
 
-func TestPreprocessFlagDoesNotCreateClauseValuesMapForNonEqualityOperators(t *testing.T) {
-	ops := []Operator{
-		OperatorEndsWith, OperatorStartsWith, OperatorMatches, OperatorContains, OperatorLessThan,
-		OperatorLessThanOrEqual, OperatorGreaterThan, OperatorGreaterThanOrEqual, OperatorBefore,
-		OperatorAfter, OperatorSegmentMatch, OperatorSemVerEqual, OperatorSemVerLessThan,
-		OperatorSemVerGreaterThan,
-	}
+var nonEqualityOperators = []Operator{ //nolint:gochecknoglobals
+	OperatorEndsWith, OperatorStartsWith, OperatorMatches, OperatorContains, OperatorLessThan,
+	OperatorLessThanOrEqual, OperatorGreaterThan, OperatorGreaterThanOrEqual, OperatorBefore,
+	OperatorAfter, OperatorSegmentMatch, OperatorSemVerEqual, OperatorSemVerLessThan,
+	OperatorSemVerGreaterThan, Operator("unknownOperator"),
+}
 
+func TestPreprocessFlagDoesNotCreateClauseValuesMapForNonEqualityOperators(t *testing.T) {
 	values := makeClauseValuesAtSetThreshold()
 	// The values & types aren't very important here because we won't actually evaluate the clause; all that
 	// matters is that they're primitives and there are enough of them, so that it *would* build a map
 	// if the operator were OperatorIn
-	for _, op := range ops {
+	for _, op := range nonEqualityOperators {
 		t.Run(string(op), func(t *testing.T) {
 			f := FeatureFlag{
 				Rules: []FlagRule{
@@ -230,6 +230,29 @@ func TestPreprocessFlagDoesNotCreateClauseValuesMapForNonEqualityOperators(t *te
 
 			assert.False(t, f.Rules[0].Clauses[0].preprocessed.inValues.ready)
 			assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
+		})
+	}
+}
+
+func TestReleaseClauseValuesKeepsValuesForNonEqualityOperators(t *testing.T) {
+	// Evaluation reads Values directly for every operator other than OperatorIn, so the release
+	// must not change Values for these operators, even if there are enough values for a set.
+	values := makeClauseValuesAtSetThreshold()
+	for _, op := range nonEqualityOperators {
+		t.Run(string(op), func(t *testing.T) {
+			f := FeatureFlag{
+				Rules: []FlagRule{{Clauses: []Clause{{Op: op, Values: values}}}},
+			}
+			PreprocessFlag(&f)
+			ReleaseClauseValues(&f)
+			assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
+
+			s := Segment{
+				Rules: []SegmentRule{{Clauses: []Clause{{Op: op, Values: values}}}},
+			}
+			PreprocessSegment(&s)
+			ReleaseSegmentClauseValues(&s)
+			assert.Equal(t, values, s.Rules[0].Clauses[0].Values)
 		})
 	}
 }
