@@ -1,6 +1,8 @@
 package ldmodel
 
 import (
+	"iter"
+
 	"github.com/launchdarkly/go-sdk-common/v3/ldattr"
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldtime"
@@ -254,6 +256,9 @@ type Clause struct {
 	//
 	// If the user does not have a value for the specified attribute, the Values are ignored and the
 	// Clause is always treated as a non-match.
+	//
+	// ReleaseClauseValues and ReleaseSegmentClauseValues set Values to nil for OperatorIn clauses
+	// with many values, to save memory. Use AllValues to read the values of a clause in all cases.
 	Values []ldvalue.Value
 	// Negate is true if the specified Operator should be inverted.
 	//
@@ -264,6 +269,25 @@ type Clause struct {
 	// preprocessed is created by PreprocessFlag() to speed up clause evaluation in scenarios like
 	// regex matching.
 	preprocessed clausePreprocessedData
+}
+
+// AllValues returns the values of the clause. If ReleaseClauseValues or ReleaseSegmentClauseValues
+// released the Values list, it returns the values from the preprocessed set, in no specified order
+// and without duplicates. Otherwise it returns Values.
+func (c *Clause) AllValues() iter.Seq[ldvalue.Value] {
+	return c.yieldValues
+}
+
+func (c *Clause) yieldValues(yield func(ldvalue.Value) bool) {
+	if c.preprocessed.inValues.ready {
+		c.preprocessed.inValues.yieldValues(yield)
+		return
+	}
+	for _, v := range c.Values {
+		if !yield(v) {
+			return
+		}
+	}
 }
 
 // WeightedVariation describes a fraction of users who will receive a specific variation.

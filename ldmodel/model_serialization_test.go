@@ -2,10 +2,12 @@ package ldmodel
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/launchdarkly/go-jsonstream/v3/jreader"
 	"github.com/launchdarkly/go-jsonstream/v3/jwriter"
+	"github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 	"github.com/launchdarkly/go-test-helpers/v3/jsonhelpers"
 
 	"github.com/stretchr/testify/assert"
@@ -176,4 +178,77 @@ func TestUnmarshalSegmentErrors(t *testing.T) {
 
 	_, err = NewJSONDataModelSerialization().UnmarshalSegment([]byte(`{"key":[]}`))
 	assert.Error(t, err)
+}
+
+// The clause has enough values for a set lookup, and one duplicate value.
+const clauseInValuesRulesJSON = `[{"id": "r", "clauses": [{"attribute": "key", "op": "in", "negate": false,
+	"values": ["a", "b", "c", "d", "e", "f", 1, true, "b"]}]}]`
+
+var clauseInValuesExpected = []ldvalue.Value{ //nolint:gochecknoglobals
+	ldvalue.String("a"), ldvalue.String("b"), ldvalue.String("c"), ldvalue.String("d"),
+	ldvalue.String("e"), ldvalue.String("f"), ldvalue.Int(1), ldvalue.Bool(true), ldvalue.String("b"),
+}
+
+func parseMarshaledClauseValues(t *testing.T, data []byte) []ldvalue.Value {
+	var parsed struct {
+		Rules []struct {
+			Clauses []struct {
+				Values []ldvalue.Value `json:"values"`
+			} `json:"clauses"`
+		} `json:"rules"`
+	}
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	require.Len(t, parsed.Rules, 1)
+	require.Len(t, parsed.Rules[0].Clauses, 1)
+	return parsed.Rules[0].Clauses[0].Values
+}
+
+func TestFlagRoundTripWithClauseValueSet(t *testing.T) {
+	serialization := NewJSONDataModelSerialization()
+	flag, err := serialization.UnmarshalFeatureFlag(
+		[]byte(`{"key": "f", "version": 1, "rules": ` + clauseInValuesRulesJSON + `}`))
+	require.NoError(t, err)
+
+	t.Run("not released, with original order and duplicates", func(t *testing.T) {
+		data, err := serialization.MarshalFeatureFlag(flag)
+		require.NoError(t, err)
+		assert.Equal(t, clauseInValuesExpected, parseMarshaledClauseValues(t, data))
+	})
+
+	t.Run("released", func(t *testing.T) {
+		released := flag
+		released.Rules = []FlagRule{flag.Rules[0]}
+		released.Rules[0].Clauses = slices.Clone(flag.Rules[0].Clauses)
+		ReleaseClauseValues(&released)
+		require.Nil(t, released.Rules[0].Clauses[0].Values)
+
+		data, err := serialization.MarshalFeatureFlag(released)
+		require.NoError(t, err)
+		assert.ElementsMatch(t, clauseInValuesExpected[:len(clauseInValuesExpected)-1],
+			parseMarshaledClauseValues(t, data))
+
+		flag2, err := serialization.UnmarshalFeatureFlag(data)
+		require.NoError(t, err)
+		ReleaseClauseValues(&flag2)
+		assert.Equal(t, released, flag2)
+	})
+}
+
+func TestSegmentRoundTripWithReleasedClauseValueSet(t *testing.T) {
+	serialization := NewJSONDataModelSerialization()
+	segment, err := serialization.UnmarshalSegment(
+		[]byte(`{"key": "s", "version": 1, "rules": ` + clauseInValuesRulesJSON + `}`))
+	require.NoError(t, err)
+	ReleaseSegmentClauseValues(&segment)
+	require.Nil(t, segment.Rules[0].Clauses[0].Values)
+
+	data, err := serialization.MarshalSegment(segment)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, clauseInValuesExpected[:len(clauseInValuesExpected)-1],
+		parseMarshaledClauseValues(t, data))
+
+	segment2, err := serialization.UnmarshalSegment(data)
+	require.NoError(t, err)
+	ReleaseSegmentClauseValues(&segment2)
+	assert.Equal(t, segment, segment2)
 }
