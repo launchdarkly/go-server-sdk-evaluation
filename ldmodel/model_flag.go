@@ -272,15 +272,19 @@ type Clause struct {
 }
 
 // AllValues returns the values of the clause. If ReleaseClauseValues or ReleaseSegmentClauseValues
-// released the Values list, it returns the values from the preprocessed set, in no specified order
-// and without duplicates. Otherwise it returns Values.
+// released the Values list, it returns the values from the preprocessed set, in the order they first
+// appeared in Values and without duplicates. Otherwise it returns Values.
 func (c *Clause) AllValues() iter.Seq[ldvalue.Value] {
 	return c.yieldValues
 }
 
 func (c *Clause) yieldValues(yield func(ldvalue.Value) bool) {
 	if c.valuesReleased() {
-		for k := range c.preprocessed.inValueSet {
+		ordered := make([]jsonPrimitiveValueKey, len(c.preprocessed.inValueSet))
+		for k, i := range c.preprocessed.inValueSet {
+			ordered[i] = k
+		}
+		for _, k := range ordered {
 			if !yield(k.toValue()) {
 				return
 			}

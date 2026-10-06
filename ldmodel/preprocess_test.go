@@ -64,9 +64,9 @@ func TestPreprocessFlagCreatesClauseValueSetAtThreshold(t *testing.T) {
 
 	PreprocessFlag(&f)
 
-	expected := make(map[jsonPrimitiveValueKey]struct{})
-	for _, v := range values {
-		expected[asPrimitiveValueKey(v)] = struct{}{}
+	expected := make(map[jsonPrimitiveValueKey]int32)
+	for i, v := range values {
+		expected[asPrimitiveValueKey(v)] = int32(i)
 	}
 	assert.Equal(t, expected, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 	assert.Equal(t, values, f.Rules[0].Clauses[0].Values)

@@ -25,25 +25,29 @@ const clauseInValuesSetMinSize = 8
 
 type clausePreprocessedData struct {
 	values []clausePreprocessedValue
-	// inValueSet is the set of values of an OperatorIn clause. It is nil if the clause was not
-	// preprocessed, if it has fewer than clauseInValuesSetMinSize values, or if a value is not a
-	// primitive. Evaluation uses Clause.Values if inValueSet is nil.
-	inValueSet map[jsonPrimitiveValueKey]struct{}
+	// inValueSet is the set of values of an OperatorIn clause. It maps each distinct value to its
+	// position among the distinct values, in the order they first appear in Clause.Values, so that a
+	// released clause can write its values in their original order without keeping the list. It is
+	// nil if the clause was not preprocessed, if it has fewer than clauseInValuesSetMinSize values,
+	// or if a value is not a primitive. Evaluation uses Clause.Values if inValueSet is nil.
+	inValueSet map[jsonPrimitiveValueKey]int32
 }
 
 // newClauseInValueSet returns a set of the values if there are at least clauseInValuesSetMinSize
 // values and all of them are primitives. Otherwise it returns nil.
-func newClauseInValueSet(values []ldvalue.Value) map[jsonPrimitiveValueKey]struct{} {
+func newClauseInValueSet(values []ldvalue.Value) map[jsonPrimitiveValueKey]int32 {
 	if len(values) < clauseInValuesSetMinSize {
 		return nil
 	}
-	set := make(map[jsonPrimitiveValueKey]struct{}, len(values))
+	set := make(map[jsonPrimitiveValueKey]int32, len(values))
 	for _, v := range values {
 		key := asPrimitiveValueKey(v)
 		if !key.isValid() {
 			return nil
 		}
-		set[key] = struct{}{}
+		if _, seen := set[key]; !seen {
+			set[key] = int32(len(set)) //nolint:gosec // a clause cannot hold 2^31 values
+		}
 	}
 	return set
 }
@@ -146,7 +150,8 @@ func preprocessClauses(clauses []Clause) {
 // ReleaseClauseValues reduces the memory use of a preprocessed flag. Each OperatorIn clause in the
 // flag rules that uses a set lookup stops holding its Values list, and Clause.Values becomes nil.
 // Evaluation and JSON serialization use the set for these clauses. Serialization writes the values
-// in no specified order, and without duplicates.
+// in the order they first appeared, without duplicates, so a released clause serializes the same as
+// the original unless its list repeated a value.
 //
 // Call this function after PreprocessFlag, and before the flag is available to other code. The
 // function changes the flag in place, which includes copies of the flag that share its Rules. The

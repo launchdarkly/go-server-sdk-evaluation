@@ -252,3 +252,26 @@ func TestSegmentRoundTripWithReleasedClauseValueSet(t *testing.T) {
 	ReleaseSegmentClauseValues(&segment2)
 	assert.Equal(t, segment, segment2)
 }
+
+// A released clause keeps the position of each value's first occurrence, so it serializes its values
+// in their original order, the same every time, and only drops repeated values.
+func TestReleasedClauseValueSetKeepsOriginalOrder(t *testing.T) {
+	serialization := NewJSONDataModelSerialization()
+	flag, err := serialization.UnmarshalFeatureFlag([]byte(`{"key": "f", "version": 1, "rules": [{"id": "r",
+		"clauses": [{"attribute": "key", "op": "in", "values": ["z", 1.5, "a", true, -2, "z", "m", false, 1e300, "a"]}]}]}`))
+	require.NoError(t, err)
+	ReleaseClauseValues(&flag)
+	require.Nil(t, flag.Rules[0].Clauses[0].Values)
+
+	first, err := serialization.MarshalFeatureFlag(flag)
+	require.NoError(t, err)
+	assert.Equal(t, []ldvalue.Value{
+		ldvalue.String("z"), ldvalue.Float64(1.5), ldvalue.String("a"), ldvalue.Bool(true), ldvalue.Float64(-2),
+		ldvalue.String("m"), ldvalue.Bool(false), ldvalue.Float64(1e300),
+	}, parseMarshaledClauseValues(t, first))
+	for range 20 {
+		data, err := serialization.MarshalFeatureFlag(flag)
+		require.NoError(t, err)
+		require.Equal(t, string(first), string(data))
+	}
+}
