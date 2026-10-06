@@ -24,72 +24,28 @@ type segmentPreprocessedData struct {
 const clauseInValuesSetMinSize = 8
 
 type clausePreprocessedData struct {
-	values   []clausePreprocessedValue
-	inValues clauseInValues
+	values []clausePreprocessedValue
+	// inValueSet is the set of values of an OperatorIn clause. It is nil if the clause was not
+	// preprocessed, if it has fewer than clauseInValuesSetMinSize values, or if a value is not a
+	// primitive. Evaluation uses Clause.Values if inValueSet is nil.
+	inValueSet map[jsonPrimitiveValueKey]struct{}
 }
 
-// clauseInValues holds the values of an OperatorIn clause in the form that evaluation uses. It is
-// in list mode if set is nil, and in set mode otherwise. In set mode, list is nil after
-// ReleaseClauseValues. The zero value has ready set to false, and means that the clause was not
-// preprocessed.
-type clauseInValues struct {
-	list  []ldvalue.Value
-	set   map[jsonPrimitiveValueKey]struct{}
-	ready bool
-}
-
-// newClauseInValues uses set mode if there are at least clauseInValuesSetMinSize values and all of
-// them are primitives. Otherwise it uses list mode. The list shares its backing array with values.
-func newClauseInValues(values []ldvalue.Value) clauseInValues {
-	ret := clauseInValues{list: values, ready: true}
+// newClauseInValueSet returns a set of the values if there are at least clauseInValuesSetMinSize
+// values and all of them are primitives. Otherwise it returns nil.
+func newClauseInValueSet(values []ldvalue.Value) map[jsonPrimitiveValueKey]struct{} {
 	if len(values) < clauseInValuesSetMinSize {
-		return ret
+		return nil
 	}
 	set := make(map[jsonPrimitiveValueKey]struct{}, len(values))
 	for _, v := range values {
 		key := asPrimitiveValueKey(v)
 		if !key.isValid() {
-			return ret
+			return nil
 		}
 		set[key] = struct{}{}
 	}
-	ret.set = set
-	return ret
-}
-
-// released returns true if ReleaseClauseValues removed the list, so that only the set remains.
-func (c clauseInValues) released() bool {
-	return c.set != nil && c.list == nil
-}
-
-func (c clauseInValues) contains(value ldvalue.Value) bool {
-	if c.set == nil {
-		return listContainsValue(c.list, value)
-	}
-	key := asPrimitiveValueKey(value)
-	if !key.isValid() {
-		return false
-	}
-	_, found := c.set[key]
-	return found
-}
-
-// yieldValues passes each value to yield. It uses the list if there is one, so that the original
-// order and any duplicate values are kept. Otherwise it uses the set, in no specified order.
-func (c *clauseInValues) yieldValues(yield func(ldvalue.Value) bool) {
-	if c.list != nil {
-		for _, v := range c.list {
-			if !yield(v) {
-				return
-			}
-		}
-		return
-	}
-	for k := range c.set {
-		if !yield(k.toValue()) {
-			return
-		}
-	}
+	return set
 }
 
 func listContainsValue(list []ldvalue.Value, value ldvalue.Value) bool {
@@ -180,7 +136,7 @@ func PreprocessSegment(s *Segment) {
 func preprocessClauses(clauses []Clause) {
 	for i := range clauses {
 		c := &clauses[i]
-		if c.preprocessed.inValues.released() {
+		if c.valuesReleased() {
 			continue
 		}
 		c.preprocessed = preprocessClause(*c)
@@ -216,9 +172,8 @@ func ReleaseSegmentClauseValues(s *Segment) {
 func releaseClauseValues(clauses []Clause) {
 	for i := range clauses {
 		c := &clauses[i]
-		if c.preprocessed.inValues.set != nil {
+		if c.preprocessed.inValueSet != nil {
 			c.Values = nil
-			c.preprocessed.inValues.list = nil
 		}
 	}
 }
@@ -232,7 +187,7 @@ func preprocessClause(c Clause) clausePreprocessedData {
 		// keys just can't contain slices or maps), and we can convert this test from a linear search
 		// to a map lookup. A short list is faster to scan than a map is to look up, so the map is
 		// built only for lists with at least clauseInValuesSetMinSize values.
-		ret.inValues = newClauseInValues(c.Values)
+		ret.inValueSet = newClauseInValueSet(c.Values)
 	case OperatorMatches:
 		ret.values = preprocessValues(c.Values, func(v ldvalue.Value) clausePreprocessedValue {
 			r := parseRegexp(v)

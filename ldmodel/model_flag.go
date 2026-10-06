@@ -279,8 +279,12 @@ func (c *Clause) AllValues() iter.Seq[ldvalue.Value] {
 }
 
 func (c *Clause) yieldValues(yield func(ldvalue.Value) bool) {
-	if c.preprocessed.inValues.ready {
-		c.preprocessed.inValues.yieldValues(yield)
+	if c.valuesReleased() {
+		for k := range c.preprocessed.inValueSet {
+			if !yield(k.toValue()) {
+				return
+			}
+		}
 		return
 	}
 	for _, v := range c.Values {
@@ -288,6 +292,12 @@ func (c *Clause) yieldValues(yield func(ldvalue.Value) bool) {
 			return
 		}
 	}
+}
+
+// valuesReleased returns true if ReleaseClauseValues removed the Values list, so that only the
+// preprocessed set holds the values.
+func (c *Clause) valuesReleased() bool {
+	return c.Values == nil && c.preprocessed.inValueSet != nil
 }
 
 // WeightedVariation describes a fraction of users who will receive a specific variation.

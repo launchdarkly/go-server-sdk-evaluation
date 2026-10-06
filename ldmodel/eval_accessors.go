@@ -43,8 +43,13 @@ func (e EvaluatorAccessorMethods) ClauseFindValue(clause *Clause, contextValue l
 	if clause == nil {
 		return false
 	}
-	if clause.preprocessed.inValues.ready {
-		return clause.preprocessed.inValues.contains(contextValue)
+	if set := clause.preprocessed.inValueSet; set != nil {
+		key := asPrimitiveValueKey(contextValue)
+		if !key.isValid() {
+			return false
+		}
+		_, found := set[key]
+		return found
 	}
 	return listContainsValue(clause.Values, contextValue)
 }

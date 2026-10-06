@@ -60,7 +60,7 @@ func TestPreprocessFlagCreatesClauseValueSetAtThreshold(t *testing.T) {
 	values := makeClauseValuesAtSetThreshold()
 	f := makeFlagWithInClause(values)
 
-	assert.False(t, f.Rules[0].Clauses[0].preprocessed.inValues.ready)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 
 	PreprocessFlag(&f)
 
@@ -68,9 +68,7 @@ func TestPreprocessFlagCreatesClauseValueSetAtThreshold(t *testing.T) {
 	for _, v := range values {
 		expected[asPrimitiveValueKey(v)] = struct{}{}
 	}
-	in := f.Rules[0].Clauses[0].preprocessed.inValues
-	assert.True(t, in.ready)
-	assert.Equal(t, expected, in.set)
+	assert.Equal(t, expected, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 	assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
 }
 
@@ -80,10 +78,7 @@ func TestPreprocessFlagDoesNotCreateClauseValueSetBelowThreshold(t *testing.T) {
 
 	PreprocessFlag(&f)
 
-	in := f.Rules[0].Clauses[0].preprocessed.inValues
-	assert.True(t, in.ready)
-	assert.Nil(t, in.set)
-	assert.Equal(t, values, in.list)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 	assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
 }
 
@@ -93,9 +88,8 @@ func TestPreprocessFlagDoesNotCreateClauseValueSetForNonPrimitiveValue(t *testin
 
 	PreprocessFlag(&f)
 
-	in := f.Rules[0].Clauses[0].preprocessed.inValues
-	assert.Nil(t, in.set)
-	assert.Equal(t, values, in.list)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValueSet)
+	assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
 }
 
 func TestReleaseClauseValuesReleasesListOfClauseWithSet(t *testing.T) {
@@ -107,8 +101,7 @@ func TestReleaseClauseValuesReleasesListOfClauseWithSet(t *testing.T) {
 
 	c := &f.Rules[0].Clauses[0]
 	assert.Nil(t, c.Values)
-	assert.Nil(t, c.preprocessed.inValues.list)
-	assert.Len(t, c.preprocessed.inValues.set, len(values))
+	assert.Len(t, c.preprocessed.inValueSet, len(values))
 	for _, v := range values {
 		assert.True(t, EvaluatorAccessors.ClauseFindValue(c, v), "value: %s", v)
 	}
@@ -124,18 +117,18 @@ func TestReleaseClauseValuesKeepsListOfClauseWithoutSet(t *testing.T) {
 	ReleaseClauseValues(&f)
 
 	assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
-	assert.Equal(t, values, f.Rules[0].Clauses[0].preprocessed.inValues.list)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 }
 
 func TestPreprocessFlagKeepsReleasedClauseValueSet(t *testing.T) {
 	f := makeFlagWithInClause(makeClauseValuesAtSetThreshold())
 	PreprocessFlag(&f)
 	ReleaseClauseValues(&f)
-	expected := f.Rules[0].Clauses[0].preprocessed.inValues
+	expected := f.Rules[0].Clauses[0].preprocessed.inValueSet
 
 	PreprocessFlag(&f)
 
-	assert.Equal(t, expected, f.Rules[0].Clauses[0].preprocessed.inValues)
+	assert.Equal(t, expected, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 	assert.Nil(t, f.Rules[0].Clauses[0].Values)
 }
 
@@ -183,11 +176,11 @@ func TestPreprocessFlagDoesNotCreateClauseValuesMapForSingleValueEqualityTest(t 
 		},
 	}
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValues.set)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 
 	PreprocessFlag(&f)
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValues.set)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 }
 
 func TestPreprocessFlagDoesNotCreateClauseValuesMapForEmptyEqualityTest(t *testing.T) {
@@ -197,11 +190,11 @@ func TestPreprocessFlagDoesNotCreateClauseValuesMapForEmptyEqualityTest(t *testi
 		},
 	}
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValues.set)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 
 	PreprocessFlag(&f)
 
-	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValues.set)
+	assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 }
 
 var nonEqualityOperators = []Operator{ //nolint:gochecknoglobals
@@ -228,7 +221,7 @@ func TestPreprocessFlagDoesNotCreateClauseValuesMapForNonEqualityOperators(t *te
 
 			PreprocessFlag(&f)
 
-			assert.False(t, f.Rules[0].Clauses[0].preprocessed.inValues.ready)
+			assert.Nil(t, f.Rules[0].Clauses[0].preprocessed.inValueSet)
 			assert.Equal(t, values, f.Rules[0].Clauses[0].Values)
 		})
 	}
@@ -434,7 +427,7 @@ func TestReleaseSegmentClauseValuesReleasesListOfClauseWithSet(t *testing.T) {
 		},
 	}
 	PreprocessSegment(&s)
-	assert.Len(t, s.Rules[0].Clauses[0].preprocessed.inValues.set, len(values))
+	assert.Len(t, s.Rules[0].Clauses[0].preprocessed.inValueSet, len(values))
 	assert.Equal(t, values, s.Rules[0].Clauses[0].Values)
 
 	ReleaseSegmentClauseValues(&s)
