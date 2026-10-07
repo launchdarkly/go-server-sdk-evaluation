@@ -37,30 +37,21 @@ var EvaluatorAccessors EvaluatorAccessorMethods //nolint:gochecknoglobals
 // object, or a JSON null (since equality tests are not valid for these in the LaunchDarkly
 // model), or if the clause parameter is nil.
 //
-// If preprocessing has been done, this is a fast map lookup (as long as the Clause's operator
-// is "in", which is the only case where it makes sense to create a map). Otherwise it iterates
-// the list.
+// If preprocessing built a set for the clause, this is a set lookup. Preprocessing builds a set
+// only for the "in" operator with many values. Otherwise it iterates the list.
 func (e EvaluatorAccessorMethods) ClauseFindValue(clause *Clause, contextValue ldvalue.Value) bool {
 	if clause == nil {
 		return false
 	}
-	if clause.preprocessed.valuesMap != nil {
-		if key := asPrimitiveValueKey(contextValue); key.isValid() {
-			_, found := clause.preprocessed.valuesMap[key]
-			return found
+	if set := clause.preprocessed.inValueSet; set != nil {
+		key := asPrimitiveValueKey(contextValue)
+		if !key.isValid() {
+			return false
 		}
+		_, found := set[key]
+		return found
 	}
-	switch contextValue.Type() {
-	case ldvalue.BoolType, ldvalue.NumberType, ldvalue.StringType:
-		for _, clauseValue := range clause.Values {
-			if contextValue.Equal(clauseValue) {
-				return true
-			}
-		}
-	default:
-		break
-	}
-	return false
+	return listContainsValue(clause.Values, contextValue)
 }
 
 // ClauseGetValueAsRegexp returns one of the Clause's values as a Regexp, if the value is a string
