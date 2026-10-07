@@ -1,6 +1,8 @@
 package ldmodel
 
 import (
+	"iter"
+
 	"github.com/launchdarkly/go-sdk-common/v4/ldattr"
 	"github.com/launchdarkly/go-sdk-common/v4/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v4/ldtime"
@@ -254,6 +256,9 @@ type Clause struct {
 	//
 	// If the user does not have a value for the specified attribute, the Values are ignored and the
 	// Clause is always treated as a non-match.
+	//
+	// ReleaseClauseValues and ReleaseSegmentClauseValues set Values to nil for OperatorIn clauses
+	// with many values, to save memory. Use AllValues to read the values of a clause in all cases.
 	Values []ldvalue.Value
 	// Negate is true if the specified Operator should be inverted.
 	//
@@ -264,6 +269,39 @@ type Clause struct {
 	// preprocessed is created by PreprocessFlag() to speed up clause evaluation in scenarios like
 	// regex matching.
 	preprocessed clausePreprocessedData
+}
+
+// AllValues returns the values of the clause. If ReleaseClauseValues or ReleaseSegmentClauseValues
+// released the Values list, it returns the values from the preprocessed set, in the order they first
+// appeared in Values and without duplicates. Otherwise it returns Values.
+func (c *Clause) AllValues() iter.Seq[ldvalue.Value] {
+	return c.yieldValues
+}
+
+func (c *Clause) yieldValues(yield func(ldvalue.Value) bool) {
+	if c.valuesReleased() {
+		ordered := make([]jsonPrimitiveValueKey, len(c.preprocessed.inValueSet))
+		for k, i := range c.preprocessed.inValueSet {
+			ordered[i] = k
+		}
+		for _, k := range ordered {
+			if !yield(k.toValue()) {
+				return
+			}
+		}
+		return
+	}
+	for _, v := range c.Values {
+		if !yield(v) {
+			return
+		}
+	}
+}
+
+// valuesReleased returns true if ReleaseClauseValues removed the Values list, so that only the
+// preprocessed set holds the values.
+func (c *Clause) valuesReleased() bool {
+	return c.Values == nil && c.preprocessed.inValueSet != nil
 }
 
 // WeightedVariation describes a fraction of users who will receive a specific variation.

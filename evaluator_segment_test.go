@@ -491,3 +491,36 @@ func TestMalformedFlagErrorForBadSegmentProperties(t *testing.T) {
 		})
 	}
 }
+
+func TestSegmentMatchClauseStillMatchesAfterReleaseClauseValues(t *testing.T) {
+	// The in clause has enough values to get a lookup set, so ReleaseClauseValues releases its
+	// Values list. The segmentMatch clause has no lookup set, so it must keep its Values.
+	var keys []ldvalue.Value
+	for i := 0; i < 8; i++ {
+		keys = append(keys, ldvalue.String(fmt.Sprintf("key%d", i)))
+	}
+	inBoth, inListOnly, inSegmentOnly := "key0", "key1", "other"
+	segment := buildSegment().Included(inBoth, inSegmentOnly).Build()
+	flag := makeBooleanFlagWithClauses(
+		ldbuilders.Clause(ldattr.KeyAttr, ldmodel.OperatorIn, keys...),
+		ldbuilders.SegmentMatchClause(segment.Key),
+	)
+	ldmodel.ReleaseClauseValues(&flag)
+	require.Nil(t, flag.Rules[0].Clauses[0].Values)
+	require.Equal(t, []ldvalue.Value{ldvalue.String(segment.Key)}, flag.Rules[0].Clauses[1].Values)
+
+	evaluator := NewEvaluator(basicDataProvider().withStoredSegments(segment))
+	for _, p := range []struct {
+		key         string
+		shouldMatch bool
+	}{
+		{inBoth, true},
+		{inListOnly, false},
+		{inSegmentOnly, false},
+	} {
+		t.Run(p.key, func(t *testing.T) {
+			result := evaluator.Evaluate(&flag, ldcontext.New(p.key), nil)
+			assert.Equal(t, p.shouldMatch, result.Detail.Value.BoolValue())
+		})
+	}
+}
