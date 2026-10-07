@@ -236,7 +236,7 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 
 		clauseObj.Name("op").String(string(c.Op))
 		valuesArr := clauseObj.Name("values").Array()
-		for _, v := range c.Values {
+		for v := range clauses[i].yieldValues {
 			v.WriteToJSONWriter(w)
 		}
 		valuesArr.End()

@@ -10,19 +10,30 @@ import (
 )
 
 func TestClauseFindValue(t *testing.T) {
-	foundValues := []ldvalue.Value{ldvalue.Bool(true), ldvalue.Int(2), ldvalue.String("x")}
+	foundValues := makeClauseValuesAtSetThreshold()
 	notFoundValues := []ldvalue.Value{ldvalue.Bool(false), ldvalue.Int(3), ldvalue.String("y")}
 
-	for _, withPreprocessing := range []bool{false, true} {
-		t.Run(fmt.Sprintf("preprocessed: %t", withPreprocessing), func(t *testing.T) {
-			clause := Clause{Op: OperatorIn, Values: foundValues}
-			if withPreprocessing {
-				clause.preprocessed = preprocessClause(clause)
+	for _, mode := range []string{"not preprocessed", "list", "set", "released set"} {
+		t.Run(mode, func(t *testing.T) {
+			values := foundValues
+			if mode == "list" {
+				values = foundValues[:clauseInValuesSetMinSize-1]
 			}
-			for _, value := range foundValues {
+			f := makeFlagWithInClause(values)
+			if mode != "not preprocessed" {
+				PreprocessFlag(&f)
+			}
+			if mode == "released set" {
+				ReleaseClauseValues(&f)
+			}
+			clause := f.Rules[0].Clauses[0]
+			for _, value := range values {
 				assert.True(t, EvaluatorAccessors.ClauseFindValue(&clause, value), "value: %s", value)
 			}
 			for _, value := range notFoundValues {
+				assert.False(t, EvaluatorAccessors.ClauseFindValue(&clause, value), "value: %s", value)
+			}
+			for _, value := range []ldvalue.Value{ldvalue.Null(), ldvalue.ArrayOf(), ldvalue.ObjectBuild().Build()} {
 				assert.False(t, EvaluatorAccessors.ClauseFindValue(&clause, value), "value: %s", value)
 			}
 		})
