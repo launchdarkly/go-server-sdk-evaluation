@@ -2,6 +2,13 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [3.2.0](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v3.1.0...v3.2.0) (2026-10-07)
+
+
+### Features
+
+* Add opt-in release of in-clause value lists ([#72](https://github.com/launchdarkly/go-server-sdk-evaluation/issues/72)) ([8030e64](https://github.com/launchdarkly/go-server-sdk-evaluation/commit/8030e6487ec538bc9cdd1831f27210a2edd21a79))
+
 ## [3.1.0](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v3.0.2...v3.1.0) (2026-09-24)
 
 
