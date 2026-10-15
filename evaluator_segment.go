@@ -1,7 +1,7 @@
 package evaluation
 
 import (
-	"fmt"
+	"strconv"
 
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 	"github.com/launchdarkly/go-sdk-common/v3/ldreason"
@@ -13,7 +13,7 @@ func makeBigSegmentRef(s *ldmodel.Segment) string {
 	// The format of big segment references is independent of what store implementation is being
 	// used; the store implementation receives only this string and does not know the details of
 	// the data model. The Relay Proxy will use the same format when writing to the store.
-	return fmt.Sprintf("%s.g%d", s.Key, s.Generation.IntValue())
+	return s.Key + ".g" + strconv.Itoa(s.Generation.IntValue())
 }
 
 func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment, stack evaluationStack) (bool, error) {
@@ -35,6 +35,38 @@ func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment, stack eval
 	// persist after we return from this method. See comments in evaluationScope.checkPrerequisites().
 	stack.segmentChain = append(stack.segmentChain, s.Key)
 
+	if es.contexts == nil {
+		return es.segmentContainsContextUncached(s, stack)
+	}
+	if contains, ok := es.contexts.segmentResult(s); ok {
+		return contains, nil
+	}
+	contains, err := es.segmentContainsContextUncached(s, stack)
+	if err == nil && segmentIsSelfContained(s) {
+		es.contexts.setSegmentResult(s, contains)
+	}
+	return contains, err
+}
+
+// segmentIsSelfContained reports whether a segment's result depends only on the segment and the
+// context, so that a ContextEvaluator can remember it: it is not a big segment (whose result also
+// depends on the big segment store, and which updates the evaluation's big segments status), and none
+// of its rules references another segment.
+func segmentIsSelfContained(s *ldmodel.Segment) bool {
+	if s.Unbounded {
+		return false
+	}
+	for i := range s.Rules {
+		for j := range s.Rules[i].Clauses {
+			if s.Rules[i].Clauses[j].Op == ldmodel.OperatorSegmentMatch {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (es *evaluationScope) segmentContainsContextUncached(s *ldmodel.Segment, stack evaluationStack) (bool, error) {
 	// Check if the user is specifically included in or excluded from the segment by key
 	if s.Unbounded {
 		if !s.Generation.IsDefined() {
@@ -47,7 +79,7 @@ func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment, stack eval
 		}
 		// A big segment can only apply to one context kind, so if we don't have a key for that kind,
 		// we don't need to bother querying the data.
-		key, ok := getApplicableContextKeyByKind(&es.context, s.UnboundedContextKind)
+		key, ok := es.contextKey(s.UnboundedContextKind)
 		if !ok {
 			return false, nil
 		}
@@ -83,7 +115,7 @@ func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment, stack eval
 		}
 	} else {
 		// always check for included before excluded
-		defaultKindKey, hasDefaultKindKey := getApplicableContextKeyByKind(&es.context, ldcontext.DefaultKind)
+		defaultKindKey, hasDefaultKindKey := es.contextKey(ldcontext.DefaultKind)
 		isOnlyDefaultKind := es.context.Kind() == ldcontext.DefaultKind
 		if hasDefaultKindKey && ldmodel.EvaluatorAccessors.SegmentFindKeyInIncluded(s, defaultKindKey) {
 			return true, nil
@@ -108,9 +140,8 @@ func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment, stack eval
 	}
 
 	// Check if any of the segment rules match
-	for _, rule := range s.Rules {
-		// Note, taking address of range variable here is OK because it's not used outside the loop
-		match, err := es.segmentRuleMatchesContext(&rule, stack, s.Key, s.Salt)
+	for i := range s.Rules {
+		match, err := es.segmentRuleMatchesContext(&s.Rules[i], stack, s.Key, s.Salt)
 		if err != nil {
 			return false, malformedSegmentError{SegmentKey: s.Key, Err: err}
 		}
@@ -123,7 +154,7 @@ func (es *evaluationScope) segmentContainsContext(s *ldmodel.Segment, stack eval
 }
 
 func (es *evaluationScope) segmentTargetMatchesContext(t *ldmodel.SegmentTarget) bool {
-	if key, ok := getApplicableContextKeyByKind(&es.context, t.ContextKind); ok {
+	if key, ok := es.contextKey(t.ContextKind); ok {
 		return ldmodel.EvaluatorAccessors.SegmentTargetFindKey(t, key)
 	}
 	return false
