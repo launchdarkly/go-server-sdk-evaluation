@@ -85,9 +85,13 @@ func NewEvaluatorWithOptions(dataProvider DataProvider, options ...EvaluatorOpti
 // Its methods use a pointer receiver for efficiency, even though it is allocated on the stack and
 // its fields are never modified.
 type evaluationScope struct {
-	owner                         *evaluator
-	flag                          *ldmodel.FeatureFlag
-	context                       ldcontext.Context
+	owner   *evaluator
+	flag    *ldmodel.FeatureFlag
+	context ldcontext.Context
+	// contexts, when set, serves the context's individual contexts and attribute values (see
+	// contextCache and ContextEvaluator). It is shared with nested scopes, which read the same
+	// context. It is nil for Evaluator.Evaluate, which keeps no state between evaluations.
+	contexts                      *contextCache
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder
 	// These bigSegments properties start out unset. They are computed lazily if we encounter
 	// big segment references during an evaluation. See evaluator_segment.go.
@@ -111,7 +115,17 @@ func (e *evaluator) Evaluate(
 	context ldcontext.Context,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 ) Result {
-	es := newEvaluationScope(e, flag, context, prerequisiteFlagEventRecorder)
+	return e.evaluate(flag, context, nil, prerequisiteFlagEventRecorder)
+}
+
+// evaluate is Evaluate, with what a ContextEvaluator keeps about the context when contexts is set.
+func (e *evaluator) evaluate(
+	flag *ldmodel.FeatureFlag,
+	context ldcontext.Context,
+	contexts *contextCache,
+	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
+) Result {
+	es := newEvaluationScope(e, flag, context, contexts, prerequisiteFlagEventRecorder)
 
 	if context.Err() != nil {
 		// The caller has already read the flag definition, so an override flag marks this result too.
@@ -149,12 +163,14 @@ func newEvaluationScope(
 	owner *evaluator,
 	flag *ldmodel.FeatureFlag,
 	context ldcontext.Context,
+	contexts *contextCache,
 	prerequisiteFlagEventRecorder PrerequisiteFlagEventRecorder,
 ) evaluationScope {
 	return evaluationScope{
 		owner:                         owner,
 		flag:                          flag,
 		context:                       context,
+		contexts:                      contexts,
 		prerequisiteFlagEventRecorder: prerequisiteFlagEventRecorder,
 		overrideAffected:              flag != nil && flag.IsOverride,
 	}
@@ -169,6 +185,7 @@ func (es *evaluationScope) subScope(prereqFlag *ldmodel.FeatureFlag) evaluationS
 		owner:                         es.owner,
 		flag:                          prereqFlag,
 		context:                       es.context,
+		contexts:                      es.contexts,
 		prerequisiteFlagEventRecorder: es.prerequisiteFlagEventRecorder,
 		bigSegmentsMemberships:        es.bigSegmentsMemberships,
 		bigSegmentsStatus:             es.bigSegmentsStatus,
@@ -206,19 +223,20 @@ func (es *evaluationScope) evaluate(stack evaluationStack) (ldreason.EvaluationD
 	}
 
 	// Now walk through the rules and see if any match
-	for ruleIndex, rule := range es.flag.Rules {
-		match, err := es.ruleMatchesContext(&rule, stack)
+	for ruleIndex := range es.flag.Rules {
+		rule := &es.flag.Rules[ruleIndex]
+		match, err := es.ruleMatchesContext(rule, stack)
 		if err != nil {
 			es.logEvaluationError(err)
 			return ldreason.NewEvaluationDetailForError(errorKindForError(err), ldvalue.Null()), false
 		}
 		if match {
 			reason := ldreason.NewEvalReasonRuleMatch(ruleIndex, rule.ID)
-			return es.getValueForVariationOrRollout(rule.VariationOrRollout, reason), true
+			return es.getValueForVariationOrRollout(&rule.VariationOrRollout, reason), true
 		}
 	}
 
-	return es.getValueForVariationOrRollout(es.flag.Fallthrough, ldreason.NewEvalReasonFallthrough()), true
+	return es.getValueForVariationOrRollout(&es.flag.Fallthrough, ldreason.NewEvalReasonFallthrough()), true
 }
 
 // Do a nested evaluation for a prerequisite of the current scope's flag. The second return value is
@@ -272,7 +290,8 @@ func (es *evaluationScope) checkPrerequisites(stack evaluationStack) (ldreason.E
 	// of the slice every time, which would be worse in more typical use cases. We do not expect
 	// the preallocated capacity to be reached in typical usage.
 
-	for _, prereq := range es.flag.Prerequisites {
+	for i := range es.flag.Prerequisites {
+		prereq := &es.flag.Prerequisites[i]
 		prereqFeatureFlag := es.owner.dataProvider.GetFeatureFlag(prereq.Key)
 		if prereqFeatureFlag == nil {
 			return ldreason.NewEvalReasonPrerequisiteFailed(prereq.Key), false
@@ -322,7 +341,7 @@ func (es *evaluationScope) getOffValue(reason ldreason.EvaluationReason) ldreaso
 }
 
 func (es *evaluationScope) getValueForVariationOrRollout(
-	vr ldmodel.VariationOrRollout,
+	vr *ldmodel.VariationOrRollout,
 	reason ldreason.EvaluationReason,
 ) ldreason.EvaluationDetail {
 	index, inExperiment, err := es.variationOrRolloutResult(vr, es.flag.Key, es.flag.Salt)
@@ -340,25 +359,26 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 	if len(es.flag.ContextTargets) == 0 {
 		// If ContextTargets is empty but Targets is not empty, then this is flag data that originally
 		// came from a non-context-aware LD endpoint or SDK. In that case, just look at Targets.
-		for _, t := range es.flag.Targets {
-			if variation := es.targetMatchVariation(&t); variation.IsDefined() {
+		for i := range es.flag.Targets {
+			if variation := es.targetMatchVariation(&es.flag.Targets[i]); variation.IsDefined() {
 				return variation
 			}
 		}
 	} else {
 		// If ContextTargets is provided, we iterate through it-- but, for any target of the default
 		// kind (user), if there are no Values, we check for a corresponding target in Targets.
-		for _, t := range es.flag.ContextTargets {
+		for i := range es.flag.ContextTargets {
+			t := &es.flag.ContextTargets[i]
 			var variation ldvalue.OptionalInt
 			if (t.ContextKind == "" || t.ContextKind == ldcontext.DefaultKind) && len(t.Values) == 0 {
-				for _, t1 := range es.flag.Targets {
-					if t1.Variation == t.Variation {
-						variation = es.targetMatchVariation(&t1)
+				for j := range es.flag.Targets {
+					if t1 := &es.flag.Targets[j]; t1.Variation == t.Variation {
+						variation = es.targetMatchVariation(t1)
 						break
 					}
 				}
 			} else {
-				variation = es.targetMatchVariation(&t)
+				variation = es.targetMatchVariation(t)
 			}
 			if variation.IsDefined() {
 				return variation
@@ -369,8 +389,8 @@ func (es *evaluationScope) anyTargetMatchVariation() ldvalue.OptionalInt {
 }
 
 func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.OptionalInt {
-	if context := es.context.IndividualContextByKind(t.ContextKind); context.IsDefined() {
-		if ldmodel.EvaluatorAccessors.TargetFindKey(t, context.Key()) {
+	if key, ok := es.contextKey(t.ContextKind); ok {
+		if ldmodel.EvaluatorAccessors.TargetFindKey(t, key) {
 			return ldvalue.NewOptionalInt(t.Variation)
 		}
 	}
@@ -379,8 +399,8 @@ func (es *evaluationScope) targetMatchVariation(t *ldmodel.Target) ldvalue.Optio
 
 func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule, stack evaluationStack) (bool, error) {
 	// Note that rule is passed by reference only for efficiency; we do not modify it
-	for _, clause := range rule.Clauses {
-		match, err := es.clauseMatchesContext(&clause, stack)
+	for i := range rule.Clauses {
+		match, err := es.clauseMatchesContext(&rule.Clauses[i], stack)
 		if !match || err != nil {
 			return match, err
 		}
@@ -389,7 +409,7 @@ func (es *evaluationScope) ruleMatchesContext(rule *ldmodel.FlagRule, stack eval
 }
 
 func (es *evaluationScope) variationOrRolloutResult(
-	r ldmodel.VariationOrRollout, key, salt string) (variationIndex int, inExperiment bool, err error) {
+	r *ldmodel.VariationOrRollout, key, salt string) (variationIndex int, inExperiment bool, err error) {
 	if r.Variation.IsDefined() {
 		return r.Variation.IntValue(), false, nil
 	}
@@ -433,13 +453,6 @@ func (es *evaluationScope) logEvaluationError(err error) {
 		es.flag.Key,
 		err,
 	)
-}
-
-func getApplicableContextKeyByKind(baseContext *ldcontext.Context, kind ldcontext.Kind) (string, bool) {
-	if mc := baseContext.IndividualContextByKind(kind); mc.IsDefined() {
-		return mc.Key(), true
-	}
-	return "", false
 }
 
 func reasonToExperimentReason(reason ldreason.EvaluationReason) ldreason.EvaluationReason {
