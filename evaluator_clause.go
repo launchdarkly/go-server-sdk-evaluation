@@ -31,10 +31,10 @@ func (es *evaluationScope) clauseMatchesContext(clause *ldmodel.Clause, stack ev
 		return clause.Negate, nil // non-match - false unless negated
 	}
 
-	return clauseMatchesContextNoSegments(clause, &es.context)
+	return es.clauseMatchesContextNoSegments(clause)
 }
 
-func clauseMatchesContextNoSegments(c *ldmodel.Clause, context *ldcontext.Context) (bool, error) {
+func (es *evaluationScope) clauseMatchesContextNoSegments(c *ldmodel.Clause) (bool, error) {
 	if !c.Attribute.IsDefined() {
 		return false, emptyAttrRefError{}
 	}
@@ -42,13 +42,22 @@ func clauseMatchesContextNoSegments(c *ldmodel.Clause, context *ldcontext.Contex
 		return false, badAttrRefError(c.Attribute.String())
 	}
 	if c.Attribute.String() == ldattr.KindAttr {
-		return maybeNegate(c.Negate, clauseMatchByKind(c, context)), nil
+		return maybeNegate(c.Negate, clauseMatchByKind(c, &es.context)), nil
 	}
-	actualContext := context.IndividualContextByKind(c.ContextKind)
-	if !actualContext.IsDefined() {
-		return false, nil
+	var uValue ldvalue.Value
+	if es.contexts != nil {
+		k := es.contexts.individual(c.ContextKind)
+		if !k.defined {
+			return false, nil
+		}
+		uValue = es.contexts.value(k, c.Attribute)
+	} else {
+		actualContext := es.context.IndividualContextByKind(c.ContextKind)
+		if !actualContext.IsDefined() {
+			return false, nil
+		}
+		uValue = actualContext.GetValueForRef(c.Attribute)
 	}
-	uValue := actualContext.GetValueForRef(c.Attribute)
 	if uValue.IsNull() {
 		// if the user attribute is null/missing, it's an automatic non-match - regardless of c.Negate
 		return false, nil
