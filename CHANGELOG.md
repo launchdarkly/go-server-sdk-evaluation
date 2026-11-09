@@ -2,6 +2,13 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.1.1](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v4.1.0...v4.1.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* Require a released go-sdk-common instead of an unreleased revision ([#77](https://github.com/launchdarkly/go-server-sdk-evaluation/issues/77)) ([cdfea41](https://github.com/launchdarkly/go-server-sdk-evaluation/commit/cdfea41f883d3f958b182b35ce15f08d411f327e))
+
 ## [4.1.0](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v4.0.0...v4.1.0) (2026-10-07)
 
 
