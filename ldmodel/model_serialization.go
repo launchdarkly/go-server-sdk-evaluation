@@ -7,10 +7,10 @@ import (
 
 // DataModelSerialization is an abstraction of an encoding for SDK data model objects.
 //
-// The ldmodel package defines a standard JSON schema for FeatureFlag and Segment. Currently, this
-// is the only encoding that is used, so the only implementation of DataModelSerialization is the
-// one provided by NewDataModelSerialization(), but the interface allows for the possibility that
-// other encodings will be defined in the future.
+// The ldmodel package defines a standard JSON schema for FeatureFlag and Segment. There are two
+// implementations of DataModelSerialization. NewJSONDataModelSerialization() writes the full JSON
+// encoding. NewCompactJSONDataModelSerialization() writes the compact JSON encoding, which omits
+// properties that have their default values. Both implementations read either encoding.
 //
 // There are also other ways to convert these types to and from the JSON encoding:
 //
@@ -55,6 +55,26 @@ func MarshalSegmentToJSONWriter(item Segment, writer *jwriter.Writer) {
 	marshalSegmentToWriter(item, writer)
 }
 
+// MarshalFeatureFlagToJSONWriterCompact converts a FeatureFlag to the compact JSON encoding using the
+// jsonstream API.
+//
+// The compact encoding omits each property whose absence the unmarshaler reads as the same value,
+// such as a false boolean, a zero integer, an empty string, or an empty array. Only send it to SDKs
+// that can read it. For the full encoding, use MarshalFeatureFlagToJSONWriter.
+func MarshalFeatureFlagToJSONWriterCompact(item FeatureFlag, writer *jwriter.Writer) {
+	marshalFeatureFlagToWriterCompact(item, writer)
+}
+
+// MarshalSegmentToJSONWriterCompact converts a Segment to the compact JSON encoding using the
+// jsonstream API.
+//
+// The compact encoding omits each property whose absence the unmarshaler reads as the same value,
+// such as a false boolean, a zero integer, an empty string, or an empty array. Only send it to SDKs
+// that can read it. For the full encoding, use MarshalSegmentToJSONWriter.
+func MarshalSegmentToJSONWriterCompact(item Segment, writer *jwriter.Writer) {
+	marshalSegmentToWriterCompact(item, writer)
+}
+
 // UnmarshalFeatureFlagFromJSONReader attempts to convert a FeatureFlag from JSON using the jsonstream
 // API. For details, see: https://github.com/launchdarkly/go-jsonstream/v3
 func UnmarshalFeatureFlagFromJSONReader(reader *jreader.Reader) FeatureFlag {
@@ -92,6 +112,34 @@ func (s jsonDataModelSerialization) UnmarshalFeatureFlag(data []byte) (FeatureFl
 }
 
 func (s jsonDataModelSerialization) UnmarshalSegment(data []byte) (Segment, error) {
+	return unmarshalSegmentFromBytes(data)
+}
+
+type compactJSONDataModelSerialization struct{}
+
+// NewCompactJSONDataModelSerialization provides the compact JSON encoding for SDK data model objects.
+//
+// The compact encoding omits each property whose absence the unmarshaler reads as the same value,
+// such as a false boolean, a zero integer, an empty string, or an empty array. Only send it to SDKs
+// that can read it. Unmarshaling is the same as for NewJSONDataModelSerialization(), and reads
+// either encoding.
+func NewCompactJSONDataModelSerialization() DataModelSerialization {
+	return compactJSONDataModelSerialization{}
+}
+
+func (s compactJSONDataModelSerialization) MarshalFeatureFlag(item FeatureFlag) ([]byte, error) {
+	return marshalFeatureFlagCompact(item)
+}
+
+func (s compactJSONDataModelSerialization) MarshalSegment(item Segment) ([]byte, error) {
+	return marshalSegmentCompact(item)
+}
+
+func (s compactJSONDataModelSerialization) UnmarshalFeatureFlag(data []byte) (FeatureFlag, error) {
+	return unmarshalFeatureFlagFromBytes(data)
+}
+
+func (s compactJSONDataModelSerialization) UnmarshalSegment(data []byte) (Segment, error) {
 	return unmarshalSegmentFromBytes(data)
 }
 

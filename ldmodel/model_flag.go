@@ -304,6 +304,14 @@ func (c *Clause) valuesReleased() bool {
 	return c.Values == nil && c.preprocessed.inValueSet != nil
 }
 
+// hasValues tells if AllValues yields at least one value.
+func (c *Clause) hasValues() bool {
+	if c.valuesReleased() {
+		return len(c.preprocessed.inValueSet) > 0
+	}
+	return len(c.Values) > 0
+}
+
 // WeightedVariation describes a fraction of users who will receive a specific variation.
 type WeightedVariation struct {
 	// Variation is the index of the variation to be returned if the user is in this bucket. This is

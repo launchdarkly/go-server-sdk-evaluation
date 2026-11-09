@@ -6,6 +6,10 @@ import (
 	"github.com/launchdarkly/go-sdk-common/v3/ldcontext"
 )
 
+// There are two JSON encodings: the full encoding and the compact encoding.
+//
+// Full encoding
+//
 // For backward compatibility, we are only allowed to drop out properties that have default values if
 // Go SDK 4.x would also have done so (since some SDKs are not tolerant of missing properties in
 // general). This is true of all properties that have OptionalInt-like semantics (having either a
@@ -23,6 +27,32 @@ import (
 // - FeatureFlag.ExcludeFromSummaries
 //
 // - Segment.Unbounded
+//
+// Compact encoding
+//
+// The compact encoding also drops every property whose absence the unmarshaler reads as the same
+// value. This includes zero integers, false booleans, empty strings, empty arrays, and undefined
+// optional values. Only SDKs that can read this encoding can use it, so LaunchDarkly sends it only
+// to SDKs that request it. These properties keep a different meaning when absent, so the compact
+// encoding writes them as the full encoding does:
+//
+// - FeatureFlag.ClientSideAvailability, if it is explicit. If it is absent, the unmarshaler sets
+//   UsingMobileKey to true.
+// - FeatureFlag.Migration, if it is not nil. If it is absent, the unmarshaler sets it to nil.
+// - Optional integers that have a value, even if the value is zero. If an optional integer is
+//   absent, the unmarshaler reads it as undefined.
+
+// modelWriter writes data model objects as JSON in the full or the compact encoding.
+type modelWriter struct {
+	w       *jwriter.Writer
+	compact bool
+}
+
+// include tells if a property must be written. The full encoding writes every property that it
+// calls include for. The compact encoding does not write a property that has its default value.
+func (m modelWriter) include(isDefault bool) bool {
+	return !m.compact || !isDefault
+}
 
 func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	w := jwriter.NewWriter()
@@ -30,47 +60,81 @@ func marshalFeatureFlag(flag FeatureFlag) ([]byte, error) {
 	return w.Bytes(), w.Error()
 }
 
+func marshalFeatureFlagCompact(flag FeatureFlag) ([]byte, error) {
+	w := jwriter.NewWriter()
+	marshalFeatureFlagToWriterCompact(flag, &w)
+	return w.Bytes(), w.Error()
+}
+
 func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
-	obj := w.Object()
+	modelWriter{w: w}.writeFeatureFlag(flag)
+}
 
-	obj.Name("key").String(flag.Key)
+func marshalFeatureFlagToWriterCompact(flag FeatureFlag, w *jwriter.Writer) {
+	modelWriter{w: w, compact: true}.writeFeatureFlag(flag)
+}
 
-	obj.Name("on").Bool(flag.On)
+func (m modelWriter) writeFeatureFlag(flag FeatureFlag) {
+	obj := m.w.Object()
 
-	prereqsArr := obj.Name("prerequisites").Array()
-	for _, p := range flag.Prerequisites {
-		prereqObj := prereqsArr.Object()
-		prereqObj.Name("key").String(p.Key)
-		prereqObj.Name("variation").Int(p.Variation)
-		prereqObj.End()
+	if m.include(flag.Key == "") {
+		obj.Name("key").String(flag.Key)
 	}
-	prereqsArr.End()
 
-	writeTargets(&obj, flag.Targets, "targets")
-	writeTargets(&obj, flag.ContextTargets, "contextTargets")
-
-	rulesArr := obj.Name("rules").Array()
-	for _, r := range flag.Rules {
-		ruleObj := rulesArr.Object()
-		writeVariationOrRolloutProperties(&ruleObj, r.VariationOrRollout)
-		ruleObj.Maybe("id", r.ID != "").String(r.ID)
-		writeClauses(w, &ruleObj, r.Clauses)
-		ruleObj.Name("trackEvents").Bool(r.TrackEvents)
-		ruleObj.End()
+	if m.include(!flag.On) {
+		obj.Name("on").Bool(flag.On)
 	}
-	rulesArr.End()
 
-	fallthroughObj := obj.Name("fallthrough").Object()
-	writeVariationOrRolloutProperties(&fallthroughObj, flag.Fallthrough)
-	fallthroughObj.End()
-
-	flag.OffVariation.WriteToJSONWriter(obj.Name("offVariation"))
-
-	variationsArr := obj.Name("variations").Array()
-	for _, v := range flag.Variations {
-		v.WriteToJSONWriter(w)
+	if m.include(len(flag.Prerequisites) == 0) {
+		prereqsArr := obj.Name("prerequisites").Array()
+		for _, p := range flag.Prerequisites {
+			prereqObj := prereqsArr.Object()
+			if m.include(p.Key == "") {
+				prereqObj.Name("key").String(p.Key)
+			}
+			if m.include(p.Variation == 0) {
+				prereqObj.Name("variation").Int(p.Variation)
+			}
+			prereqObj.End()
+		}
+		prereqsArr.End()
 	}
-	variationsArr.End()
+
+	m.writeTargets(&obj, flag.Targets, "targets")
+	m.writeTargets(&obj, flag.ContextTargets, "contextTargets")
+
+	if m.include(len(flag.Rules) == 0) {
+		rulesArr := obj.Name("rules").Array()
+		for _, r := range flag.Rules {
+			ruleObj := rulesArr.Object()
+			m.writeVariationOrRolloutProperties(&ruleObj, r.VariationOrRollout)
+			ruleObj.Maybe("id", r.ID != "").String(r.ID)
+			m.writeClauses(&ruleObj, r.Clauses)
+			if m.include(!r.TrackEvents) {
+				ruleObj.Name("trackEvents").Bool(r.TrackEvents)
+			}
+			ruleObj.End()
+		}
+		rulesArr.End()
+	}
+
+	if m.include(isDefaultVariationOrRollout(flag.Fallthrough)) {
+		fallthroughObj := obj.Name("fallthrough").Object()
+		m.writeVariationOrRolloutProperties(&fallthroughObj, flag.Fallthrough)
+		fallthroughObj.End()
+	}
+
+	if m.include(!flag.OffVariation.IsDefined()) {
+		flag.OffVariation.WriteToJSONWriter(obj.Name("offVariation"))
+	}
+
+	if m.include(len(flag.Variations) == 0) {
+		variationsArr := obj.Name("variations").Array()
+		for _, v := range flag.Variations {
+			v.WriteToJSONWriter(m.w)
+		}
+		variationsArr.End()
+	}
 
 	// In the older JSON schema, ClientSideAvailability.UsingEnvironmentID was in "clientSide", and
 	// ClientSideAvailability.UsingMobileKey was assumed to be true. In the newer schema, those are
@@ -81,25 +145,40 @@ func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
 	// does not include UsingMobileKey; note that in that case UsingMobileKey is assumed to be true.
 	//
 	// For backward compatibility with older SDKs that might be reading a flag that was serialized by
-	// this SDK, we always include the older "clientSide" property if it would be true.
+	// this SDK, we always include the older "clientSide" property if it would be true. Some SDKs read
+	// only "clientSide", so the compact encoding also writes it if it is true.
 	if flag.ClientSideAvailability.Explicit {
 		csaObj := obj.Name("clientSideAvailability").Object()
 		csaObj.Name("usingMobileKey").Bool(flag.ClientSideAvailability.UsingMobileKey)
 		csaObj.Name("usingEnvironmentId").Bool(flag.ClientSideAvailability.UsingEnvironmentID)
 		csaObj.End()
 	}
-	obj.Name("clientSide").Bool(flag.ClientSideAvailability.UsingEnvironmentID)
+	if m.include(!flag.ClientSideAvailability.UsingEnvironmentID) {
+		obj.Name("clientSide").Bool(flag.ClientSideAvailability.UsingEnvironmentID)
+	}
 
-	obj.Name("salt").String(flag.Salt)
+	if m.include(flag.Salt == "") {
+		obj.Name("salt").String(flag.Salt)
+	}
 
-	obj.Name("trackEvents").Bool(flag.TrackEvents)
-	obj.Name("trackEventsFallthrough").Bool(flag.TrackEventsFallthrough)
+	if m.include(!flag.TrackEvents) {
+		obj.Name("trackEvents").Bool(flag.TrackEvents)
+	}
+	if m.include(!flag.TrackEventsFallthrough) {
+		obj.Name("trackEventsFallthrough").Bool(flag.TrackEventsFallthrough)
+	}
 
-	obj.Name("debugEventsUntilDate").Float64OrNull(flag.DebugEventsUntilDate != 0, float64(flag.DebugEventsUntilDate))
+	if m.include(flag.DebugEventsUntilDate == 0) {
+		obj.Name("debugEventsUntilDate").Float64OrNull(flag.DebugEventsUntilDate != 0, float64(flag.DebugEventsUntilDate))
+	}
 
-	obj.Name("version").Int(flag.Version)
+	if m.include(flag.Version == 0) {
+		obj.Name("version").Int(flag.Version)
+	}
 
-	obj.Name("deleted").Bool(flag.Deleted)
+	if m.include(!flag.Deleted) {
+		obj.Name("deleted").Bool(flag.Deleted)
+	}
 
 	if flag.Migration != nil {
 		migrationObj := obj.Name("migration").Object()
@@ -122,15 +201,20 @@ func marshalFeatureFlagToWriter(flag FeatureFlag, w *jwriter.Writer) {
 	obj.End()
 }
 
-func writeTargets(obj *jwriter.ObjectState, targets []Target, name string) {
+func (m modelWriter) writeTargets(obj *jwriter.ObjectState, targets []Target, name string) {
+	if !m.include(len(targets) == 0) {
+		return
+	}
 	targetsArr := obj.Name(name).Array()
 	for _, t := range targets {
 		targetObj := targetsArr.Object()
 		if t.ContextKind != "" {
 			targetObj.Name("contextKind").String(string(t.ContextKind))
 		}
-		targetObj.Name("variation").Int(t.Variation)
-		writeStringArray(&targetObj, "values", t.Values)
+		if m.include(t.Variation == 0) {
+			targetObj.Name("variation").Int(t.Variation)
+		}
+		m.writeStringArray(&targetObj, "values", t.Values)
 		targetObj.End()
 	}
 	targetsArr.End()
@@ -142,52 +226,86 @@ func marshalSegment(segment Segment) ([]byte, error) {
 	return w.Bytes(), w.Error()
 }
 
+func marshalSegmentCompact(segment Segment) ([]byte, error) {
+	w := jwriter.NewWriter()
+	marshalSegmentToWriterCompact(segment, &w)
+	return w.Bytes(), w.Error()
+}
+
 func marshalSegmentToWriter(segment Segment, w *jwriter.Writer) {
-	obj := w.Object()
+	modelWriter{w: w}.writeSegment(segment)
+}
 
-	obj.Name("key").String(segment.Key)
-	writeStringArray(&obj, "included", segment.Included)
-	writeStringArray(&obj, "excluded", segment.Excluded)
-	writeSegmentTargets(&obj, segment.IncludedContexts, "includedContexts")
-	writeSegmentTargets(&obj, segment.ExcludedContexts, "excludedContexts")
-	obj.Name("salt").String(segment.Salt)
+func marshalSegmentToWriterCompact(segment Segment, w *jwriter.Writer) {
+	modelWriter{w: w, compact: true}.writeSegment(segment)
+}
 
-	rulesArr := obj.Name("rules").Array()
-	for i, r := range segment.Rules {
-		ruleObj := rulesArr.Object()
-		ruleObj.Name("id").String(r.ID)
-		writeClauses(w, &ruleObj, r.Clauses)
-		ruleObj.Maybe("weight", r.Weight.IsDefined()).Int(r.Weight.IntValue())
-		writeAttrRef(ruleObj.Maybe("bucketBy", r.BucketBy.IsDefined()), &segment.Rules[i].BucketBy, r.RolloutContextKind)
-		ruleObj.Maybe("rolloutContextKind", r.RolloutContextKind != "").String(string(r.RolloutContextKind))
-		ruleObj.End()
+func (m modelWriter) writeSegment(segment Segment) {
+	obj := m.w.Object()
+
+	if m.include(segment.Key == "") {
+		obj.Name("key").String(segment.Key)
 	}
-	rulesArr.End()
+	m.writeStringArray(&obj, "included", segment.Included)
+	m.writeStringArray(&obj, "excluded", segment.Excluded)
+	m.writeSegmentTargets(&obj, segment.IncludedContexts, "includedContexts")
+	m.writeSegmentTargets(&obj, segment.ExcludedContexts, "excludedContexts")
+	if m.include(segment.Salt == "") {
+		obj.Name("salt").String(segment.Salt)
+	}
+
+	if m.include(len(segment.Rules) == 0) {
+		rulesArr := obj.Name("rules").Array()
+		for i, r := range segment.Rules {
+			ruleObj := rulesArr.Object()
+			if m.include(r.ID == "") {
+				ruleObj.Name("id").String(r.ID)
+			}
+			m.writeClauses(&ruleObj, r.Clauses)
+			ruleObj.Maybe("weight", r.Weight.IsDefined()).Int(r.Weight.IntValue())
+			writeAttrRef(ruleObj.Maybe("bucketBy", r.BucketBy.IsDefined()), &segment.Rules[i].BucketBy, r.RolloutContextKind)
+			ruleObj.Maybe("rolloutContextKind", r.RolloutContextKind != "").String(string(r.RolloutContextKind))
+			ruleObj.End()
+		}
+		rulesArr.End()
+	}
 
 	obj.Maybe("unbounded", segment.Unbounded).Bool(segment.Unbounded)
 	obj.Maybe("unboundedContextKind", segment.UnboundedContextKind != "").String(string(segment.UnboundedContextKind))
 
-	obj.Name("version").Int(segment.Version)
-	segment.Generation.WriteToJSONWriter(obj.Name("generation"))
-	obj.Name("deleted").Bool(segment.Deleted)
+	if m.include(segment.Version == 0) {
+		obj.Name("version").Int(segment.Version)
+	}
+	if m.include(!segment.Generation.IsDefined()) {
+		segment.Generation.WriteToJSONWriter(obj.Name("generation"))
+	}
+	if m.include(!segment.Deleted) {
+		obj.Name("deleted").Bool(segment.Deleted)
+	}
 
 	obj.End()
 }
 
-func writeSegmentTargets(obj *jwriter.ObjectState, targets []SegmentTarget, name string) {
+func (m modelWriter) writeSegmentTargets(obj *jwriter.ObjectState, targets []SegmentTarget, name string) {
+	if !m.include(len(targets) == 0) {
+		return
+	}
 	targetsArr := obj.Name(name).Array()
 	for _, t := range targets {
 		targetObj := targetsArr.Object()
 		if t.ContextKind != "" {
 			targetObj.Name("contextKind").String(string(t.ContextKind))
 		}
-		writeStringArray(&targetObj, "values", t.Values)
+		m.writeStringArray(&targetObj, "values", t.Values)
 		targetObj.End()
 	}
 	targetsArr.End()
 }
 
-func writeStringArray(obj *jwriter.ObjectState, name string, values []string) {
+func (m modelWriter) writeStringArray(obj *jwriter.ObjectState, name string, values []string) {
+	if !m.include(len(values) == 0) {
+		return
+	}
 	arr := obj.Name(name).Array()
 	for _, v := range values {
 		arr.String(v)
@@ -195,7 +313,13 @@ func writeStringArray(obj *jwriter.ObjectState, name string, values []string) {
 	arr.End()
 }
 
-func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrRollout) {
+// isDefaultVariationOrRollout tells if vr has no properties to write. The unmarshaler reads an
+// absent VariationOrRollout as the same value.
+func isDefaultVariationOrRollout(vr VariationOrRollout) bool {
+	return !vr.Variation.IsDefined() && len(vr.Rollout.Variations) == 0
+}
+
+func (m modelWriter) writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrRollout) {
 	obj.Maybe("variation", vr.Variation.IsDefined()).Int(vr.Variation.IntValue())
 	if len(vr.Rollout.Variations) > 0 {
 		rolloutObj := obj.Name("rollout").Object()
@@ -204,8 +328,12 @@ func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrR
 		variationsArr := rolloutObj.Name("variations").Array()
 		for _, wv := range vr.Rollout.Variations {
 			variationObj := variationsArr.Object()
-			variationObj.Name("variation").Int(wv.Variation)
-			variationObj.Name("weight").Int(wv.Weight)
+			if m.include(wv.Variation == 0) {
+				variationObj.Name("variation").Int(wv.Variation)
+			}
+			if m.include(wv.Weight == 0) {
+				variationObj.Name("weight").Int(wv.Weight)
+			}
 			variationObj.Maybe("untracked", wv.Untracked).Bool(wv.Untracked)
 			variationObj.End()
 		}
@@ -217,7 +345,10 @@ func writeVariationOrRolloutProperties(obj *jwriter.ObjectState, vr VariationOrR
 	}
 }
 
-func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause) {
+func (m modelWriter) writeClauses(obj *jwriter.ObjectState, clauses []Clause) {
+	if !m.include(len(clauses) == 0) {
+		return
+	}
 	clausesArr := obj.Name("clauses").Array()
 	for i, c := range clauses {
 		clauseObj := clausesArr.Object()
@@ -225,22 +356,30 @@ func writeClauses(w *jwriter.Writer, obj *jwriter.ObjectState, clauses []Clause)
 			clauseObj.Name("contextKind").String(string(c.ContextKind))
 		}
 
-		clauseObj.Name("attribute")
 		if !c.Attribute.IsDefined() {
 			// See comments in unmarshaling logic - for consistency with LD service behavior, we serialize
-			// this as an empty string even if it was undefined
-			w.String("")
+			// this as an empty string even if it was undefined. The unmarshaler reads an absent attribute
+			// as undefined, so the compact encoding does not write it.
+			if m.include(true) {
+				clauseObj.Name("attribute").String("")
+			}
 		} else {
-			writeAttrRef(w, &clauses[i].Attribute, c.ContextKind)
+			writeAttrRef(clauseObj.Name("attribute"), &clauses[i].Attribute, c.ContextKind)
 		}
 
-		clauseObj.Name("op").String(string(c.Op))
-		valuesArr := clauseObj.Name("values").Array()
-		for v := range clauses[i].yieldValues {
-			v.WriteToJSONWriter(w)
+		if m.include(c.Op == "") {
+			clauseObj.Name("op").String(string(c.Op))
 		}
-		valuesArr.End()
-		clauseObj.Name("negate").Bool(c.Negate)
+		if m.include(!clauses[i].hasValues()) {
+			valuesArr := clauseObj.Name("values").Array()
+			for v := range clauses[i].yieldValues {
+				v.WriteToJSONWriter(m.w)
+			}
+			valuesArr.End()
+		}
+		if m.include(!c.Negate) {
+			clauseObj.Name("negate").Bool(c.Negate)
+		}
 		clauseObj.End()
 	}
 	clausesArr.End()
