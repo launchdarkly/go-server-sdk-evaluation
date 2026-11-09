@@ -91,7 +91,7 @@ func TestRolloutBucketing(t *testing.T) {
 				assert.InEpsilon(t, p.expectedBucketValue, bucketValue, 0.0000001)
 
 				variationIndex, inExperiment, err := makeEvalScope(context).variationOrRolloutResult(
-					ldmodel.VariationOrRollout{Rollout: rollout},
+					&ldmodel.VariationOrRollout{Rollout: rollout},
 					p.flagOrSegmentKey,
 					p.salt,
 				)
@@ -210,7 +210,7 @@ func TestExperimentBucketing(t *testing.T) {
 
 		experiment.Seed = p.seed
 		variationIndex, inExperiment, err := evalScope.variationOrRolloutResult(
-			ldmodel.VariationOrRollout{Rollout: experiment},
+			&ldmodel.VariationOrRollout{Rollout: experiment},
 			p.flagOrSegmentKey,
 			p.salt,
 		)
@@ -279,7 +279,7 @@ func TestExperimentBucketing(t *testing.T) {
 		experiment := baseExperiment
 
 		variationIndex, inExperiment, err := makeEvalScope(context).variationOrRolloutResult(
-			ldmodel.VariationOrRollout{Rollout: experiment},
+			&ldmodel.VariationOrRollout{Rollout: experiment},
 			"flagkey",
 			"salt",
 		)
@@ -335,7 +335,7 @@ func TestVariationOrRolloutResultErrorConditions(t *testing.T) {
 	} {
 		t.Run(p.expectedErrorMessage, func(t *testing.T) {
 			vr := ldmodel.VariationOrRollout{Rollout: p.rollout}
-			_, _, err := makeEvalScope(context).variationOrRolloutResult(vr, "hashKey", "salt")
+			_, _, err := makeEvalScope(context).variationOrRolloutResult(&vr, "hashKey", "salt")
 			if assert.Error(t, err) {
 				assert.Contains(t, err.Error(), p.expectedErrorMessage)
 			}
@@ -392,7 +392,7 @@ func TestComputeBucketValueInvalidConditions(t *testing.T) {
 func TestBucketValueBeyondLastBucketIsPinnedToLastBucket(t *testing.T) {
 	vr := ldbuilders.Rollout(ldbuilders.Bucket(0, 5000), ldbuilders.Bucket(1, 5000))
 	user := ldcontext.NewBuilder("userKeyD").SetInt("intAttr", 99999).Build()
-	variationIndex, inExperiment, err := makeEvalScope(user).variationOrRolloutResult(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment, err := makeEvalScope(user).variationOrRolloutResult(&vr, "hashKey", "saltyA")
 	assert.NoError(t, err)
 	assert.Equal(t, 1, variationIndex)
 	assert.False(t, inExperiment)
@@ -401,7 +401,7 @@ func TestBucketValueBeyondLastBucketIsPinnedToLastBucket(t *testing.T) {
 func TestBucketValueBeyondLastBucketIsPinnedToLastBucketForExperiment(t *testing.T) {
 	vr := ldbuilders.Experiment(ldvalue.NewOptionalInt(42), ldbuilders.Bucket(0, 5000), ldbuilders.Bucket(1, 5000))
 	user := ldcontext.NewBuilder("userKeyD").SetInt("intAttr", 99999).Build()
-	variationIndex, inExperiment, err := makeEvalScope(user).variationOrRolloutResult(vr, "hashKey", "saltyA")
+	variationIndex, inExperiment, err := makeEvalScope(user).variationOrRolloutResult(&vr, "hashKey", "saltyA")
 	assert.NoError(t, err)
 	assert.Equal(t, 1, variationIndex)
 	assert.True(t, inExperiment)
