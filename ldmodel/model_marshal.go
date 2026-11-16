@@ -33,8 +33,19 @@ import (
 // The compact encoding also drops every property whose absence the unmarshaler reads as the same
 // value. This includes zero integers, false booleans, empty strings, empty arrays, and undefined
 // optional values. Only SDKs that can read this encoding can use it, so LaunchDarkly sends it only
-// to SDKs that request it. These properties keep a different meaning when absent, so the compact
-// encoding writes them as the full encoding does:
+// to SDKs that request it.
+//
+// The compact encoding always writes these properties, even if they have default values:
+//
+// - FeatureFlag.Key, FeatureFlag.Version, Segment.Key, and Segment.Version. SDKs use them to
+//   identify and order objects.
+// - Prerequisite.Key and Prerequisite.Variation.
+//
+// The compact encoding never writes FeatureFlag.Deleted and Segment.Deleted. The FDv2 protocol
+// removes an object with a delete event, so an object that it puts is never deleted.
+//
+// These properties keep a different meaning when absent, so the compact encoding writes them as
+// the full encoding does:
 //
 // - FeatureFlag.ClientSideAvailability, if it is explicit. If it is absent, the unmarshaler sets
 //   UsingMobileKey to true.
@@ -77,9 +88,7 @@ func marshalFeatureFlagToWriterCompact(flag FeatureFlag, w *jwriter.Writer) {
 func (m modelWriter) writeFeatureFlag(flag FeatureFlag) {
 	obj := m.w.Object()
 
-	if m.include(flag.Key == "") {
-		obj.Name("key").String(flag.Key)
-	}
+	obj.Name("key").String(flag.Key)
 
 	if m.include(!flag.On) {
 		obj.Name("on").Bool(flag.On)
@@ -89,12 +98,8 @@ func (m modelWriter) writeFeatureFlag(flag FeatureFlag) {
 		prereqsArr := obj.Name("prerequisites").Array()
 		for _, p := range flag.Prerequisites {
 			prereqObj := prereqsArr.Object()
-			if m.include(p.Key == "") {
-				prereqObj.Name("key").String(p.Key)
-			}
-			if m.include(p.Variation == 0) {
-				prereqObj.Name("variation").Int(p.Variation)
-			}
+			prereqObj.Name("key").String(p.Key)
+			prereqObj.Name("variation").Int(p.Variation)
 			prereqObj.End()
 		}
 		prereqsArr.End()
@@ -172,11 +177,9 @@ func (m modelWriter) writeFeatureFlag(flag FeatureFlag) {
 		obj.Name("debugEventsUntilDate").Float64OrNull(flag.DebugEventsUntilDate != 0, float64(flag.DebugEventsUntilDate))
 	}
 
-	if m.include(flag.Version == 0) {
-		obj.Name("version").Int(flag.Version)
-	}
+	obj.Name("version").Int(flag.Version)
 
-	if m.include(!flag.Deleted) {
+	if !m.compact {
 		obj.Name("deleted").Bool(flag.Deleted)
 	}
 
@@ -243,9 +246,7 @@ func marshalSegmentToWriterCompact(segment Segment, w *jwriter.Writer) {
 func (m modelWriter) writeSegment(segment Segment) {
 	obj := m.w.Object()
 
-	if m.include(segment.Key == "") {
-		obj.Name("key").String(segment.Key)
-	}
+	obj.Name("key").String(segment.Key)
 	m.writeStringArray(&obj, "included", segment.Included)
 	m.writeStringArray(&obj, "excluded", segment.Excluded)
 	m.writeSegmentTargets(&obj, segment.IncludedContexts, "includedContexts")
@@ -273,13 +274,11 @@ func (m modelWriter) writeSegment(segment Segment) {
 	obj.Maybe("unbounded", segment.Unbounded).Bool(segment.Unbounded)
 	obj.Maybe("unboundedContextKind", segment.UnboundedContextKind != "").String(string(segment.UnboundedContextKind))
 
-	if m.include(segment.Version == 0) {
-		obj.Name("version").Int(segment.Version)
-	}
+	obj.Name("version").Int(segment.Version)
 	if m.include(!segment.Generation.IsDefined()) {
 		segment.Generation.WriteToJSONWriter(obj.Name("generation"))
 	}
-	if m.include(!segment.Deleted) {
+	if !m.compact {
 		obj.Name("deleted").Bool(segment.Deleted)
 	}
 

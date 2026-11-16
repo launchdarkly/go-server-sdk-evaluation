@@ -40,6 +40,10 @@ var compactSegmentMarshalers = map[string]testMarshalSegmentFn{
 // the value is false, zero, or empty, because an absent property has a different meaning. Array
 // elements are shown as "[]".
 var compactPropertiesWithDefaultValues = []string{
+	"key",
+	"version",
+	"prerequisites[].key",
+	"prerequisites[].variation",
 	"offVariation",
 	"fallthrough.variation",
 	"fallthrough.rollout.seed",
@@ -115,6 +119,7 @@ func TestCompactFlagEncodingDecodesToSameFlagAsFullEncoding(t *testing.T) {
 					require.NoError(t, err)
 					fromCompact, err := unmarshalFeatureFlagFromBytes(compactBytes)
 					require.NoError(t, err)
+					fromFull.Deleted = false // The compact encoding never writes this property.
 					assert.Equal(t, fromFull, fromCompact, "compact JSON: %s", compactBytes)
 				})
 			}
@@ -136,6 +141,7 @@ func TestCompactSegmentEncodingDecodesToSameSegmentAsFullEncoding(t *testing.T) 
 					require.NoError(t, err)
 					fromCompact, err := unmarshalSegmentFromBytes(compactBytes)
 					require.NoError(t, err)
+					fromFull.Deleted = false // The compact encoding never writes this property.
 					assert.Equal(t, fromFull, fromCompact, "compact JSON: %s", compactBytes)
 				})
 			}
@@ -245,7 +251,7 @@ func TestCompactFlagEncodingOutput(t *testing.T) {
 		"key": "flag-key",
 		"version": 1,
 		"on": true,
-		"prerequisites": [{"key": "prereq-key"}],
+		"prerequisites": [{"key": "prereq-key", "variation": 0}],
 		"targets": [{"values": ["a"]}, {"variation": 1}],
 		"contextTargets": [{"contextKind": "org", "values": ["b"]}],
 		"rules": [
@@ -291,11 +297,21 @@ func TestCompactSegmentEncodingOutput(t *testing.T) {
 func TestCompactEncodingOfEmptyObjects(t *testing.T) {
 	flagData, err := marshalFeatureFlagCompact(FeatureFlag{})
 	require.NoError(t, err)
-	assert.JSONEq(t, `{}`, string(flagData))
+	assert.JSONEq(t, `{"key": "", "version": 0}`, string(flagData))
 
 	segmentData, err := marshalSegmentCompact(Segment{})
 	require.NoError(t, err)
-	assert.JSONEq(t, `{}`, string(segmentData))
+	assert.JSONEq(t, `{"key": "", "version": 0}`, string(segmentData))
+}
+
+func TestCompactEncodingDoesNotWriteDeleted(t *testing.T) {
+	flagData, err := marshalFeatureFlagCompact(FeatureFlag{Key: "flag-key", Version: 2, Deleted: true})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"key": "flag-key", "version": 2}`, string(flagData))
+
+	segmentData, err := marshalSegmentCompact(Segment{Key: "segment-key", Version: 2, Deleted: true})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"key": "segment-key", "version": 2}`, string(segmentData))
 }
 
 func TestCompactFlagEncodingOfClientSideAvailability(t *testing.T) {
@@ -316,7 +332,11 @@ func TestCompactFlagEncodingOfClientSideAvailability(t *testing.T) {
 			flag := FeatureFlag{ClientSideAvailability: p.csa}
 			data, err := marshalFeatureFlagCompact(flag)
 			require.NoError(t, err)
-			assert.JSONEq(t, p.expected, string(data))
+			var properties map[string]any
+			require.NoError(t, json.Unmarshal(data, &properties))
+			delete(properties, "key")
+			delete(properties, "version")
+			assert.JSONEq(t, p.expected, string(jsonhelpers.ToJSON(properties)))
 
 			decoded, err := unmarshalFeatureFlagFromBytes(data)
 			require.NoError(t, err)
@@ -358,7 +378,7 @@ func TestCompactEncodingKeepsContextKindsAndAttributeReferences(t *testing.T) {
 	}
 	data, err := marshalFeatureFlagCompact(flag)
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"rules": [{"clauses": [{"contextKind": "org", "attribute": "/address/city",
+	assert.JSONEq(t, `{"key": "", "version": 0, "rules": [{"clauses": [{"contextKind": "org", "attribute": "/address/city",
 		"op": "in", "values": ["x"], "negate": true}], "trackEvents": true}]}`, string(data))
 }
 
