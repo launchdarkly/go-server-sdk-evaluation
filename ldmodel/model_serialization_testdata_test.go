@@ -86,6 +86,13 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 				`{"prerequisites": []}`,
 				`{"targets": []}`,
 				`{"rules": []}`,
+				`{"deleted": null}`,
+				`{"clientSide": null}`,
+				`{"salt": null}`,
+				`{"trackEvents": null}`,
+				`{"trackEventsFallthrough": null}`,
+				`{"excludeFromSummaries": null}`,
+				`{"samplingRatio": null}`,
 			},
 		},
 		{
@@ -148,7 +155,8 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 					{Variation: 1, Values: []string{"a", "b"}},
 				},
 			},
-			jsonString: `{"targets": [ {"variation": 1, "values": ["a", "b"]} ]}`,
+			jsonString:    `{"targets": [ {"variation": 1, "values": ["a", "b"]} ]}`,
+			jsonAltInputs: []string{`{"targets": [ {"contextKind": null, "variation": 1, "values": ["a", "b"]} ]}`},
 		},
 		{
 			name: "contextTargets",
@@ -166,8 +174,11 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 					{VariationOrRollout: VariationOrRollout{Variation: ldvalue.NewOptionalInt(1)}},
 				},
 			},
-			jsonString:    `{"rules": [ {"variation": 1, "clauses": [], "trackEvents": false} ]}`,
-			jsonAltInputs: []string{`{"rules": [ {"variation": 1} ]}`},
+			jsonString: `{"rules": [ {"variation": 1, "clauses": [], "trackEvents": false} ]}`,
+			jsonAltInputs: []string{
+				`{"rules": [ {"variation": 1} ]}`,
+				`{"rules": [ {"id": null, "variation": 1, "trackEvents": null} ]}`,
+			},
 		},
 		{
 			name: "rule ID",
@@ -242,6 +253,7 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 				},
 			},
 			jsonString:                     `{"clientSideAvailability": {"usingMobileKey": true, "usingEnvironmentId": false}}`,
+			jsonAltInputs:                  []string{`{"clientSideAvailability": {"usingMobileKey": true, "usingEnvironmentId": null}}`},
 			isCustomClientSideAvailability: true,
 		},
 		{
@@ -253,6 +265,7 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 				},
 			},
 			jsonString:                     `{"clientSide": true, "clientSideAvailability": {"usingMobileKey": false, "usingEnvironmentId": true}}`,
+			jsonAltInputs:                  []string{`{"clientSideAvailability": {"usingMobileKey": null, "usingEnvironmentId": true}}`},
 			isCustomClientSideAvailability: true,
 		},
 		{
@@ -279,6 +292,12 @@ func makeFlagSerializationTestParams() []flagSerializationTestParams {
 			name:       "migration",
 			flag:       FeatureFlag{Migration: nil},
 			jsonString: `{}`,
+		},
+		{
+			name:          "migration without checkRatio",
+			flag:          FeatureFlag{Migration: &MigrationFlagParameters{}},
+			jsonString:    `{"migration": {}}`,
+			jsonAltInputs: []string{`{"migration": {"checkRatio": null}}`},
 		},
 		{
 			name:       "migration",
@@ -390,6 +409,10 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 				`{"rules": []}`,
 				`{"unbounded": false}`,
 				`{"generation": null}`,
+				`{"deleted": null}`,
+				`{"salt": null}`,
+				`{"unbounded": null}`,
+				`{"unboundedContextKind": null}`,
 			},
 		},
 		{
@@ -440,8 +463,11 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 					{},
 				},
 			},
-			jsonString:    `{"rules": [ {"id": "", "clauses": []} ]}`,
-			jsonAltInputs: []string{`{"rules": [ {} ]}`},
+			jsonString: `{"rules": [ {"id": "", "clauses": []} ]}`,
+			jsonAltInputs: []string{
+				`{"rules": [ {} ]}`,
+				`{"rules": [ {"id": null, "rolloutContextKind": null} ]}`,
+			},
 		},
 		{
 			name: "minimal rule with weight",
@@ -543,8 +569,11 @@ func makeClauseSerializationTestParams() []clauseSerializationTestParams {
 				Op:        OperatorIn,
 				Values:    []ldvalue.Value{ldvalue.String("a")},
 			},
-			jsonString:    `{"attribute": "key", "op": "in", "values": ["a"], "negate": false}`,
-			jsonAltInputs: []string{`{"attribute": "key", "op": "in", "values": ["a"]}`},
+			jsonString: `{"attribute": "key", "op": "in", "values": ["a"], "negate": false}`,
+			jsonAltInputs: []string{
+				`{"attribute": "key", "op": "in", "values": ["a"]}`,
+				`{"contextKind": null, "attribute": "key", "op": "in", "values": ["a"], "negate": null}`,
+			},
 		},
 		{
 			name: "with kind",
@@ -616,6 +645,9 @@ func makeRolloutSerializationTestParams() []rolloutSerializationTestParams {
 			name:       "simple",
 			rollout:    Rollout{Variations: basicVariations},
 			jsonString: `{"variations": ` + basicVariationsJSON + `}`,
+			jsonAltInputs: []string{
+				`{"kind": null, "contextKind": null, "variations": [{"variation": 1, "weight": 100000, "untracked": null}]}`,
+			},
 		},
 		{
 			name: "with context kind",
