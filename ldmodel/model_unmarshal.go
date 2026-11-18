@@ -46,6 +46,8 @@ func unmarshalSegmentFromReader(r *jreader.Reader) Segment {
 	return parsed
 }
 
+// The readers use the OrNull methods for optional properties. A null value gets the same default
+// as an omitted property.
 func readFeatureFlag(r *jreader.Reader, flag *FeatureFlag) {
 	deprecatedClientSide := false
 
@@ -73,24 +75,26 @@ func readFeatureFlag(r *jreader.Reader, flag *FeatureFlag) {
 		case "clientSideAvailability":
 			readClientSideAvailability(r, &flag.ClientSideAvailability)
 		case "clientSide":
-			deprecatedClientSide = r.Bool()
+			deprecatedClientSide, _ = r.BoolOrNull()
 		case "salt":
-			flag.Salt = r.String()
+			flag.Salt, _ = r.StringOrNull()
 		case "trackEvents":
-			flag.TrackEvents = r.Bool()
+			flag.TrackEvents, _ = r.BoolOrNull()
 		case "trackEventsFallthrough":
-			flag.TrackEventsFallthrough = r.Bool()
+			flag.TrackEventsFallthrough, _ = r.BoolOrNull()
 		case "debugEventsUntilDate":
 			val, _ := r.Float64OrNull() // val will be zero if null
 			flag.DebugEventsUntilDate = ldtime.UnixMillisecondTime(val)
 		case "version":
 			flag.Version = r.Int()
 		case "deleted":
-			flag.Deleted = r.Bool()
+			flag.Deleted, _ = r.BoolOrNull()
 		case "excludeFromSummaries":
-			flag.ExcludeFromSummaries = r.Bool()
+			flag.ExcludeFromSummaries, _ = r.BoolOrNull()
 		case "samplingRatio":
-			flag.SamplingRatio = ldvalue.NewOptionalInt(r.Int())
+			if n, ok := r.IntOrNull(); ok {
+				flag.SamplingRatio = ldvalue.NewOptionalInt(n)
+			}
 		case "migration":
 			readMigration(r, flag)
 		}
@@ -126,7 +130,8 @@ func readTargets(r *jreader.Reader, out *[]Target) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "contextKind":
-				t.ContextKind = ldcontext.Kind(r.String())
+				kind, _ := r.StringOrNull()
+				t.ContextKind = ldcontext.Kind(kind)
 			case "values":
 				readStringList(r, &t.Values)
 			case "variation":
@@ -143,7 +148,7 @@ func readFlagRules(r *jreader.Reader, out *[]FlagRule) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "id":
-				rule.ID = r.String()
+				rule.ID, _ = r.StringOrNull()
 			case "variation":
 				rule.Variation.ReadFromJSONReader(r)
 			case "rollout":
@@ -151,7 +156,7 @@ func readFlagRules(r *jreader.Reader, out *[]FlagRule) {
 			case "clauses":
 				readClauses(r, &rule.Clauses)
 			case "trackEvents":
-				rule.TrackEvents = r.Bool()
+				rule.TrackEvents, _ = r.BoolOrNull()
 			}
 		}
 		*out = append(*out, rule)
@@ -165,7 +170,8 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "contextKind":
-				clause.ContextKind = ldcontext.Kind(r.String())
+				kind, _ := r.StringOrNull()
+				clause.ContextKind = ldcontext.Kind(kind)
 			case "attribute":
 				attrStr, _ = r.StringOrNull()
 			case "op":
@@ -173,7 +179,7 @@ func readClauses(r *jreader.Reader, out *[]Clause) {
 			case "values":
 				readValueList(r, &clause.Values)
 			case "negate":
-				clause.Negate = r.Bool()
+				clause.Negate, _ = r.BoolOrNull()
 			}
 		}
 		setAttrNameOrRef(attrStr, clause.ContextKind, &clause.Attribute)
@@ -202,9 +208,11 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 	for obj.Next() {
 		switch string(obj.Name()) {
 		case "kind":
-			out.Kind = RolloutKind(r.String())
+			kind, _ := r.StringOrNull()
+			out.Kind = RolloutKind(kind)
 		case "contextKind":
-			out.ContextKind = ldcontext.Kind(r.String())
+			kind, _ := r.StringOrNull()
+			out.ContextKind = ldcontext.Kind(kind)
 		case "variations":
 			for arr := r.Array(); arr.Next(); {
 				var wv WeightedVariation
@@ -215,7 +223,7 @@ func readRollout(r *jreader.Reader, out *Rollout) {
 					case "weight":
 						wv.Weight = r.Int()
 					case "untracked":
-						wv.Untracked = r.Bool()
+						wv.Untracked, _ = r.BoolOrNull()
 					}
 				}
 				out.Variations = append(out.Variations, wv)
@@ -237,9 +245,9 @@ func readClientSideAvailability(r *jreader.Reader, out *ClientSideAvailability) 
 	for obj.Next() {
 		switch string(obj.Name()) {
 		case "usingEnvironmentId":
-			out.UsingEnvironmentID = r.Bool()
+			out.UsingEnvironmentID, _ = r.BoolOrNull()
 		case "usingMobileKey":
-			out.UsingMobileKey = r.Bool()
+			out.UsingMobileKey, _ = r.BoolOrNull()
 		}
 	}
 }
@@ -249,7 +257,9 @@ func readMigration(r *jreader.Reader, flag *FeatureFlag) {
 
 	for obj := r.ObjectOrNull(); obj.Next(); {
 		if string(obj.Name()) == "checkRatio" {
-			flag.Migration.CheckRatio = ldvalue.NewOptionalInt(r.Int())
+			if n, ok := r.IntOrNull(); ok {
+				flag.Migration.CheckRatio = ldvalue.NewOptionalInt(n)
+			}
 		}
 	}
 }
@@ -264,7 +274,7 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 		case "generation":
 			segment.Generation.ReadFromJSONReader(r)
 		case "deleted":
-			segment.Deleted = r.Bool()
+			segment.Deleted, _ = r.BoolOrNull()
 		case "included":
 			readStringList(r, &segment.Included)
 		case "excluded":
@@ -280,7 +290,7 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 				for ruleObj := r.Object(); ruleObj.Next(); {
 					switch string(ruleObj.Name()) {
 					case "id":
-						rule.ID = r.String()
+						rule.ID, _ = r.StringOrNull()
 					case "clauses":
 						readClauses(r, &rule.Clauses)
 					case "weight":
@@ -290,18 +300,20 @@ func readSegment(r *jreader.Reader, segment *Segment) {
 					case "bucketBy":
 						bucketByStr, _ = r.StringOrNull()
 					case "rolloutContextKind":
-						rule.RolloutContextKind = ldcontext.Kind(r.String())
+						kind, _ := r.StringOrNull()
+						rule.RolloutContextKind = ldcontext.Kind(kind)
 					}
 				}
 				setAttrNameOrRef(bucketByStr, rule.RolloutContextKind, &rule.BucketBy)
 				segment.Rules = append(segment.Rules, rule)
 			}
 		case "salt":
-			segment.Salt = r.String()
+			segment.Salt, _ = r.StringOrNull()
 		case "unbounded":
-			segment.Unbounded = r.Bool()
+			segment.Unbounded, _ = r.BoolOrNull()
 		case "unboundedContextKind":
-			segment.UnboundedContextKind = ldcontext.Kind(r.String())
+			kind, _ := r.StringOrNull()
+			segment.UnboundedContextKind = ldcontext.Kind(kind)
 		}
 	}
 }
@@ -312,7 +324,8 @@ func readSegmentTargets(r *jreader.Reader, out *[]SegmentTarget) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "contextKind":
-				t.ContextKind = ldcontext.Kind(r.String())
+				kind, _ := r.StringOrNull()
+				t.ContextKind = ldcontext.Kind(kind)
 			case "values":
 				readStringList(r, &t.Values)
 			}
