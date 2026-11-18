@@ -457,6 +457,18 @@ func makeSegmentSerializationTestParams() []segmentSerializationTestParams {
 			jsonString: `{"excludedContexts": [ {"contextKind": "org", "values": ["a", "b"]} ]}`,
 		},
 		{
+			name: "segment targets without contextKind",
+			segment: Segment{
+				IncludedContexts: []SegmentTarget{{Values: []string{"a"}}},
+				ExcludedContexts: []SegmentTarget{{Values: []string{"b"}}},
+			},
+			jsonString: `{"includedContexts": [ {"values": ["a"]} ], "excludedContexts": [ {"values": ["b"]} ]}`,
+			jsonAltInputs: []string{
+				`{"includedContexts": [ {"contextKind": null, "values": ["a"]} ], ` +
+					`"excludedContexts": [ {"contextKind": null, "values": ["b"]} ]}`,
+			},
+		},
+		{
 			name: "minimal rule",
 			segment: Segment{
 				Rules: []SegmentRule{
