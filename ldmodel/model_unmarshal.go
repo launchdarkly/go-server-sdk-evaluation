@@ -324,7 +324,8 @@ func readSegmentTargets(r *jreader.Reader, out *[]SegmentTarget) {
 		for obj := r.Object(); obj.Next(); {
 			switch string(obj.Name()) {
 			case "contextKind":
-				t.ContextKind = ldcontext.Kind(r.String())
+				kind, _ := r.StringOrNull()
+				t.ContextKind = ldcontext.Kind(kind)
 			case "values":
 				readStringList(r, &t.Values)
 			}
