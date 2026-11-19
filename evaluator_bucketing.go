@@ -69,11 +69,21 @@ func (es *evaluationScope) computeBucketValue(
 	} else if attr.Err() != nil {
 		return 0, bucketingFailureInvalidAttrRef, badAttrRefError(attr.String())
 	}
-	selectedContext := es.context.IndividualContextByKind(contextKind)
-	if !selectedContext.IsDefined() {
-		return 0, bucketingFailureContextLacksDesiredKind, nil
+	var selectedContext *ldcontext.Context
+	var uValue ldvalue.Value
+	if es.contexts != nil {
+		k := es.contexts.individual(contextKind)
+		if !k.defined {
+			return 0, bucketingFailureContextLacksDesiredKind, nil
+		}
+		selectedContext, uValue = &k.context, es.contexts.value(k, attr)
+	} else {
+		individual := es.context.IndividualContextByKind(contextKind)
+		if !individual.IsDefined() {
+			return 0, bucketingFailureContextLacksDesiredKind, nil
+		}
+		selectedContext, uValue = &individual, individual.GetValueForRef(attr)
 	}
-	uValue := selectedContext.GetValueForRef(attr)
 	if uValue.IsNull() { // attributes can't be null, so null means it doesn't exist
 		return 0, bucketingFailureAttributeNotFound, nil
 	}
