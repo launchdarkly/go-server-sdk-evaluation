@@ -2,6 +2,13 @@
 
 All notable changes to the project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.1.2](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v4.1.1...v4.1.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* Treat a null optional property in flag or segment data as omitted ([#86](https://github.com/launchdarkly/go-server-sdk-evaluation/issues/86)) ([7238e39](https://github.com/launchdarkly/go-server-sdk-evaluation/commit/7238e390e15ee9dfd564d04f1435a741b70cfd17))
+
 ## [4.1.1](https://github.com/launchdarkly/go-server-sdk-evaluation/compare/v4.1.0...v4.1.1) (2026-11-03)
 
 
