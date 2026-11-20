@@ -9,7 +9,7 @@ This repository contains the internal feature flag evaluation logic and data mod
 
 ## Supported Go versions
 
-While this version of the project requires Go 1.18 or later, you should use the latest patched version of a supported Go release.
+While this version of the project requires Go 1.24 or later, you should use the latest patched version of a supported Go release.
 
 ## Learn more
 
